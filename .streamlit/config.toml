@@ -1,0 +1,14 @@
+[server]
+# static/ klasörünü servis eder — açılış videosu buradan yüklenir.
+# Kapalıysa intro.mp4 görünmez, asistan durağan görselle açılır.
+enableStaticServing = true
+
+[theme]
+base = "dark"
+backgroundColor = "#05070C"
+secondaryBackgroundColor = "#0A101C"
+primaryColor = "#00E5FF"
+textColor = "#DDE8F0"
+
+[browser]
+gatherUsageStats = false

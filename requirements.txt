@@ -1,0 +1,41 @@
+# YAZVEB Merkez — bağımlılıklar
+# Kurulum:  pip install -r requirements.txt
+
+streamlit>=1.40
+langchain-core>=0.3
+langchain-google-genai>=2.0
+langchain-chroma>=0.1.4
+chromadb>=0.5
+
+# Seslendirme (varsayılan motor)
+edge-tts>=7.0
+
+# Güncel bilgi katmanı (isteğe bağlı — kurulmazsa asistan sessizce onsuz çalışır)
+ddgs>=9.0
+
+# ──────────────────────────────────────────────────────────────────
+# SESLİ SOHBET
+# ──────────────────────────────────────────────────────────────────
+# Yeni paket GEREKMEZ. Katmanların hepsi kurulu olanlarla çalışır:
+#
+#   kopru.py   → Python standart kütüphanesi (http.server, threading)
+#   konsol.py  → tarayıcı API'leri (webkitSpeechRecognition, Web Audio,
+#                MediaRecorder) + CDN'den Three.js; CDN'e erişilemezse
+#                2B tuval yedeğine düşer
+#   ses_motoru → ElevenLabs / OpenAI REST çağrıları httpx ile yapılır;
+#                httpx zaten Streamlit'in bağımlılık ağacında
+#
+# İsteğe bağlı ortam değişkenleri:
+#   ELEVENLABS_API_KEY   → ElevenLabs Multilingual v2 (en doğal Türkçe)
+#   ELEVENLABS_VOICE_ID  → ses kimliği (varsayılan: Adam)
+#   OPENAI_API_KEY       → OpenAI tts-1-hd  ve  Whisper (STT yedeği:
+#                          tarayıcı konuşma tanıması yoksa devreye girer)
+#   OPENAI_TTS_VOICE     → onyx / alloy / echo / fable / nova / shimmer
+#   YAZVEB_TTS           → "edge" | "openai" | "elevenlabs" | "oto"
+#
+# Hiçbiri tanımlı değilse optimize edilmiş edge-tts kullanılır.
+httpx>=0.27
+
+# Yalnizca gorsel_uret.py icin (silüetin WebP surumlerini uretir).
+# Uygulamanin calismasi icin gerekmez.
+#   pip install pillow

@@ -1,0 +1,40 @@
+# ── Python ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ── Sırlar ────────────────────────────────────────────────────────
+# API anahtarları ASLA depoya girmez. Örnek dosya: secrets.toml.example
+.streamlit/secrets.toml
+.env
+
+# ── Üretilen veri ─────────────────────────────────────────────────
+# Vektör deposu bilgi bankasından yeniden kurulur; ilk çalıştırmada
+# kendiliğinden oluşur.
+.vektor_deposu/
+
+# ── Ağır kaynak dosyalar ──────────────────────────────────────────
+# Kaynak silüet 8448×4608 ve 35 MB. Uygulama static/siluet-*.webp
+# sürümlerini kullanır (toplam ~540 KB); kaynak PNG depoya girmez.
+# Yeniden üretmek için: python gorsel_uret.py
+avatar.png
+static/silüet.png
+static/siluet.png
+*.psd
+
+# ── İşletim sistemi / editör ──────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+
+# Önizleme aracının ürettiği dosya
+onizleme.html
+
+# Claude Code yerel yapılandırması
+.claude/
