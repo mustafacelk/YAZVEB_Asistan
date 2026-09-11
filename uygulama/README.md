@@ -151,6 +151,17 @@ veya [Cloudflare Pages](https://pages.cloudflare.com) hesabına bağla:
 | Output directory | `dist` |
 | Environment variables | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` |
 
+> **En sık yapılan hata:** değişkenleri ekleyip yeniden dağıtmamak. Vite bu
+> değerleri **derleme sırasında** pakete gömer; sonradan eklemek yayındaki
+> paketi değiştirmez. Ekledikten sonra Vercel → Deployments → en üstteki
+> dağıtım → ⋯ → **Redeploy**.
+>
+> Değişkenleri eklerken **Production, Preview ve Development** kutularının
+> üçünü de işaretle.
+>
+> Dağıtım bitince Supabase → Authentication → URL Configuration →
+> **Site URL** alanına yayın adresini yaz.
+
 Yayına alındıktan sonra telefonda adresi aç → tarayıcı menüsü →
 **Ana ekrana ekle**. Uygulama gibi tam ekran açılır (PWA). Mağaza beklemeden
 kullanmaya başlayabilirsin.

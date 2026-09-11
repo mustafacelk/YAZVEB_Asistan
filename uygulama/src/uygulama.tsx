@@ -67,8 +67,19 @@ function Acilis({ not }: { not?: string }) {
   );
 }
 
-/** Anahtarlar tanımsızken boş beyaz ekran yerine ne yapılacağını söyler. */
+/**
+ * Anahtarlar tanımsızken boş beyaz ekran yerine ne yapılacağını söyler.
+ *
+ * Çözüm nerede çalıştığına göre DEĞİŞİR: yerelde `.env` dosyası düzenlenir,
+ * yayındaki bir sitede ise böyle bir dosya yoktur — değerler barındırma
+ * panelinde tanımlanır. Yanlış yeri tarif eden bir hata mesajı, hata
+ * mesajı olmamasından çok daha fazla zaman kaybettirir.
+ */
 function Yapilandirma() {
+  const yerel =
+    typeof location !== "undefined" &&
+    /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+
   return (
     <div className="giris">
       <div className="giris-kart">
@@ -79,19 +90,39 @@ function Yapilandirma() {
         <p className="uyari">
           {sorun === "eksik" ? "Sunucu bağlantısı yapılandırılmamış." : sorun}
         </p>
-        <p className="sessiz">
-          <code>uygulama/.env</code> dosyasına Supabase panelindeki
-          <b> Project Settings → API </b> bölümünden iki değeri yaz:
-        </p>
+
+        {yerel ? (
+          <p className="sessiz">
+            <code>uygulama/.env</code> dosyasına Supabase panelindeki
+            <b> Project Settings → API </b> bölümünden iki değeri yaz:
+          </p>
+        ) : (
+          <p className="sessiz">
+            Bu site yayında; <code>.env</code> dosyası yok. Değerleri
+            <b> barındırma panelinde </b> (Vercel → Settings → Environment
+            Variables) tanımla:
+          </p>
+        )}
+
         <pre className="kod">
 {`VITE_SUPABASE_URL=https://xxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=sb_publishable_...`}
         </pre>
-        <p className="sessiz ufak-yazi">
-          Üstteki <b>Project URL</b>, alttaki <b>Publishable key</b>. İkisini
-          karıştırmak kolay; yer değiştirirse uygulama açılır ama hiçbir istek
-          çalışmaz.
-        </p>
+
+        {yerel ? (
+          <p className="sessiz ufak-yazi">
+            Üstteki <b>Project URL</b>, alttaki <b>Publishable key</b>. İkisini
+            karıştırmak kolay; yer değiştirirse uygulama açılır ama hiçbir istek
+            çalışmaz.
+          </p>
+        ) : (
+          <p className="sessiz ufak-yazi">
+            Değişkenleri ekledikten sonra <b>yeniden dağıtman şart</b>. Bu
+            değerler derleme sırasında pakete gömülür; sonradan eklemek
+            yayındaki paketi değiştirmez.
+          </p>
+        )}
+
         <p className="sessiz">
           Ayrıntılar için <code>uygulama/README.md</code>.
         </p>
