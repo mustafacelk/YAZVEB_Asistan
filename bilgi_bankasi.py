@@ -35,8 +35,8 @@ KAYITLAR: list[dict] = [
         "icerik": (
             "YAZVEB (Yapay Zeka ve Veri Bilimi Topluluğu), Selçuk Üniversitesi bünyesinde "
             "2022 yılında Doç. Dr. Aynur Yonar'ın atılımı ve İstatistik bölümünün katkısıyla "
-            "kuruldu. Sonrasında pasif duruma düşen topluluk devralınarak yeniden canlandırıldı. "
-            "Akademik danışman Doç. Dr. Aynur Yonar'dır. Resmî Instagram hesabı "
+            "kuruldu. Sonrasında pasif duruma düşen topluluk devralınarak Mustafa Çelik liderliğinde yeniden canlandırıldı. "
+            "Akademik danışman Doç. Dr. Aynur Yonar'dır. Resmî Instagram hesabımız "
             "@yapayzekaveribilimitop.su"
         ),
     },

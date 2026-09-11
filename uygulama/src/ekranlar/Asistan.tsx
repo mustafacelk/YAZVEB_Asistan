@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../veri/supabase";
 import { hizliCevap } from "../veri/hizli";
 import { HATA_CEVABI } from "../veri/sohbet_kaliplari";
+import { apiAdresi } from "../veri/api";
 
 type Tur = { rol: "user" | "assistant"; icerik: string; hizli?: boolean };
 
@@ -81,11 +82,24 @@ export default function Asistan() {
   const seslendir = useCallback(async (metin: string) => {
     sesiKes();
     try {
-      const { data, error } = await supabase.functions.invoke("seslendir", {
-        body: { metin },
+      // Seslendirme Supabase'de DEĞİL, sitenin kendi sunucusunda çalışıyor:
+      // protokol WebSocket istiyor ve Supabase'in kenar ortamı ham soket
+      // açtırmıyor (fonksiyon orada bir saniyede 502 veriyordu).
+      const { data: oturum } = await supabase.auth.getSession();
+      const jeton = oturum.session?.access_token;
+      if (!jeton) return;
+
+      const yanit = await fetch(apiAdresi("/api/seslendir"), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jeton}`,
+        },
+        body: JSON.stringify({ metin }),
       });
-      if (error || !data) return;
-      const blob = data instanceof Blob ? data : new Blob([data as BlobPart], { type: "audio/mpeg" });
+      if (!yanit.ok) return;
+
+      const blob = await yanit.blob();
       if (blob.size < 500) return;                  // hata gövdesi, ses değil
       const ses = new Audio(URL.createObjectURL(blob));
       calanRef.current = ses;
