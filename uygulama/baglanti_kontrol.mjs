@@ -111,7 +111,34 @@ for (const tablo of ["profiller", "mesajlar", "etkinlikler"]) {
   else yaz("✓", "giris_epostasi yanıt verdi", `HTTP ${durum}`);
 }
 
-// ── 5. Kayıtlı kullanıcı var mı ────────────────────────────────────
+// ── 5. Kurulum durumu ──────────────────────────────────────────────
+// 03_kurulum.sql çalıştırıldıysa bu fonksiyon vardır ve kurulumun ne
+// durumda olduğunu sayı olarak söyler. İsim veya e-posta vermez.
+{
+  const { durum, govde } = await iste("/rest/v1/rpc/kurulum_durumu", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (durum === 404) {
+    yaz("!", "Kurulum durumu okunamıyor", "03_kurulum.sql henüz çalıştırılmamış");
+  } else if (durum === 200 && govde) {
+    const d = govde;
+    yaz("✓", "Kurulum durumu okundu",
+        `${d.uye_sayisi} üye · ${d.baskan_sayisi} başkan · ` +
+        `${d.yonetici_sayisi} yönetici · ${d.mesaj_sayisi} mesaj · ` +
+        `${d.etkinlik_sayisi} etkinlik`);
+    if (d.baskan_sayisi === 0) {
+      yaz("✗", "BAŞKAN YOK", "03_kurulum.sql'i kendi kullanıcı adınla çalıştır");
+    } else {
+      yaz("✓", `Başkan atanmış (${d.baskan_sayisi} kişi)`);
+    }
+  } else {
+    yaz("!", "Kurulum durumu belirsiz", `HTTP ${durum}`);
+  }
+}
+
+// ── 6. Kayıtlı kullanıcı var mı ────────────────────────────────────
 const kullanici = process.argv[2];
 if (kullanici) {
   const { govde } = await iste("/rest/v1/rpc/giris_epostasi", {
