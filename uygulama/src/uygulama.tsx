@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { yapilandirildi } from "./veri/supabase";
+import { sorun, yapilandirildi } from "./veri/supabase";
 import { OturumSaglayici, useOturum } from "./veri/oturum";
 import Giris from "./ekranlar/Giris";
 import Sohbet from "./ekranlar/Sohbet";
@@ -76,15 +76,22 @@ function Yapilandirma() {
           <span className="marka-nokta" />
           <h1>YAZVEB</h1>
         </div>
-        <p className="uyari">Sunucu bağlantısı yapılandırılmamış.</p>
+        <p className="uyari">
+          {sorun === "eksik" ? "Sunucu bağlantısı yapılandırılmamış." : sorun}
+        </p>
         <p className="sessiz">
-          Proje kökünde <code>.env</code> dosyası oluştur ve Supabase
-          projenden aldığın iki değeri yaz:
+          <code>uygulama/.env</code> dosyasına Supabase panelindeki
+          <b> Project Settings → API </b> bölümünden iki değeri yaz:
         </p>
         <pre className="kod">
 {`VITE_SUPABASE_URL=https://xxxx.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGci...`}
+VITE_SUPABASE_ANON_KEY=sb_publishable_...`}
         </pre>
+        <p className="sessiz ufak-yazi">
+          Üstteki <b>Project URL</b>, alttaki <b>Publishable key</b>. İkisini
+          karıştırmak kolay; yer değiştirirse uygulama açılır ama hiçbir istek
+          çalışmaz.
+        </p>
         <p className="sessiz">
           Ayrıntılar için <code>uygulama/README.md</code>.
         </p>

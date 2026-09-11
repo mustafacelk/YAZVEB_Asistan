@@ -11,7 +11,7 @@
 
 update public.profiller
 set rol = 'baskan'
-where id = (select id from auth.users where email = 'buraya-baskanin-epostasi@ornek.com');
+where id = (select id from auth.users where email = 'mustafacelk042@gmail.com');
 
 -- Kontrol: kim hangi rolde?
 select kullanici_adi, ad_soyad, rol from public.profiller order by rol, kullanici_adi;

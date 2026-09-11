@@ -11,14 +11,55 @@ import { createClient } from "@supabase/supabase-js";
  * Gizli kalması gereken servis anahtarı (service_role) bu uygulamada HİÇ
  * kullanılmaz ve asla buraya konmamalıdır.
  */
-const adres = import.meta.env.VITE_SUPABASE_URL;
-const anahtar = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const adres = (import.meta.env.VITE_SUPABASE_URL ?? "").trim();
+const anahtar = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? "").trim();
 
-export const yapilandirildi = Boolean(adres && anahtar);
+/**
+ * Yapılandırmayı sessizce kabul etmek yerine denetler.
+ *
+ * En sık yapılan hata iki değerin yer değiştirmesi: Supabase panelinde
+ * "Project URL" ile "Publishable key" yan yana duruyor ve anahtar yanlışlıkla
+ * URL kutusuna yapıştırılıyor. Bu durumda uygulama açılır ama her istek
+ * sessizce başarısız olur — en can sıkıcı hata türü. Burada erkenden yakalanıp
+ * ne yapılacağı söyleniyor.
+ */
+function yapilandirmaSorunu(): string | null {
+  if (!adres && !anahtar) return "eksik";
+  if (!adres) return "URL yazılmamış.";
+  if (!anahtar) return "Anahtar yazılmamış.";
+  if (adres.startsWith("sb_") || !/^https?:\/\//.test(adres)) {
+    return "VITE_SUPABASE_URL bir adres olmalı (https://xxxx.supabase.co). " +
+           "Oraya anahtar yapıştırılmış olabilir.";
+  }
+  if (/^https?:\/\//.test(anahtar)) {
+    return "VITE_SUPABASE_ANON_KEY bir adres değil, anahtar olmalı. " +
+           "İki değer yer değiştirmiş olabilir.";
+  }
+  // Hem eski (JWT, "eyJ...") hem yeni (sb_publishable_...) biçim geçerli.
+  if (!anahtar.startsWith("sb_publishable_") && !anahtar.startsWith("eyJ")) {
+    return "Anahtar tanınmadı. Supabase panelinde Project Settings → API " +
+           "altındaki Publishable key değerini kopyala.";
+  }
+  if (anahtar.startsWith("sb_secret_") || anahtar.includes("service_role")) {
+    return "BU ANAHTAR GİZLİ (secret/service_role) — uygulamaya konmamalı. " +
+           "Publishable key kullan.";
+  }
+  return null;
+}
 
+export const sorun = yapilandirmaSorunu();
+export const yapilandirildi = sorun === null;
+
+/*
+ * Yapılandırma bozuksa bile createClient GEÇERLİ değerlerle çağrılır.
+ * Boş bir adres verilirse kütüphane modül yüklenirken hata fırlatır ve
+ * uygulama bembeyaz açılır — kullanıcı ne olduğunu anlamaz. Oysa asıl
+ * istediğimiz, sorunu anlatan ekranın görünmesi. İstemci kurulur ama
+ * kullanılmaz: `yapilandirildi` false iken arayüz zaten oraya gitmez.
+ */
 export const supabase = createClient(
-  adres ?? "http://localhost:54321",
-  anahtar ?? "yapilandirilmadi",
+  yapilandirildi ? adres : "https://yapilandirilmadi.supabase.co",
+  yapilandirildi ? anahtar : "yapilandirilmadi",
   {
     auth: {
       // Oturum cihazda saklanır ve sessizce yenilenir: kullanıcı uygulamayı

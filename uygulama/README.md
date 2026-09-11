@@ -55,7 +55,16 @@ Bu kuralların hepsi `veritabani/99_testler.sql` içinde, gerçek bir PostgreSQL
 2. Proje açılınca **SQL Editor**'e git ve sırayla çalıştır:
    - `veritabani/01_sema.sql`
    - `veritabani/02_yetkiler.sql`
-3. **Settings → API** bölümünden iki değeri kopyala.
+3. **Project Settings → API** bölümünden iki değeri kopyala:
+
+   | Panelde adı | `.env` karşılığı |
+   | --- | --- |
+   | **Project URL** (`https://xxxx.supabase.co`) | `VITE_SUPABASE_URL` |
+   | **Publishable key** (`sb_publishable_...`) | `VITE_SUPABASE_ANON_KEY` |
+
+   > Supabase anahtar adlarını değiştirdi: eski projelerde "anon public"
+   > yazıyordu, yenilerde **Publishable key**. İkisi de aynı işi görür.
+   > **Secret key**'i (eski adıyla `service_role`) asla uygulamaya koyma.
 
 ### 2. Anahtarları bağla
 
@@ -75,14 +84,23 @@ Bu iki değer gizli değildir; uygulamanın içinden okunabilir ve öyle olması
 beklenir. Güvenliği sağlayan şey satır kurallarıdır.
 **`service_role` anahtarını asla buraya koyma.**
 
-### 3. Çalıştır
+### 3. Bağlantıyı denetle
+
+```bash
+node baglanti_kontrol.mjs
+```
+
+Şemanın kurulup kurulmadığını, kuralların çalışıp çalışmadığını ve anonim
+erişimin kapalı olduğunu tek seferde söyler. Hiçbir şey yazmaz, yalnızca okur.
+
+### 4. Çalıştır
 
 ```bash
 npm install
 npm run dev
 ```
 
-### 4. Kendini başkan yap
+### 5. Kendini başkan yap
 
 Önce uygulamadan normal şekilde kayıt ol. Sonra Supabase SQL Editor'de
 `veritabani/03_kurulum.sql` dosyasını kendi e-postanla düzenleyip çalıştır.
