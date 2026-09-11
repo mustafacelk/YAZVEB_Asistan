@@ -64,7 +64,7 @@ function Kabuk() {
 function Acilis({ not }: { not?: string }) {
   return (
     <div className="acilis">
-      <div className="marka-nokta buyuk" />
+      <img className="acilis-logo" src="/logo-256.webp" alt="" width={72} height={72} />
       <p>{not ?? "YAZVEB"}</p>
     </div>
   );
@@ -87,7 +87,7 @@ function Yapilandirma() {
     <div className="giris">
       <div className="giris-kart">
         <div className="marka">
-          <span className="marka-nokta" />
+          <img className="marka-logo" src="/logo-256.webp" alt="YAZVEB" width={80} height={80} />
           <h1>YAZVEB</h1>
         </div>
         <p className="uyari">

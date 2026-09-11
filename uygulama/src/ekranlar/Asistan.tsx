@@ -5,6 +5,10 @@ import { HATA_CEVABI } from "../veri/sohbet_kaliplari";
 
 type Tur = { rol: "user" | "assistant"; icerik: string; hizli?: boolean };
 
+// Son kesin sonuçtan sonra beklenen sessizlik. Kısa olursa cümle ortasındaki
+// nefeste gönderir, uzun olursa kullanıcı bekler.
+const SESSIZLIK_MS = 900;
+
 const ACILIS: Tur = {
   rol: "assistant",
   icerik:
@@ -22,10 +26,13 @@ const ACILIS: Tur = {
  *
  * SES
  * ───
- * Konuşma tanıma ve seslendirme tarayıcının kendi motorlarıyla yapılır:
- * ek sunucu yok, ek maliyet yok, çevrimdışı bile çalışır. Android'de Türkçe
- * desteği iyi; desteklemeyen cihazlarda düğmeler görünmez ve yazılı sohbet
- * olduğu gibi çalışmaya devam eder.
+ * Seslendirme sunucudan gelir (neural Türkçe ses). Tarayıcının kendi
+ * `speechSynthesis` motoru cihazın sistem sesini kullanıyor ve Türkçe
+ * tonlaması düz, kısaltmaları harf harf okuyordu — o yüzden bırakıldı.
+ *
+ * Konuşma tanıma tarayıcıda kalır (sunucuya ses göndermeye gerek yok).
+ * Desteklemeyen cihazlarda mikrofon düğmesi görünmez, yazılı sohbet olduğu
+ * gibi çalışır.
  */
 export default function Asistan() {
   const [turlar, setTurlar] = useState<Tur[]>([ACILIS]);
@@ -35,8 +42,11 @@ export default function Asistan() {
   const [sesliCevap, setSesliCevap] = useState(false);
   const dipRef = useRef<HTMLDivElement | null>(null);
   const taniyiciRef = useRef<any>(null);
+  const sessizlikRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const kesinRef = useRef("");            // birikmiş kesin transkript
+  const kapaniyorRef = useRef(false);     // kullanıcı mı durdurdu, tarayıcı mı
 
-  const sesVar = typeof window !== "undefined" && "speechSynthesis" in window;
+  const calanRef = useRef<HTMLAudioElement | null>(null);
   const mikVar =
     typeof window !== "undefined" &&
     ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
@@ -45,19 +55,46 @@ export default function Asistan() {
     dipRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [turlar, bekliyor]);
 
-  // Ekrandan çıkarken konuşmayı kes; arka planda sesin devam etmesi rahatsız edici.
-  useEffect(() => () => { if (sesVar) window.speechSynthesis.cancel(); }, [sesVar]);
+  const sesiKes = useCallback(() => {
+    const a = calanRef.current;
+    if (!a) return;
+    a.pause();
+    if (a.src.startsWith("blob:")) URL.revokeObjectURL(a.src);
+    calanRef.current = null;
+  }, []);
 
-  const seslendir = useCallback((metin: string) => {
-    if (!sesVar) return;
-    window.speechSynthesis.cancel();
-    const s = new SpeechSynthesisUtterance(metin);
-    s.lang = "tr-TR";
-    s.rate = 1.05;
-    const tr = window.speechSynthesis.getVoices().find((v) => v.lang.startsWith("tr"));
-    if (tr) s.voice = tr;
-    window.speechSynthesis.speak(s);
-  }, [sesVar]);
+  // Ekrandan çıkarken konuşmayı kes; arka planda sesin devam etmesi rahatsız edici.
+  useEffect(() => () => {
+    sesiKes();
+    if (sessizlikRef.current) clearTimeout(sessizlikRef.current);
+    kapaniyorRef.current = true;
+    try { taniyiciRef.current?.stop(); } catch { /* önemsiz */ }
+  }, [sesiKes]);
+
+  /**
+   * Cevabı sunucuda seslendirip çalar.
+   *
+   * Ses ağdan geldiği için metin ekranda zaten görünüyor olacak; gecikme
+   * okumayı engellemiyor. Seslendirme başarısız olursa sessizce geçilir —
+   * asistanın susması, hata mesajı göstermesinden iyidir.
+   */
+  const seslendir = useCallback(async (metin: string) => {
+    sesiKes();
+    try {
+      const { data, error } = await supabase.functions.invoke("seslendir", {
+        body: { metin },
+      });
+      if (error || !data) return;
+      const blob = data instanceof Blob ? data : new Blob([data as BlobPart], { type: "audio/mpeg" });
+      if (blob.size < 500) return;                  // hata gövdesi, ses değil
+      const ses = new Audio(URL.createObjectURL(blob));
+      calanRef.current = ses;
+      ses.onended = () => sesiKes();
+      await ses.play().catch(() => sesiKes());
+    } catch {
+      /* ses yoksa sessiz kal */
+    }
+  }, [sesiKes]);
 
   const sor = useCallback(async (metin: string) => {
     const soru = metin.trim();
@@ -96,31 +133,84 @@ export default function Asistan() {
     }
   }, [bekliyor, turlar, sesliCevap, seslendir]);
 
+  /**
+   * Konuşma tanıma.
+   *
+   * NEDEN `continuous = true`
+   * ─────────────────────────
+   * Kapalıyken tarayıcı ilk kısa duraklamada tanımayı bitiriyor ve cümlenin
+   * yarısı gidiyordu ("topluluğa nasıl" ... gerisi yok). Açıkken parçalar
+   * birikir; gönderim, konuşma gerçekten bittiğinde yapılır.
+   *
+   * SESSİZLİK EŞİĞİ
+   * ───────────────
+   * Son kesin sonuçtan sonra 900 ms beklenir. Daha kısa olursa cümle
+   * ortasındaki nefeste gönderir; daha uzun olursa kullanıcı bekler.
+   *
+   * YENİDEN BAŞLATMA
+   * ────────────────
+   * Chrome sessizlikte tanımayı kendiliğinden kapatır. Sürekli dinleme ancak
+   * `onend` içinde yeniden başlatılarak elde edilir.
+   */
+  function dinlemeyiDurdur() {
+    kapaniyorRef.current = true;
+    if (sessizlikRef.current) clearTimeout(sessizlikRef.current);
+    try { taniyiciRef.current?.stop(); } catch { /* zaten durmuş */ }
+    setDinliyor(false);
+  }
+
   function dinle() {
     if (!mikVar) return;
-    if (dinliyor) {
-      taniyiciRef.current?.stop();
-      return;
-    }
+    if (dinliyor) { dinlemeyiDurdur(); return; }
+
     const Tanima =
       (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
     const t = new Tanima();
     t.lang = "tr-TR";
+    t.continuous = true;
     t.interimResults = true;
-    t.continuous = false;
+    t.maxAlternatives = 1;
+
+    kapaniyorRef.current = false;
+    kesinRef.current = "";
+
+    const gonder = () => {
+      const metin = kesinRef.current.trim();
+      kesinRef.current = "";
+      if (!metin) return;
+      dinlemeyiDurdur();
+      sor(metin);
+    };
+
     t.onresult = (o: any) => {
-      let metin = "";
-      for (let i = 0; i < o.results.length; i++) metin += o.results[i][0].transcript;
-      setTaslak(metin);
-      // Kesin sonuç geldiyse beklemeden gönder; kullanıcı ikinci kez
-      // düğmeye basmak zorunda kalmasın.
-      if (o.results[o.results.length - 1].isFinal) {
-        t.stop();
-        sor(metin);
+      let ara = "";
+      for (let i = o.resultIndex; i < o.results.length; i++) {
+        const p = o.results[i];
+        if (p.isFinal) kesinRef.current = (kesinRef.current + " " + p[0].transcript).trim();
+        else ara += p[0].transcript;
+      }
+      setTaslak((kesinRef.current + " " + ara).trim());
+
+      if (sessizlikRef.current) clearTimeout(sessizlikRef.current);
+      if (kesinRef.current) {
+        sessizlikRef.current = setTimeout(gonder, SESSIZLIK_MS);
       }
     };
-    t.onerror = () => setDinliyor(false);
-    t.onend = () => setDinliyor(false);
+
+    t.onerror = (o: any) => {
+      // "no-speech" ve "aborted" normal akışın parçası; kullanıcıyı rahatsız
+      // etmeden devam edilir.
+      if (o.error === "no-speech" || o.error === "aborted") return;
+      dinlemeyiDurdur();
+    };
+
+    t.onend = () => {
+      if (kapaniyorRef.current) { setDinliyor(false); return; }
+      // Elde birikmiş kesin metin varsa onu gönder, yoksa dinlemeye devam et.
+      if (kesinRef.current.trim()) { gonder(); return; }
+      try { t.start(); } catch { setDinliyor(false); }
+    };
+
     taniyiciRef.current = t;
     setDinliyor(true);
     try { t.start(); } catch { setDinliyor(false); }
@@ -129,24 +219,22 @@ export default function Asistan() {
   return (
     <div className="sohbet">
       <header className="asistan-basi">
-        <span className="marka-nokta" />
+        <img className="basi-logo" src="/logo-128.webp" alt="" width={30} height={30} />
         <div>
           <b>YAZVEB Asistanı</b>
           <small>{bekliyor ? "düşünüyor…" : "kurumsal hafıza"}</small>
         </div>
-        {sesVar && (
-          <button
-            className={"ses-dugme" + (sesliCevap ? " etkin" : "")}
-            onClick={() => {
-              if (sesliCevap) window.speechSynthesis.cancel();
-              setSesliCevap(!sesliCevap);
-            }}
-            aria-pressed={sesliCevap}
-            title={sesliCevap ? "Sesli cevap açık" : "Sesli cevap kapalı"}
-          >
-            {sesliCevap ? "🔊" : "🔇"}
-          </button>
-        )}
+        <button
+          className={"ses-dugme" + (sesliCevap ? " etkin" : "")}
+          onClick={() => {
+            if (sesliCevap) sesiKes();
+            setSesliCevap(!sesliCevap);
+          }}
+          aria-pressed={sesliCevap}
+          title={sesliCevap ? "Sesli cevap açık" : "Sesli cevap kapalı"}
+        >
+          {sesliCevap ? "🔊" : "🔇"}
+        </button>
       </header>
 
       <div className="sohbet-liste">
@@ -178,6 +266,7 @@ export default function Asistan() {
             className={"mik-dugme" + (dinliyor ? " dinliyor" : "")}
             onClick={dinle}
             aria-label={dinliyor ? "Dinlemeyi durdur" : "Konuşarak sor"}
+            title={dinliyor ? "Bitince dokun" : "Konuşarak sor"}
           >
             ●
           </button>

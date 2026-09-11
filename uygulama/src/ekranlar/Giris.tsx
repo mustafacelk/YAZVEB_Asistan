@@ -95,7 +95,16 @@ export default function Giris() {
     <div className="giris">
       <div className="giris-kart">
         <div className="marka">
-          <span className="marka-nokta" />
+          <img
+            className="marka-logo"
+            src="/logo-256.webp"
+            srcSet="/logo-128.webp 128w, /logo-256.webp 256w, /logo-512.webp 512w"
+            sizes="96px"
+            alt="YAZVEB"
+            width={96}
+            height={96}
+            decoding="async"
+          />
           <h1>YAZVEB</h1>
           <p>Yapay Zeka ve Veri Bilimi Topluluğu</p>
         </div>

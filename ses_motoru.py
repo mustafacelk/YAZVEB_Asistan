@@ -128,8 +128,11 @@ def nefes_ver(metin: str) -> str:
     t = re.sub(r"([.!?])\1+", r"\1", t)
     t = re.sub(r"[.!?]{2,}", lambda m: m.group(0)[0], t)
 
-    # Cümle sonlarından sonra tek boşluk garanti edilir.
-    t = re.sub(r"([.!?])(?=\S)", r"\1 ", t)
+    # Cümle sonundan sonra boşluk. Ama nokta her zaman cümle sonu değildir:
+    #   "...top.su"  hesap adı — bölünürse "top. su" diye okunur
+    #   "14.30"      saat       — bölünürse "14. 30" diye okunur
+    # Bu yüzden yalnızca BÜYÜK harf geliyorsa gerçek cümle sınırı sayılır.
+    t = re.sub(r"([.!?])(?=[A-ZÇĞİÖŞÜ])", r"\1 ", t)
 
     # Uzun bağlaçlardan önce kısa nefes. Türkçede bu bağlaçlar zaten cümlecik
     # sınırıdır; virgül konunca tonlama doğal olarak alçalıp yükselir.

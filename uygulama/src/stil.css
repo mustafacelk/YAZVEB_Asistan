@@ -538,3 +538,33 @@ button.tehlike { color: var(--kehribar); }
 
 .yazma .mik-dugme { width: 44px; height: 44px; }
 .sohbet .yazma { grid-template-columns: auto 1fr auto; }
+
+/* ── Logo ──────────────────────────────────────────────────────── */
+/* Koyu zeminde logonun kendi ışığı varmış gibi dursun; düz yapıştırılmış
+   bir PNG hissi vermesin. drop-shadow tek seferlik hesaplanır. */
+.marka-logo {
+  width: 96px; height: 96px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 22px rgba(0, 229, 255, 0.22));
+  animation: logo-gir .7s cubic-bezier(.22,.9,.28,1) both;
+}
+.acilis-logo {
+  width: 72px; height: 72px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 18px rgba(0, 229, 255, 0.2));
+  animation: logo-nefes 3.2s ease-in-out infinite;
+}
+.basi-logo {
+  width: 30px; height: 30px;
+  object-fit: contain;
+  flex: none;
+  filter: drop-shadow(0 2px 8px rgba(0, 229, 255, 0.25));
+}
+@keyframes logo-gir {
+  from { opacity: 0; transform: scale(.88); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes logo-nefes {
+  0%, 100% { opacity: .75; transform: scale(.97); }
+  50%      { opacity: 1;   transform: scale(1.03); }
+}
