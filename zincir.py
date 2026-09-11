@@ -109,6 +109,14 @@ BAĞLAM
 - SON KONUŞMA bölümünü dikkate al. "Peki nasıl katılabilirim?" gibi eksiltili sorularda
   neyin kastedildiğini önceki turdan çıkar, kullanıcıya soruyu tekrarlatma.
 
+KİMLİK VE YAPIMCI
+- Seni kimin yaptığı, kodladığı, geliştirdiği veya tasarladığı sorulursa tek bir
+  şey söyle: "Başkanımız önderliğinde, topluluk olarak ortak çalışmamız sonucu
+  kodlandım." Bunun ötesinde teknik ayrıntı verme.
+- Hangi yapay zeka modelini, hangi şirketin altyapısını veya hangi kütüphaneleri
+  kullandığın sorulursa bunları açıklama; yukarıdaki cümleyi tekrarla ve konuyu
+  topluluğa getir. Model adı, sağlayıcı adı veya teknik altyapı ASLA söylenmez.
+
 KARŞILAMA
 - Kullanıcı üniversiteye yeni geldiğini veya topluluğa yeni katıldığını söylerse önce
   "Selçuk Üniversitesi'ne ve YAZVEB ailesine hoş geldin!" de, sonra kısa bir özet ver."""
@@ -152,7 +160,20 @@ def _sadelestir(metin: str) -> str:
 
 
 # (anahtar kelimeler, cevap seçenekleri). Sıra önemlidir: yukarıdaki kazanır.
+YAPIMCI_CEVABI = (
+    "Başkanımız önderliğinde, topluluk olarak ortak çalışmamız sonucu kodlandım."
+)
+
 HIZLI_KALIPLAR: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
+    # Yapımcı sorusu EN ÜSTTE: "seni kim yaptı" içinde "kimsin" geçmiyor ama
+    # sıralama bozulursa başka bir kalıba kapılma riski var.
+    (("seni kim yaptı", "seni kim yapti", "seni kim kodladı", "seni kim kodladi",
+      "kim yaptı seni", "kim kodladı seni", "seni kim geliştirdi",
+      "seni kim gelistirdi", "seni kim tasarladı", "seni kim yazdı",
+      "yapımcın kim", "yapimcin kim", "geliştiricin kim", "gelistiricin kim",
+      "seni kim programladı", "kim yaptı", "kim kodladı", "kim geliştirdi"),
+     (YAPIMCI_CEVABI,)),
+
     (("sen kimsin", "kimsin sen", "kimsin", "adın ne", "adin ne", "sen nesin"),
      ("Ben YAZVEB Asistanıyım, Selçuk Üniversitesi Yapay Zeka ve Veri Bilimi "
       "Topluluğu'nun dijital karşılayıcısı. Topluluk hakkında merak ettiğin "

@@ -1,0 +1,94 @@
+import { useState } from "react";
+import { yapilandirildi } from "./veri/supabase";
+import { OturumSaglayici, useOturum } from "./veri/oturum";
+import Giris from "./ekranlar/Giris";
+import Sohbet from "./ekranlar/Sohbet";
+import Etkinlikler from "./ekranlar/Etkinlikler";
+import Topluluk from "./ekranlar/Topluluk";
+
+type Sekme = "sohbet" | "etkinlik" | "topluluk";
+
+const SEKMELER: { anahtar: Sekme; ad: string; simge: string }[] = [
+  { anahtar: "sohbet", ad: "Sohbet", simge: "◍" },
+  { anahtar: "etkinlik", ad: "Etkinlik", simge: "◆" },
+  { anahtar: "topluluk", ad: "Topluluk", simge: "◎" },
+];
+
+export default function Uygulama() {
+  if (!yapilandirildi) return <Yapilandirma />;
+  return (
+    <OturumSaglayici>
+      <Kabuk />
+    </OturumSaglayici>
+  );
+}
+
+function Kabuk() {
+  const { oturum, profil, yukleniyor } = useOturum();
+  const [sekme, setSekme] = useState<Sekme>("sohbet");
+
+  if (yukleniyor) return <Acilis />;
+  if (!oturum) return <Giris />;
+  // Oturum var ama profil henüz gelmediyse (tetikleyici yeni yazıyor olabilir)
+  // boş ekran yerine açılış göster.
+  if (!profil) return <Acilis not="Profil hazırlanıyor…" />;
+
+  return (
+    <div className="kabuk">
+      <main className="govde">
+        {sekme === "sohbet" && <Sohbet />}
+        {sekme === "etkinlik" && <Etkinlikler />}
+        {sekme === "topluluk" && <Topluluk />}
+      </main>
+
+      <nav className="alt-cubuk" aria-label="Ana gezinme">
+        {SEKMELER.map((s) => (
+          <button
+            key={s.anahtar}
+            className={sekme === s.anahtar ? "etkin" : ""}
+            onClick={() => setSekme(s.anahtar)}
+            aria-current={sekme === s.anahtar ? "page" : undefined}
+          >
+            <span className="simge" aria-hidden="true">{s.simge}</span>
+            <span className="etiket">{s.ad}</span>
+          </button>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
+function Acilis({ not }: { not?: string }) {
+  return (
+    <div className="acilis">
+      <div className="marka-nokta buyuk" />
+      <p>{not ?? "YAZVEB"}</p>
+    </div>
+  );
+}
+
+/** Anahtarlar tanımsızken boş beyaz ekran yerine ne yapılacağını söyler. */
+function Yapilandirma() {
+  return (
+    <div className="giris">
+      <div className="giris-kart">
+        <div className="marka">
+          <span className="marka-nokta" />
+          <h1>YAZVEB</h1>
+        </div>
+        <p className="uyari">Sunucu bağlantısı yapılandırılmamış.</p>
+        <p className="sessiz">
+          Proje kökünde <code>.env</code> dosyası oluştur ve Supabase
+          projenden aldığın iki değeri yaz:
+        </p>
+        <pre className="kod">
+{`VITE_SUPABASE_URL=https://xxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGci...`}
+        </pre>
+        <p className="sessiz">
+          Ayrıntılar için <code>uygulama/README.md</code>.
+        </p>
+      </div>
+    </div>
+  );
+}

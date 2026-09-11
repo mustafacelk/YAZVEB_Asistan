@@ -1,0 +1,85 @@
+# ═══════════════════════════════════════════════════════════════════
+# Android APK derleme
+# ═══════════════════════════════════════════════════════════════════
+# Bilgisayarına Android Studio kurmadan APK üretir. GitHub'ın ücretsiz
+# koşucuları Java ve Android SDK ile geliyor; derleme orada yapılır ve
+# sonuç "Artifacts" bölümünden indirilir.
+#
+# ÇALIŞTIRMA
+#   GitHub → Actions → "Android APK" → Run workflow
+#
+# GEREKLİ AYARLAR (GitHub → Settings → Secrets and variables → Actions):
+#   VITE_SUPABASE_URL        Supabase proje adresin
+#   VITE_SUPABASE_ANON_KEY   Supabase anon anahtarın
+#
+# Bu ikisi gizli bilgi DEĞİL (uygulamanın içinden zaten okunabilirler);
+# depoda durmasınlar diye ayrı tutuluyorlar.
+# ═══════════════════════════════════════════════════════════════════
+
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "uygulama/**"
+      - ".github/workflows/android.yml"
+
+jobs:
+  derle:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: uygulama
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: uygulama/package-lock.json
+
+      - name: Java kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Android SDK kur
+        uses: android-actions/setup-android@v3
+
+      - name: Bağımlılıklar
+        run: npm ci
+
+      - name: Web derlemesi
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ]; then
+            echo "::error::VITE_SUPABASE_URL tanımlı değil. Actions secrets bölümüne ekle."
+            exit 1
+          fi
+          npm run build
+
+      - name: Android projesi
+        # Native klasör depoda tutulmuyor (yüzlerce dosya, hepsi üretilebilir).
+        # Yoksa oluşturulur, varsa eşitlenir.
+        run: |
+          if [ -d android ]; then npx cap sync android; else npx cap add android; fi
+
+      - name: APK derle
+        run: ./gradlew assembleDebug --no-daemon
+        working-directory: uygulama/android
+
+      - name: APK'yı yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: yazveb-apk
+          path: uygulama/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
