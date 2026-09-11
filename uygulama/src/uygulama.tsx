@@ -5,10 +5,12 @@ import Giris from "./ekranlar/Giris";
 import Sohbet from "./ekranlar/Sohbet";
 import Etkinlikler from "./ekranlar/Etkinlikler";
 import Topluluk from "./ekranlar/Topluluk";
+import Asistan from "./ekranlar/Asistan";
 
-type Sekme = "sohbet" | "etkinlik" | "topluluk";
+type Sekme = "asistan" | "sohbet" | "etkinlik" | "topluluk";
 
 const SEKMELER: { anahtar: Sekme; ad: string; simge: string }[] = [
+  { anahtar: "asistan", ad: "Asistan", simge: "◉" },
   { anahtar: "sohbet", ad: "Sohbet", simge: "◍" },
   { anahtar: "etkinlik", ad: "Etkinlik", simge: "◆" },
   { anahtar: "topluluk", ad: "Topluluk", simge: "◎" },
@@ -25,7 +27,7 @@ export default function Uygulama() {
 
 function Kabuk() {
   const { oturum, profil, yukleniyor } = useOturum();
-  const [sekme, setSekme] = useState<Sekme>("sohbet");
+  const [sekme, setSekme] = useState<Sekme>("asistan");
 
   if (yukleniyor) return <Acilis />;
   if (!oturum) return <Giris />;
@@ -36,6 +38,7 @@ function Kabuk() {
   return (
     <div className="kabuk">
       <main className="govde">
+        {sekme === "asistan" && <Asistan />}
         {sekme === "sohbet" && <Sohbet />}
         {sekme === "etkinlik" && <Etkinlikler />}
         {sekme === "topluluk" && <Topluluk />}

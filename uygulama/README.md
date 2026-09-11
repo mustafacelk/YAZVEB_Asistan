@@ -234,3 +234,51 @@ docker exec yz-test psql -U postgres -d yazveb -v ON_ERROR_STOP=1 -q \
 ```
 
 Bir kural bozulursa betik hata ile durur.
+
+---
+
+## Asistan (Edge Function)
+
+Asistanın beyni **sunucuda** çalışır: `supabase/functions/asistan/`.
+
+Model anahtarı uygulamanın içine konulamaz — mobil paketten çıkarılır ve
+başkasının faturasına sınırsız istek atmak için kullanılır. Anahtar Supabase'in
+gizli değişkenlerinde durur, cihaza hiç inmez. Fonksiyonu yalnızca **giriş
+yapmış üyeler** çağırabilir (Supabase JWT'yi kendisi doğrular), böylece
+internetteki rastgele biri kotayı tüketemez.
+
+Selam ve teşekkür gibi cümleler sunucuya **hiç gitmez**; cihazda anında
+cevaplanır (`src/veri/hizli.ts`).
+
+### Kurulum
+
+```bash
+cd uygulama
+npx supabase login                      # tarayıcıda onaylanır
+npx supabase link --project-ref difbuvccdyyscktalahy
+npx supabase secrets set GOOGLE_API_KEY=BURAYA_ANAHTARI_YAZ
+npx supabase functions deploy asistan
+```
+
+Anahtarı Google AI Studio'dan alırsın: https://aistudio.google.com/apikey
+(Streamlit sürümünde kullandığın anahtarın aynısı işe yarar —
+`.streamlit/secrets.toml` içinde duruyor.)
+
+### Kurumsal hafıza nasıl güncellenir
+
+Tek doğru kaynak `bilgi_bankasi.py`. Değiştirdikten sonra:
+
+```bash
+python bilgi_disa_aktar.py              # depo kökünde
+npx supabase functions deploy asistan   # uygulama/ içinde
+```
+
+Bilgiyi iki yerde tutmuyoruz; elle iki yeri güncellemek er geç ikisinin
+ayrışmasıyla biter — asistan web'de doğru, telefonda eski bilgiyi söyler ve
+kimse fark etmez.
+
+### Neden vektör araması yok
+
+Hafızanın tamamı ~4.800 jeton ve modelin tek istemine sığıyor. Parçalayıp en
+yakın beşini aramak bu ölçekte fazladan bir ağ çağrısı (gömme) ve isabet kaybı
+riski demek. Hepsini vermek daha hızlı, daha basit, daha doğru.

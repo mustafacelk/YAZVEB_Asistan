@@ -209,7 +209,7 @@ button.tehlike { color: var(--kehribar); }
 
 .alt-cubuk {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   background: var(--derin);
   border-top: 1px solid var(--cizgi);
   padding-bottom: var(--alt);
@@ -493,3 +493,48 @@ button.tehlike { color: var(--kehribar); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ── Asistan ───────────────────────────────────────────────────── */
+.asistan-basi {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(12px + var(--ust)) 14px 10px;
+  border-bottom: 1px solid var(--cizgi);
+}
+.asistan-basi > div { flex: 1; display: grid; }
+.asistan-basi b { font-size: .93rem; font-weight: 500; letter-spacing: .04em; }
+.asistan-basi small { color: var(--sonuk); font-size: .7rem; letter-spacing: .06em; }
+
+.ses-dugme, .mik-dugme {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--cizgi);
+  background: var(--yuzey);
+  font-size: 1rem;
+  display: grid; place-items: center;
+  transition: color .2s, border-color .2s, transform .12s;
+}
+.ses-dugme.etkin { border-color: rgba(0,229,255,.45); color: var(--cyan); }
+.mik-dugme { color: var(--sonuk); font-size: .8rem; }
+.mik-dugme:active { transform: scale(.94); }
+.mik-dugme.dinliyor {
+  color: var(--kehribar);
+  border-color: rgba(255,122,47,.5);
+  animation: mik-nabiz 1.2s ease-in-out infinite;
+}
+@keyframes mik-nabiz { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+
+/* Üç nokta: model düşünürken. Yalnızca opacity animasyonu — bedava. */
+.balon.dusunuyor { display: flex; gap: 5px; padding: 12px 14px; }
+.balon.dusunuyor i {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--sonuk);
+  animation: nokta 1.3s ease-in-out infinite;
+}
+.balon.dusunuyor i:nth-child(2) { animation-delay: .18s; }
+.balon.dusunuyor i:nth-child(3) { animation-delay: .36s; }
+@keyframes nokta { 0%,60%,100% { opacity: .25; } 30% { opacity: 1; } }
+
+.yazma .mik-dugme { width: 44px; height: 44px; }
+.sohbet .yazma { grid-template-columns: auto 1fr auto; }
