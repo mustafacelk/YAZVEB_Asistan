@@ -93,14 +93,39 @@ node baglanti_kontrol.mjs
 Şemanın kurulup kurulmadığını, kuralların çalışıp çalışmadığını ve anonim
 erişimin kapalı olduğunu tek seferde söyler. Hiçbir şey yazmaz, yalnızca okur.
 
-### 4. Çalıştır
+### 4. E-posta onayı kararı
+
+Yeni Supabase projelerinde **"Confirm email" açık** gelir: üye kayıt olunca
+e-postasına gelen bağlantıya tıklamadan giriş yapamaz.
+
+Bu, kalabalık bir toplulukta sorun çıkarır. Supabase'in yerleşik e-posta
+servisi ücretsiz katmanda **saatte birkaç mektupla** sınırlıdır; otuz kişi
+aynı akşam kayıt olmaya kalkarsa çoğu mektup hiç gitmez ve kimse giremez.
+
+İki seçenek var:
+
+| | Kolay yol | Sağlam yol |
+| --- | --- | --- |
+| Ayar | Authentication → Sign In / Providers → Email → **Confirm email: kapalı** | Açık bırak, **Custom SMTP** tanımla (Resend, Brevo — ücretsiz katmanları var) |
+| Sonuç | Üye kayıt olur olmaz girer | E-posta doğrulanır, sınır kalkar |
+| Riski | Sahte e-postayla kayıt olunabilir | Kurulum işi |
+
+Kapalı topluluk için **kolay yol** yeterli: rolleri zaten başkan dağıtıyor,
+kayıt olmak tek başına hiçbir yetki vermiyor. Üye sayısı büyürse sağlam yola
+geçilir.
+
+Ayrıca **Authentication → URL Configuration → Site URL** alanını yayına
+aldığın adrese ayarla (geliştirirken `http://localhost:5180`). Yanlışsa
+onay bağlantısı kırık bir sayfaya düşer.
+
+### 5. Çalıştır
 
 ```bash
 npm install
 npm run dev
 ```
 
-### 5. Kendini başkan yap
+### 6. Kendini başkan yap
 
 Önce uygulamadan normal şekilde kayıt ol. Sonra Supabase SQL Editor'de
 `veritabani/03_kurulum.sql` dosyasını kendi e-postanla düzenleyip çalıştır.
