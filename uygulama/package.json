@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "guvenlik": "node guvenlik_kontrol.mjs",
+    "baglanti": "node baglanti_kontrol.mjs",
+    "yayina-hazir": "npm run build && npm run guvenlik"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.2",
