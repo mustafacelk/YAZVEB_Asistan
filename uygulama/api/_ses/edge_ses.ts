@@ -34,6 +34,10 @@ const TEMEL = "speech.platform.bing.com/consumer/speech/synthesize/readaloud";
 const KROM_SURUMU = "143.0.3650.75";
 const WIN_EPOCH = 11644473600;
 
+// 1.200 karakterlik metin ~90 saniyelik sestir, ~600 KB. Karşı taraf ne
+// gönderirse göndersin bellekte bundan fazlası biriktirilmez.
+const EN_FAZLA_SES_BAYT = 4 * 1024 * 1024;
+
 // Servis bu başlıkları bekliyor; Edge tarayıcısının gönderdiklerinin aynısı.
 const BASLIKLAR = {
   "User-Agent":
@@ -104,6 +108,7 @@ export function seslendir(
 
     const ws = new WebSocket(adres, { headers: BASLIKLAR });
     const parcalar: Uint8Array[] = [];
+    let toplamBayt = 0;
     let bitti = false;
 
     const saat = setTimeout(() => {
@@ -151,6 +156,7 @@ export function seslendir(
     });
 
     ws.on("message", (veri: Buffer, ikili: boolean) => {
+      if (veri.length < 2) return;
       if (!ikili) {
         if (veri.toString().includes("Path:turn.end")) kapat();
         return;
@@ -159,6 +165,11 @@ export function seslendir(
       const baslik = veri.subarray(2, 2 + baslikBoyu).toString();
       if (baslik.includes("Path:audio")) {
         const govde = veri.subarray(2 + baslikBoyu);
+        toplamBayt += govde.length;
+        if (toplamBayt > EN_FAZLA_SES_BAYT) {
+          kapat(new Error("ses verisi sınırı aşıldı"));
+          return;
+        }
         if (govde.length) parcalar.push(govde);
       }
     });

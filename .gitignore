@@ -38,3 +38,7 @@ onizleme.html
 
 # Claude Code yerel yapılandırması
 .claude/
+
+# Supabase CLI yerel durumu: proje/organizasyon kimliği ve veritabanı
+# bağlantı adresi içerir; depoya girmez.
+uygulama/supabase/.temp/

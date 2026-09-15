@@ -240,6 +240,8 @@ create trigger mesaj_yazari
 
 
 -- ── Kullanıcı adıyla giriş ─────────────────────────────────────────
+-- DİKKAT: Bu tek parametreli sürüm e-posta SIZDIRIR; 04_guvenlik.sql onu
+-- silip parola doğrulamalı sürümle değiştirir. Kurulumda 04 her zaman çalıştırılır.
 -- Supabase parola girişini e-posta üzerinden yapar. Kullanıcılar ise
 -- kendi kullanıcı adlarını hatırlıyor. Bu fonksiyon aradaki çeviriyi yapar.
 --

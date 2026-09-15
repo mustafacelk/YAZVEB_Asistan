@@ -26,6 +26,11 @@ on:
       - "uygulama/**"
       - ".github/workflows/android.yml"
 
+# İş akışı depoya yazamaz, sürüm yayınlayamaz, PR açamaz — yalnızca okur.
+# Üçüncü taraf bir eylem ele geçirilse bile depoya dokunamaz.
+permissions:
+  contents: read
+
 jobs:
   derle:
     runs-on: ubuntu-latest
@@ -53,7 +58,16 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Bağımlılıklar
-        run: npm ci
+        # --ignore-scripts: paketlerin kurulum betikleri CI'da çalışmaz
+        # (tedarik zinciri saldırılarının en yaygın yolu). esbuild'in ikili
+        # dosyası ayrı pakette geldiği için derleme etkilenmez.
+        run: npm ci --ignore-scripts
+
+      - name: Güvenlik denetimi
+        run: |
+          npm audit --omit=dev --audit-level=high
+          npm run test:guvenlik
+          npm run test:transkript
 
       - name: Web derlemesi
         env:
@@ -65,6 +79,7 @@ jobs:
             exit 1
           fi
           npm run build
+          npm run guvenlik
 
       - name: Android projesi
         # Native klasör depoda tutulmuyor (yüzlerce dosya, hepsi üretilebilir).

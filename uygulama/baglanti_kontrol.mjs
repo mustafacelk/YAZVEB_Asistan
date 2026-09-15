@@ -99,58 +99,65 @@ for (const tablo of ["profiller", "mesajlar", "etkinlikler"]) {
   else yaz("✓", "Anonim kullanıcı etkinlik ekleyemiyor", `HTTP ${durum}`);
 }
 
-// ── 4. Giriş yardımcısı ────────────────────────────────────────────
+// ── 4. Güvenlik sertleştirmesi (04_guvenlik.sql + asistan fonksiyonu) ──
+// Buradaki her kontrol bir açığın KAPALI olduğunu doğrular. Hiçbiri gerçek
+// bir hesabı hedeflemez; uydurma kullanıcı adları ve parolalar kullanılır.
 {
-  const { durum, govde } = await iste("/rest/v1/rpc/giris_epostasi", {
+  // Eski imza: kullanıcı adını verene e-postayı veriyordu.
+  const { durum } = await iste("/rest/v1/rpc/giris_epostasi", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ p_kullanici_adi: "____olmayan_kullanici____" }),
   });
-  if (durum === 404) yaz("✗", "giris_epostasi fonksiyonu yok", "01_sema.sql'in sonunu çalıştır");
-  else if (durum === 200 && govde === null) yaz("✓", "Kullanıcı adıyla giriş çalışıyor");
-  else yaz("✓", "giris_epostasi yanıt verdi", `HTTP ${durum}`);
+  if (durum === 200) {
+    yaz("✗", "GÜVENLİK: eski giris_epostasi hâlâ açık (e-posta sızdırır)", "04_guvenlik.sql'i çalıştır");
+  } else {
+    yaz("✓", "E-posta sızdıran eski giriş fonksiyonu kapalı", `HTTP ${durum}`);
+  }
 }
-
-// ── 5. Kurulum durumu ──────────────────────────────────────────────
-// 03_kurulum.sql çalıştırıldıysa bu fonksiyon vardır ve kurulumun ne
-// durumda olduğunu sayı olarak söyler. İsim veya e-posta vermez.
 {
-  const { durum, govde } = await iste("/rest/v1/rpc/kurulum_durumu", {
+  const { durum, govde } = await iste("/rest/v1/rpc/giris_epostasi", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ p_kullanici_adi: "olmayan_kullanici", p_parola: "yanlis-parola" }),
+  });
+  if (durum === 200 && govde === null) yaz("✓", "Kullanıcı adıyla giriş (parola doğrulamalı) çalışıyor");
+  else if (durum === 404) yaz("✗", "Yeni giris_epostasi yok", "04_guvenlik.sql'i çalıştır");
+  else yaz("!", "giris_epostasi beklenmeyen yanıt", `HTTP ${durum}`);
+}
+{
+  const { durum } = await iste("/rest/v1/rpc/kurulum_durumu", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: "{}",
   });
-  if (durum === 404) {
-    yaz("!", "Kurulum durumu okunamıyor", "03_kurulum.sql henüz çalıştırılmamış");
-  } else if (durum === 200 && govde) {
-    const d = govde;
-    yaz("✓", "Kurulum durumu okundu",
-        `${d.uye_sayisi} üye · ${d.baskan_sayisi} başkan · ` +
-        `${d.yonetici_sayisi} yönetici · ${d.mesaj_sayisi} mesaj · ` +
-        `${d.etkinlik_sayisi} etkinlik`);
-    if (d.baskan_sayisi === 0) {
-      yaz("✗", "BAŞKAN YOK", "03_kurulum.sql'i kendi kullanıcı adınla çalıştır");
-    } else {
-      yaz("✓", `Başkan atanmış (${d.baskan_sayisi} kişi)`);
-    }
-  } else {
-    yaz("!", "Kurulum durumu belirsiz", `HTTP ${durum}`);
-  }
+  if (durum === 200) yaz("!", "Kurulum sayaçları anonim okunabiliyor", "04_guvenlik.sql çalıştırılmamış");
+  else yaz("✓", "Kurulum sayaçları anonime kapalı", `HTTP ${durum}`);
 }
-
-// ── 6. Kayıtlı kullanıcı var mı ────────────────────────────────────
-const kullanici = process.argv[2];
-if (kullanici) {
-  const { govde } = await iste("/rest/v1/rpc/giris_epostasi", {
+{
+  const { durum } = await iste("/rest/v1/rpc/kota_harca", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ p_kullanici_adi: kullanici }),
+    body: JSON.stringify({ p_tur: "asistan" }),
   });
-  if (govde) yaz("✓", `Kullanıcı bulundu: ${kullanici}`, String(govde));
-  else yaz("✗", `Kullanıcı bulunamadı: ${kullanici}`, "kullanıcı adını kontrol et");
-} else {
-  console.log("\n  (ipucu: kendi kullanıcı adınla da deneyebilirsin →" +
-              " node baglanti_kontrol.mjs kullanici_adin)");
+  if (durum === 404) yaz("✗", "Kota sistemi yok", "04_guvenlik.sql'i çalıştır");
+  else if (durum === 200) yaz("✗", "GÜVENLİK: anonim kullanıcı kota fonksiyonunu çağırabiliyor");
+  else yaz("✓", "Kota sistemi kurulu, anonime kapalı", `HTTP ${durum}`);
+}
+{
+  // Asistan: giriş yapmadan, yalnızca herkese açık anahtarla. Kapalıysa
+  // istek modele hiç ulaşmadan 401 döner (maliyet oluşmaz).
+  const { durum } = await iste("/functions/v1/asistan", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ soru: "kontrol" }),
+  });
+  if (durum === 200) {
+    yaz("✗", "GÜVENLİK: asistan GİRİŞSİZ kullanılabiliyor (maliyet açığı)",
+        "supabase functions deploy asistan");
+  } else {
+    yaz("✓", "Asistan girişsiz kullanılamıyor", `HTTP ${durum}`);
+  }
 }
 
 const hatali = sonuc.filter((s) => s.durum === "✗").length;

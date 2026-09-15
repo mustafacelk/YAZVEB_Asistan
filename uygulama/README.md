@@ -108,11 +108,14 @@ aynı akşam kayıt olmaya kalkarsa çoğu mektup hiç gitmez ve kimse giremez.
 | --- | --- | --- |
 | Ayar | Authentication → Sign In / Providers → Email → **Confirm email: kapalı** | Açık bırak, **Custom SMTP** tanımla (Resend, Brevo — ücretsiz katmanları var) |
 | Sonuç | Üye kayıt olur olmaz girer | E-posta doğrulanır, sınır kalkar |
-| Riski | Sahte e-postayla kayıt olunabilir | Kurulum işi |
+| Riski | Herkes (başkasının adresiyle bile) anında hesap açar | Kurulum işi |
 
-Kapalı topluluk için **kolay yol** yeterli: rolleri zaten başkan dağıtıyor,
-kayıt olmak tek başına hiçbir yetki vermiyor. Üye sayısı büyürse sağlam yola
-geçilir.
+Kolay yolda kayıt olmak hiçbir yetki vermez (rolleri başkan dağıtır) ve
+asistan/seslendirme maliyeti kişi başı kota + **topluluk geneli günlük
+bütçe** ile sınırlıdır (bkz. Güvenlik). Yine de sahte hesaplar sohbete
+yazabilir ve ortak bütçeyi tüketebilir. **Önerilen:** Custom SMTP ile
+e-posta onayını aç ve Authentication → Attack Protection → **CAPTCHA**'yı
+etkinleştir.
 
 Ayrıca **Authentication → URL Configuration → Site URL** alanını yayına
 aldığın adrese ayarla (geliştirirken `http://localhost:5180`). Yanlışsa
@@ -230,20 +233,75 @@ veritabani/
 
 ### Testleri çalıştırma
 
-Docker gerekir:
+```bash
+npm run test:guvenlik      # girdi doğrulama, istem ayrımı, çıktı süzgeci, CORS (47)
+npm run test:transkript    # mikrofon parçalarını birleştirme (12)
+npm run yayina-hazir       # derleme + paket taraması (sır, kaynak haritası, CSP)
+```
+
+Veritabanı yetki ve güvenlik testleri (84) — Docker gerekir:
 
 ```bash
 docker run -d --name yz-test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=yazveb postgres:16-alpine
 cd veritabani
-for f in 00_test_altyapisi.sql 01_sema.sql 02_yetkiler.sql 99_testler.sql; do
+for f in 00_test_altyapisi.sql 01_sema.sql 02_yetkiler.sql 99_testler.sql 03_kurulum.sql 04_guvenlik.sql 99_guvenlik_testleri.sql; do
   docker cp $f yz-test:/tmp/
 done
 docker exec yz-test psql -U postgres -d yazveb -v ON_ERROR_STOP=1 -q \
-  -f /tmp/00_test_altyapisi.sql -f /tmp/01_sema.sql \
-  -f /tmp/02_yetkiler.sql -f /tmp/99_testler.sql
+  -f /tmp/00_test_altyapisi.sql -f /tmp/01_sema.sql -f /tmp/02_yetkiler.sql \
+  -f /tmp/99_testler.sql -f /tmp/03_kurulum.sql -f /tmp/04_guvenlik.sql \
+  -f /tmp/99_guvenlik_testleri.sql
 ```
 
 Bir kural bozulursa betik hata ile durur.
+
+---
+
+## Güvenlik
+
+### Katmanlar
+
+| Katman | Ne korur |
+| --- | --- |
+| Satır kuralları (RLS) | Kim hangi satırı okur/yazar — gerçek yetki burada |
+| `kota_harca` | Asistan ve seslendirme: kişi başı dakikalık/günlük sınır + topluluk geneli günlük bütçe. Sınırlar `kota_ayarlari` tablosunda |
+| `giris_epostasi(ad, parola)` | E-posta yalnızca parola doğruysa döner; kullanıcı adı ve IP başına deneme sınırı; zamanlama eşit |
+| Sohbet tetikleyicisi | 10 sn'de 5, dakikada 20 mesaj; zaman damgası sunucudan |
+| Kenar fonksiyonu / Vercel ucu | Köken izin listesi, gövde boyutu, şema doğrulama, kimlik + kota, zaman aşımı, genel hata mesajı |
+| İstem ayrımı | Sistem talimatı `systemInstruction`'da, kullanıcı metni ayrı turda; çıktı süzgeci talimat sızıntısını ve anahtar biçimli dizeleri engeller |
+| Tarayıcı | CSP (satır içi betik yok, eval yok), HSTS, çerçeveleme yasağı, mikrofon yalnızca kendi sayfamızda |
+| CI | Salt okuma yetkisi, kurulum betikleri kapalı, `npm audit` + güvenlik testleri |
+
+### Güvenlik olayları
+
+Başkan son olayları SQL editöründe görebilir (parola, jeton, ham IP tutulmaz):
+
+```sql
+select zaman, tur, ayrinti from public.guvenlik_olaylari order by zaman desc limit 50;
+```
+
+Kota sınırlarını değiştirmek (yeniden dağıtım gerekmez):
+
+```sql
+update public.kota_ayarlari set dakika = 12, gun = 150, genel = 3000 where tur = 'asistan';
+```
+
+### Güncelleme sırası (mevcut kurulum için)
+
+1. `git push` — site yeni istemciyle yayına çıkar (geçiş süresince eski
+   giriş fonksiyonuna da düşebilir; kimse dışarıda kalmaz).
+2. Supabase SQL editöründe **`veritabani/04_guvenlik.sql`**'i çalıştır.
+3. Asistan fonksiyonunu dağıt: `npx supabase functions deploy asistan`
+4. Denetle: `node baglanti_kontrol.mjs` — bütün satırlar ✓ olmalı.
+
+### Panelden yapılacak ayarlar
+
+- Authentication → Providers → Email → **Minimum password length: 8**
+  (sunucunun varsayılanı 6; uygulamadaki 8 kontrolü tek başına yetmez)
+- Authentication → Attack Protection → **CAPTCHA** (Cloudflare Turnstile ücretsiz)
+- Custom SMTP + **Confirm email** (bkz. Kurulum → 4)
+- Başka alan adına taşınırsan: kenar fonksiyonuna ve Vercel'e
+  `IZINLI_KOKENLER` değişkeni (virgülle ayrılmış kökenler)
 
 ---
 

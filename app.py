@@ -226,7 +226,13 @@ def seslendir_onbellekli(metin: str, ses_adi: str):
 try:
     asistan = asistan_ornegi()
 except Exception as hata:  # noqa: BLE001
-    st.markdown(arayuz.uyari(["Asistan başlatılamadı.", str(hata)[:180]]), unsafe_allow_html=True)
+    # Ayrıntı yalnızca terminale: kütüphane hataları istek adresi, yol veya
+    # yapılandırma parçası taşıyabilir. Ekranda genel bir cümle.
+    print(f"[app] asistan başlatılamadı: {hata!r}", flush=True)
+    st.markdown(arayuz.uyari([
+        "Asistan başlatılamadı.",
+        "Ayrıntı için terminal çıktısına bak (çoğunlukla GOOGLE_API_KEY eksik).",
+    ]), unsafe_allow_html=True)
     st.stop()
 
 

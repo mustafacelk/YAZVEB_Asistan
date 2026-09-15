@@ -215,8 +215,15 @@ export default function Asistan() {
         },
       });
       if (istek !== istekRef.current) return;     // bu arada yeni konuşma başladı
-      const basarili = !error && data?.cevap;
-      const cevap = basarili ? duzenle(String(data.cevap)) : HATA_CEVABI;
+      const basarili = !error && typeof data?.cevap === "string";
+      const durumKodu = (error as { context?: { status?: number } } | null)?.context?.status;
+      const cevap = basarili
+        ? duzenle(String(data.cevap))
+        : durumKodu === 429
+          ? "Çok hızlı soruyorsun. Bir dakika sonra tekrar dene."
+          : durumKodu === 401
+            ? "Oturumun sona ermiş görünüyor. Çıkış yapıp tekrar giriş yap."
+            : HATA_CEVABI;
       const sira = oncekiler.length + 1;
       setTurlar((t) => [...t, { rol: "assistant", icerik: cevap, zaman: Date.now(), hata: !basarili }]);
       if (!basarili) hataGoster();

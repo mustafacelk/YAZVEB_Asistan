@@ -16,8 +16,15 @@ const genisEkran = typeof matchMedia !== "undefined" && matchMedia("(min-width: 
  *
  * Girişte hem kullanıcı adı hem e-posta kabul edilir: üyeler kullanıcı adını
  * hatırlıyor, Supabase ise e-posta bekliyor. Araya `giris_epostasi` çağrısı
- * giriyor (bkz. veritabani/01_sema.sql).
+ * giriyor (bkz. veritabani/04_guvenlik.sql).
+ *
+ * HESAP VAR MI YOK MU — SÖYLENMEZ
+ * ───────────────────────────────
+ * "Bu kullanıcı adı bulunamadı", "bu e-posta zaten kayıtlı" gibi cevaplar
+ * saldırgana hangi hesapların var olduğunu listeletir. Giriş ve kayıt
+ * hataları bu yüzden tek tip.
  */
+const GIRIS_HATASI = "Kullanıcı adı veya parola hatalı.";
 export default function Giris() {
   const [kip, setKip] = useState<Kip>("giris");
   const [kimlik, setKimlik] = useState("");     // kullanıcı adı veya e-posta
@@ -34,11 +41,19 @@ export default function Giris() {
     let adres = girilen;
 
     if (!girilen.includes("@")) {
-      const { data, error } = await supabase.rpc("giris_epostasi", {
+      // E-posta yalnızca parola da doğruysa döner (bkz. 04_guvenlik.sql).
+      let { data, error } = await supabase.rpc("giris_epostasi", {
         p_kullanici_adi: girilen,
+        p_parola: parola,
       });
-      if (error) throw new Error("Giriş servisine ulaşılamadı.");
-      if (!data) throw new Error("Bu kullanıcı adı bulunamadı.");
+      // GEÇİŞ: veritabanı henüz güncellenmemişse yeni imza bulunamaz
+      // (PGRST202). 04_guvenlik.sql çalıştırıldıktan sonra bu dal hiç
+      // çalışmaz, çünkü eski imza silinir. Güncelleme tamamlanınca kaldır.
+      if (error?.code === "PGRST202") {
+        ({ data, error } = await supabase.rpc("giris_epostasi", { p_kullanici_adi: girilen }));
+      }
+      if (error) throw new Error("Giriş servisine ulaşılamadı. Biraz sonra tekrar dene.");
+      if (!data) throw new Error(GIRIS_HATASI);
       adres = data as string;
     }
 
@@ -48,7 +63,10 @@ export default function Giris() {
     });
     // Hangi bilginin yanlış olduğunu söylemiyoruz: "parola yanlış" demek,
     // o hesabın var olduğunu doğrulamak demektir.
-    if (error) throw new Error("Kullanıcı adı veya parola hatalı.");
+    if (error) {
+      if (error.status === 429) throw new Error("Çok fazla deneme. Birkaç dakika sonra tekrar dene.");
+      throw new Error(GIRIS_HATASI);
+    }
   }
 
   async function kayitOl() {
@@ -58,8 +76,12 @@ export default function Giris() {
         "Kullanıcı adı 3-20 karakter olmalı; yalnızca küçük harf, rakam ve _",
       );
     }
-    if (parola.length < 8) {
-      throw new Error("Parola en az 8 karakter olmalı.");
+    if (parola.length < 8 || parola.length > 72) {
+      // 72: bcrypt yalnızca ilk 72 baytı kullanır; uzunu yanıltıcı güven verir.
+      throw new Error("Parola 8 ile 72 karakter arasında olmalı.");
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(eposta.trim()) || eposta.length > 254) {
+      throw new Error("Geçerli bir e-posta adresi yaz.");
     }
 
     const { data, error } = await supabase.auth.signUp({
@@ -68,11 +90,10 @@ export default function Giris() {
       options: { data: { kullanici_adi: ad, ad_soyad: adSoyad.trim() || null } },
     });
     if (error) {
-      throw new Error(
-        error.message.includes("already")
-          ? "Bu e-posta ile zaten bir hesap var."
-          : "Kayıt tamamlanamadı: " + error.message,
-      );
+      if (error.status === 429) throw new Error("Çok fazla deneme. Birkaç dakika sonra tekrar dene.");
+      if (/password/i.test(error.message)) throw new Error("Parola yeterince güçlü değil. Daha uzun bir parola seç.");
+      // Supabase'in ham mesajı ("User already registered" gibi) gösterilmez.
+      throw new Error("Kayıt tamamlanamadı. Bilgileri kontrol edip tekrar dene.");
     }
     // E-posta doğrulaması açıksa oturum gelmez; kullanıcıyı boş ekranda bırakma.
     if (!data.session) {
@@ -209,6 +230,7 @@ export default function Giris() {
               value={parola}
               onChange={(e) => setParola(e.target.value)}
               autoComplete={kip === "giris" ? "current-password" : "new-password"}
+              maxLength={72}
               required
             />
           </label>

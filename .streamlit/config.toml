@@ -1,4 +1,10 @@
 [server]
+# Yalnızca bu bilgisayardan erişilir. Varsayılan tüm ağ arayüzlerini dinler:
+# aynı Wi-Fi'daki herkes uygulamayı açıp model anahtarıyla sınırsız istek
+# atabilirdi. Ağa açmak gerekirse önce kimlik doğrulama eklenmeli.
+address = "127.0.0.1"
+headless = true
+enableXsrfProtection = true
 # static/ klasörünü servis eder — açılış videosu buradan yüklenir.
 # Kapalıysa intro.mp4 görünmez, asistan durağan görselle açılır.
 enableStaticServing = true

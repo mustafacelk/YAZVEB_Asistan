@@ -108,7 +108,8 @@ export default function Sohbet() {
       yazar: profil.id,   // tetikleyici zaten zorluyor; şema uyumu için
     });
     if (error) {
-      setHata("Mesaj gönderilemedi.");
+      // P0429: veritabanındaki hız sınırı (bkz. 04_guvenlik.sql).
+      setHata(error.code === "P0429" ? "Çok hızlı yazıyorsun. Biraz bekle." : "Mesaj gönderilemedi.");
       setTaslak(metin);   // yazdığını kaybetme
     }
   }
@@ -169,7 +170,10 @@ export default function Sohbet() {
           return (
             <section key={grup.anahtar} className={"grup" + (benimMi ? " benim" : "")}>
               <div className="grup-ust">
+                {/* Görünen ad serbest metin; biri başkasının adını yazabilir.
+                    Benzersiz kullanıcı adı her zaman yanında gösterilir. */}
                 {!benimMi && <b>{kisi?.ad_soyad || kisi?.kullanici_adi || "üye"}</b>}
+                {!benimMi && kisi?.ad_soyad && <span className="grup-kimlik">@{kisi.kullanici_adi}</span>}
                 {!benimMi && kisi && kisi.rol !== "uye" && (
                   <span className={"rozet rol-" + kisi.rol}>{ROL_ADI[kisi.rol]}</span>
                 )}

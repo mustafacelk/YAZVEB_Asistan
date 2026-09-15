@@ -4,19 +4,30 @@
 // Metni alır, MP3 döndürür. Ses Microsoft'un neural Türkçe seslerinden
 // gelir (bkz. _ses/edge_ses.ts); API anahtarı gerekmez, ücretsizdir.
 //
-// KİM ÇAĞIRABİLİR
-// ───────────────
-// Yalnızca giriş yapmış üyeler. İstek, kullanıcının Supabase oturum
-// jetonunu taşımak zorunda. Açık bırakılsaydı endpoint internete bedava
-// bir seslendirme servisi olarak sunulmuş olurdu.
+// KİM, NE KADAR ÇAĞIRABİLİR
+// ─────────────────────────
+// Yalnızca giriş yapmış üyeler ve yalnızca kotaları kadar. Her istek,
+// kullanıcının oturum jetonuyla veritabanındaki `kota_harca` fonksiyonuna
+// sorulur; jeton geçersizse 401, kota dolmuşsa 429. Kota olmasaydı herhangi
+// bir hesap bu ucu sınırsız bir seslendirme servisi gibi kullanabilir ve
+// sitenin sunucu adresi karşı tarafta engellenebilirdi.
 //
-// Jeton doğrulaması ağ çağrısı gerektirir; sonuç jetonun süresi dolana
-// kadar bellekte tutulur, böylece sıcak örnekte her istek için tekrar
-// sorulmaz.
+// Önceki sürüm doğrulanmış jetonları bellekte tutuyordu; kota her istekte
+// sayılmak zorunda olduğu için o önbellek kaldırıldı (bir çağrı zaten
+// ikisini birden yapıyor).
 // ═══════════════════════════════════════════════════════════════════
 
 import { seslendir, type SesAyari } from "./_ses/edge_ses.js";
 import { seseHazirla } from "./_ses/metin.js";
+import {
+  izinliKokenler,
+  jwtBicimli,
+  kokenIzinli,
+  kotaHarca,
+  olay,
+  SES_SINIR,
+  sesIstegiDogrula,
+} from "./_guvenlik/ortak.js";
 
 // Her sesin kendi temposu var. Tek bir global hız verilince Ahmet aceleci,
 // Emel uyuşuk çıkıyor; profil sesin kendi tabanına göre ayarlanır.
@@ -25,109 +36,114 @@ const SESLER: Record<string, SesAyari> = {
   emel: { ses: "tr-TR-EmelNeural", hiz: "+2%", perde: "-1Hz", seviye: "+0%" },
 };
 const VARSAYILAN_SES = "ahmet";
-const EN_UZUN_METIN = 1200;
+const SESLENDIRME_ZAMAN_ASIMI_MS = 15000;
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL ?? "";
+const SUPABASE_URL = (process.env.VITE_SUPABASE_URL ?? "").replace(/\/+$/, "");
 const SUPABASE_ANAHTAR = process.env.VITE_SUPABASE_ANON_KEY ?? "";
+const IZINLI = izinliKokenler();
 
-/** Doğrulanmış jetonlar: jeton → geçerlilik bitişi (ms). */
-const dogrulanmis = new Map<string, number>();
+type Istek = {
+  method?: string;
+  headers: Record<string, string | string[] | undefined>;
+  body?: unknown;
+};
+type Yanit = {
+  status: (kod: number) => Yanit;
+  setHeader: (ad: string, deger: string) => void;
+  json: (govde: unknown) => void;
+  send: (govde: Buffer) => void;
+  end: () => void;
+};
 
-function jetonPayload(jeton: string): { exp?: number; iss?: string } | null {
-  try {
-    const govde = jeton.split(".")[1];
-    if (!govde) return null;
-    return JSON.parse(Buffer.from(govde, "base64url").toString());
-  } catch {
-    return null;
+const baslikOku = (istek: Istek, ad: string) => {
+  const d = istek.headers[ad];
+  return Array.isArray(d) ? d[0] : d;
+};
+
+function kapiyiAc(istek: Istek, yanit: Yanit) {
+  const koken = baslikOku(istek, "origin");
+  yanit.setHeader("Vary", "Origin");
+  if (kokenIzinli(koken, IZINLI)) {
+    yanit.setHeader("Access-Control-Allow-Origin", koken!);
+    yanit.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    yanit.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    yanit.setHeader("Access-Control-Max-Age", "86400");
   }
 }
 
-/**
- * Jeton bu projeye ait ve geçerli mi?
- *
- * Önce imzasız kontroller yapılır (ucuz): biçim, süre, veren. Bunlar
- * geçerse imza bir kez ağ üzerinden doğrulanır ve sonuç önbelleğe alınır.
- * Tek başına payload'a bakmak yeterli olmazdı — imzasız bir jeton elle
- * uydurulabilir.
- */
-async function uyeMi(jeton: string): Promise<boolean> {
-  if (!jeton || !SUPABASE_URL) return false;
-
-  const simdi = Date.now();
-  const bitis = dogrulanmis.get(jeton);
-  if (bitis && bitis > simdi) return true;
-
-  const yuk = jetonPayload(jeton);
-  if (!yuk?.exp || yuk.exp * 1000 <= simdi) return false;
-  if (!yuk.iss || !yuk.iss.startsWith(SUPABASE_URL)) return false;
-
-  try {
-    const yanit = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { Authorization: `Bearer ${jeton}`, apikey: SUPABASE_ANAHTAR },
-    });
-    if (!yanit.ok) return false;
-  } catch {
-    return false;
-  }
-
-  // Bellek sınırsız büyümesin; sıcak örnekte birkaç yüz jeton fazlasıyla yeter.
-  if (dogrulanmis.size > 500) dogrulanmis.clear();
-  dogrulanmis.set(jeton, Math.min(yuk.exp * 1000, simdi + 3600_000));
-  return true;
+function hata(yanit: Yanit, kod: number, mesaj: string) {
+  yanit.setHeader("Cache-Control", "no-store");
+  return yanit.status(kod).json({ hata: mesaj });
 }
 
-/**
- * Tarayıcıya "başka adresten çağrılabilir" izni verir.
- *
- * Sitede istek zaten aynı adrese gittiği için bu başlıklar oraya
- * dokunmaz. Gerekli oldukları yer telefon uygulaması: orada sayfa
- * cihazın içinden açıldığı için istek dışarıdan geliyor sayılır ve
- * izin verilmezse tarayıcı cevabı okutmaz.
- *
- * Kapı açık bırakılmış olmuyor — istek yine de geçerli bir oturum
- * jetonu taşımak zorunda; jeton olmadan gelen hiçbir çağrı ses almaz.
- */
-function kapiyiAc(yanit: any) {
-  yanit.setHeader("Access-Control-Allow-Origin", "*");
-  yanit.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  yanit.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  yanit.setHeader("Access-Control-Max-Age", "86400");
-}
+export default async function handler(istek: Istek, yanit: Yanit) {
+  kapiyiAc(istek, yanit);
+  yanit.setHeader("X-Content-Type-Options", "nosniff");
 
-export default async function handler(istek: any, yanit: any) {
-  kapiyiAc(yanit);
   if (istek.method === "OPTIONS") return yanit.status(204).end();
-  if (istek.method !== "POST") {
-    return yanit.status(405).json({ hata: "yalnızca POST" });
+  if (istek.method !== "POST") return hata(yanit, 405, "yöntem desteklenmiyor");
+
+  const koken = baslikOku(istek, "origin");
+  if (koken && !kokenIzinli(koken, IZINLI)) {
+    olay("koken_red", { uc: "seslendir" });
+    return hata(yanit, 403, "izin verilmeyen köken");
   }
 
-  const baslik: string = istek.headers?.authorization ?? "";
-  const jeton = baslik.startsWith("Bearer ") ? baslik.slice(7) : "";
-  if (!(await uyeMi(jeton))) {
-    return yanit.status(401).json({ hata: "giriş gerekli" });
+  if (!(baslikOku(istek, "content-type") ?? "").toLowerCase().includes("application/json")) {
+    return hata(yanit, 415, "JSON bekleniyor");
+  }
+  if (Number(baslikOku(istek, "content-length") ?? "0") > SES_SINIR.govdeBayt) {
+    olay("govde_buyuk", { uc: "seslendir" });
+    return hata(yanit, 413, "istek çok büyük");
   }
 
-  const govde = typeof istek.body === "string" ? safeJson(istek.body) : istek.body;
-  const hazir = seseHazirla(String(govde?.metin ?? "")).slice(0, EN_UZUN_METIN);
-  if (!hazir) return yanit.status(400).json({ hata: "boş metin" });
+  const yetki = baslikOku(istek, "authorization") ?? "";
+  const jeton = yetki.startsWith("Bearer ") ? yetki.slice(7).trim() : "";
+  if (!jwtBicimli(jeton)) {
+    olay("yetkisiz", { uc: "seslendir", neden: "jeton yok" });
+    return hata(yanit, 401, "giriş gerekli");
+  }
 
-  const sesAdi =
-    typeof govde?.ses === "string" && SESLER[govde.ses] ? govde.ses : VARSAYILAN_SES;
+  let govde: unknown = istek.body;
+  if (typeof govde === "string") {
+    try { govde = JSON.parse(govde); } catch { return hata(yanit, 400, "bozuk istek"); }
+  }
+  const dogrulama = sesIstegiDogrula(govde, Object.keys(SESLER));
+  if (!dogrulama.tamam) {
+    olay("gecersiz_girdi", { uc: "seslendir", neden: dogrulama.neden });
+    return hata(yanit, 400, "geçersiz istek");
+  }
+
+  const kota = await kotaHarca("ses", jeton, SUPABASE_URL, SUPABASE_ANAHTAR);
+  if (kota === "kimliksiz") {
+    olay("yetkisiz", { uc: "seslendir", neden: "jeton geçersiz" });
+    return hata(yanit, 401, "giriş gerekli");
+  }
+  if (kota === "sinir") {
+    olay("kota", { uc: "seslendir" });
+    yanit.setHeader("Retry-After", "60");
+    return hata(yanit, 429, "çok fazla istek");
+  }
+  if (kota !== "tamam") {
+    // Kota denetlenemiyorsa kapalı başarısız ol.
+    olay("kota_denetimi_yok", { uc: "seslendir" });
+    return hata(yanit, 503, "şu an kullanılamıyor");
+  }
+
+  const hazir = seseHazirla(dogrulama.deger.metin).slice(0, SES_SINIR.hazirMetin);
+  if (!hazir) return hata(yanit, 400, "geçersiz istek");
+
+  const ayar = SESLER[dogrulama.deger.ses ?? VARSAYILAN_SES];
 
   try {
-    const ses = await seslendir(hazir, SESLER[sesAdi]);
+    const ses = await seslendir(hazir, ayar, SESLENDIRME_ZAMAN_ASIMI_MS);
     yanit.setHeader("Content-Type", "audio/mpeg");
     // Aynı cevap iki kez seslendirilmesin diye tarayıcı önbelleğine bırakılır.
     yanit.setHeader("Cache-Control", "private, max-age=86400");
     return yanit.status(200).send(ses);
-  } catch (hata) {
-    console.error("[seslendir]", String(hata).slice(0, 300));
-    // Ses gelmezse uygulama susar ama çökmez; cevap metni zaten ekranda.
-    return yanit.status(502).json({ hata: "seslendirilemedi" });
+  } catch (h) {
+    // Ayrıntı yalnızca sunucu günlüğüne.
+    olay("seslendirme_hatasi", { neden: String(h).slice(0, 120) });
+    return hata(yanit, 502, "seslendirilemedi");
   }
-}
-
-function safeJson(m: string) {
-  try { return JSON.parse(m); } catch { return {}; }
 }

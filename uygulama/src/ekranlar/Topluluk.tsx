@@ -56,7 +56,7 @@ export default function Topluluk() {
       .eq("id", kisi.id);
     setIslemde(null);
     if (error) {
-      setHata("Rol değiştirilemedi: " + error.message);
+      setHata("Rol değiştirilemedi. Bu işlem yalnızca başkana açık.");
       return;
     }
     getir();
@@ -69,7 +69,9 @@ export default function Topluluk() {
       .update({ ad_soyad: adSoyad.trim() || null })
       .eq("id", profil.id);
     if (error) {
-      setHata("Kaydedilemedi.");
+      setHata(error.code === "23514"
+        ? "Görünen ad desteklenmeyen karakter içeriyor (60 karakter, görünmez karakter yok)."
+        : "Kaydedilemedi.");
       return;
     }
     setKaydedildi(true);

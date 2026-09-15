@@ -472,6 +472,7 @@
 }
 .grup-ust b { color: var(--m-1); font-size: var(--y-kucuk); font-weight: var(--a-orta); }
 .grup-ust time { font-size: var(--y-etiket); color: var(--m-4); }
+.grup-kimlik { font-size: var(--y-etiket); color: var(--m-3); }
 
 .satir {
   position: relative;

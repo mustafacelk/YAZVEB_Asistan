@@ -40,6 +40,18 @@ const KALIPLAR = [
   { ad: "OpenAI anahtarı", re: /sk-[A-Za-z0-9]{32,}/g },
 ];
 
+// Sunucuya ait olup tarayıcı paketinde HİÇ geçmemesi gereken izler. Değer
+// değil ad: bunlardan biri görünüyorsa sunucu kodu yanlışlıkla pakete
+// girmiş demektir (bir sonraki adım anahtarın kendisinin sızmasıdır).
+const SUNUCU_IZLERI = [
+  "GOOGLE_API_KEY",
+  "SUPABASE_SERVICE_ROLE",
+  "x-goog-api-key",
+  "generativelanguage.googleapis.com",
+  "TrustedClientToken",
+  "IZINLI_KOKENLER",
+];
+
 let bulgu = 0;
 let liste;
 try {
@@ -54,9 +66,50 @@ for (const yol of liste) {
   for (const { ad, re, dogrula } of KALIPLAR) {
     for (const eslesme of icerik.match(re) ?? []) {
       if (dogrula && !dogrula(eslesme)) continue;
-      console.log(`  ✗ ${ad}: ${eslesme.slice(0, 24)}…  (${yol.split(/[\/]/).pop()})`);
+      console.log(`  ✗ ${ad}: ${eslesme.slice(0, 24)}…  (${yol.split(/[\\/]/).pop()})`);
       bulgu++;
     }
+  }
+}
+
+for (const yol of liste) {
+  if (yol.endsWith(".map")) {
+    console.log(`  ✗ Kaynak haritası yayında: ${yol.split(/[\\/]/).pop()} (kaynak kodu ve yolları açığa çıkarır)`);
+    bulgu++;
+    continue;
+  }
+  const icerik = readFileSync(yol, "utf8");
+  for (const iz of SUNUCU_IZLERI) {
+    if (icerik.includes(iz)) {
+      console.log(`  ✗ Sunucu kodu izi pakette: "${iz}" (${yol.split(/[\\/]/).pop()})`);
+      bulgu++;
+    }
+  }
+}
+
+// CSP: sayfada olmalı ve gevşetilmemiş olmalı.
+{
+  const html = readFileSync(join(KOK, "index.html"), "utf8");
+  const csp = html.match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)?.[1];
+  if (!csp) {
+    console.log("  ✗ index.html'de Content-Security-Policy yok");
+    bulgu++;
+  } else {
+    for (const yasak of ["'unsafe-inline'", "'unsafe-eval'", "*"]) {
+      const parcalar = csp.split(";").map((p) => p.trim().split(/\s+/));
+      if (parcalar.some((p) => p.slice(1).includes(yasak))) {
+        console.log(`  ✗ CSP gevşetilmiş: ${yasak}`);
+        bulgu++;
+      }
+    }
+    if (!/script-src 'self'(;|$)/.test(csp)) {
+      console.log("  ✗ CSP script-src yalnızca 'self' olmalı");
+      bulgu++;
+    }
+  }
+  if (/<script(?![^>]*\bsrc=)[^>]*>/.test(html)) {
+    console.log("  ✗ index.html'de satır içi <script> var (CSP bunu engeller ya da gevşetmeyi gerektirir)");
+    bulgu++;
   }
 }
 

@@ -7,8 +7,12 @@ create schema if not exists auth;
 create table if not exists auth.users (
   id                 uuid primary key,
   email              text unique,
+  encrypted_password text,
   raw_user_meta_data jsonb default '{}'::jsonb
 );
+
+-- Supabase'de pgcrypto "extensions" şemasında durur.
+create schema if not exists extensions;
 
 -- Supabase'de auth.uid() JWT'deki "sub" alanını okur. Testte aynı oturum
 -- değişkenini elle ayarlayıp kullanıcı kılığına gireceğiz.
