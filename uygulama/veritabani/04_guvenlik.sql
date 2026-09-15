@@ -454,3 +454,28 @@ revoke execute on function public.baskan_mi()   from public, anon;
 revoke execute on function public.yetkili_mi()  from public, anon;
 grant execute on function public.benim_rolum(), public.baskan_mi(), public.yetkili_mi()
   to authenticated;
+
+
+-- ═══════════════════════════════════════════════════════════════════
+-- 10. Fonksiyon yetkileri — Supabase varsayılanlarını açıkça geri al
+-- ═══════════════════════════════════════════════════════════════════
+-- Supabase public şemasındaki her yeni fonksiyona anon ve authenticated
+-- rollerine AÇIK çalıştırma yetkisi verir; yukarıdaki "revoke ... from
+-- public" satırları bunu kaldırmaz. Canlı denetimde görüldü: anonim biri
+-- olay_yaz'ı çağırıp güvenlik günlüğüne sınırsız satır yazabiliyordu.
+--
+-- İstisna: gorunmez_karakter_var bir CHECK kısıtında kullanılır ve kısıt
+-- güncellemeyi yapan kullanıcının yetkisiyle çalışır. Giriş yapmış
+-- kullanıcıdan alınırsa kimse profilini güncelleyemez; yalnızca anonimden
+-- alınır (salt okunur, yan etkisiz bir fonksiyon).
+revoke execute on function public.olay_yaz(text, uuid, jsonb) from anon, authenticated;
+revoke execute on function public.istek_ip_ozeti()            from anon, authenticated;
+revoke execute on function public.kota_harca(text)            from anon;
+revoke execute on function public.gorunmez_karakter_var(text) from anon;
+
+-- Tetikleyici fonksiyonları doğrudan çağrılamaz ama yetki listesinde de
+-- durmasınlar (derinlemesine savunma).
+revoke execute on function public.yeni_kullanici_profili() from public, anon, authenticated;
+revoke execute on function public.rol_degisimi_denetle()   from public, anon, authenticated;
+revoke execute on function public.etkinlik_kilidi_ayarla() from public, anon, authenticated;
+revoke execute on function public.mesaj_yazari_ayarla()    from public, anon, authenticated;

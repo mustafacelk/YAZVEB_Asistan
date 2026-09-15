@@ -101,6 +101,10 @@ select test_ip('10.0.0.10');
 select bekle('başka IP''den giriş çalışmaya devam eder',
   public.giris_epostasi('baskan', 'Baskan-Parola-2') = 'baskan@test');
 
+select reddedilmeli('anonim güvenlik günlüğüne yazamaz (olay_yaz)',
+  $$select public.olay_yaz('sel', null, '{"x":1}'::jsonb)$$);
+select reddedilmeli('anonim IP özeti fonksiyonunu çağıramaz',
+  $$select public.istek_ip_ozeti()$$);
 select reddedilmeli('anonim deneme kayıtlarını okuyamaz',
   $$select count(*) from public.giris_denemeleri$$);
 reset role;

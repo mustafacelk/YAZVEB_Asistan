@@ -239,7 +239,7 @@ npm run test:transkript    # mikrofon parçalarını birleştirme (12)
 npm run yayina-hazir       # derleme + paket taraması (sır, kaynak haritası, CSP)
 ```
 
-Veritabanı yetki ve güvenlik testleri (84) — Docker gerekir:
+Veritabanı yetki ve güvenlik testleri (86) — Docker gerekir:
 
 ```bash
 docker run -d --name yz-test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=yazveb postgres:16-alpine

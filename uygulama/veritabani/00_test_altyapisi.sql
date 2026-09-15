@@ -32,6 +32,14 @@ do $$ begin
 exception when duplicate_object then null;
 end $$;
 
+-- Supabase public şemasında yeni oluşturulan her fonksiyona ve tabloya
+-- anon ve authenticated rollerine AÇIKÇA yetki verir. "revoke ... from
+-- public" bu açık yetkiyi kaldırmaz. Taklit bunu yapmazsa testler canlıda
+-- açık olan bir kapıyı kapalı sanır (öyle de oldu: olay_yaz).
+alter default privileges in schema public grant execute on functions to anon, authenticated;
+alter default privileges in schema public grant all on tables to anon, authenticated;
+alter default privileges in schema public grant all on sequences to anon, authenticated;
+
 -- Supabase'de bu izinler hazır gelir; taklitte elle veriyoruz.
 grant usage on schema auth to anon, authenticated;
 grant execute on function auth.uid() to anon, authenticated;
