@@ -1,9 +1,15 @@
-import { useState, type FormEvent } from "react";
+import { useState, type CSSProperties, type FormEvent } from "react";
 import { supabase } from "../veri/supabase";
+import Kure from "../canli/Kure";
 
 type Kip = "giris" | "kayit";
 
 const KULLANICI_ADI_KALIBI = /^[a-z0-9_]{3,20}$/;
+
+const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
+
+/** Küre yalnızca geniş ekranda çizilir; telefonda giriş hızlı ve sade kalsın. */
+const genisEkran = typeof matchMedia !== "undefined" && matchMedia("(min-width: 960px)").matches;
 
 /**
  * Giriş ve kayıt.
@@ -91,50 +97,63 @@ export default function Giris() {
     }
   }
 
+  function kipSec(k: Kip) {
+    setKip(k);
+    setHata(null);
+  }
+
   return (
     <div className="giris">
-      <div className="giris-kart">
-        <div className="marka">
+      {genisEkran && (
+        <figure className="giris-sahne" aria-hidden="true">
+          <div className="kure-cerceve">
+            <Kure durum="bosta" />
+          </div>
+          <figcaption className="etiket">Yapay Zeka ve Veri Bilimi Topluluğu</figcaption>
+        </figure>
+      )}
+
+      <div className="giris-kolon">
+        <div className="giris-marka">
           <img
-            className="marka-logo"
+            className="gir"
             src="/logo-256.webp"
             srcSet="/logo-128.webp 128w, /logo-256.webp 256w, /logo-512.webp 512w"
-            sizes="96px"
-            alt="YAZVEB"
-            width={96}
-            height={96}
+            sizes="64px"
+            alt="YAZVEB logosu"
+            width={64}
+            height={64}
             decoding="async"
           />
-          <h1>YAZVEB</h1>
-          <p>Yapay Zeka ve Veri Bilimi Topluluğu</p>
+          <div>
+            <h1 className="gir" style={kademe(1)}>
+              {kip === "giris" ? "Tekrar hoş geldin." : "Topluluğa katıl."}
+            </h1>
+            <p className="gir" style={kademe(2)}>Selçuk Üniversitesi · YAZVEB</p>
+          </div>
         </div>
 
-        <div className="sekmeler" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={kip === "giris"}
-            className={kip === "giris" ? "etkin" : ""}
-            onClick={() => { setKip("giris"); setHata(null); }}
-          >
+        <div
+          className="secici gir"
+          role="tablist"
+          aria-label="Giriş veya kayıt"
+          style={{ ...kademe(3), "--secim": kip === "giris" ? 0 : 1 } as CSSProperties}
+        >
+          <span className="secici-gosterge" aria-hidden="true" />
+          <button type="button" role="tab" aria-selected={kip === "giris"} onClick={() => kipSec("giris")}>
             Giriş yap
           </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={kip === "kayit"}
-            className={kip === "kayit" ? "etkin" : ""}
-            onClick={() => { setKip("kayit"); setHata(null); }}
-          >
+          <button type="button" role="tab" aria-selected={kip === "kayit"} onClick={() => kipSec("kayit")}>
             Kayıt ol
           </button>
         </div>
 
-        <form onSubmit={gonder} className="alan-yigini">
+        <form onSubmit={gonder} className="yigin gir" style={kademe(4)}>
           {kip === "giris" ? (
-            <label>
-              <span>Kullanıcı adı veya e-posta</span>
+            <label className="alan">
+              <span className="etiket">Kullanıcı adı veya e-posta</span>
               <input
+                className="girdi"
                 value={kimlik}
                 onChange={(e) => setKimlik(e.target.value)}
                 autoComplete="username"
@@ -145,9 +164,10 @@ export default function Giris() {
             </label>
           ) : (
             <>
-              <label>
-                <span>Kullanıcı adı</span>
+              <label className="alan">
+                <span className="etiket">Kullanıcı adı</span>
                 <input
+                  className="girdi"
                   value={kullaniciAdi}
                   onChange={(e) => setKullaniciAdi(e.target.value)}
                   placeholder="ornek_kullanici"
@@ -157,17 +177,19 @@ export default function Giris() {
                   required
                 />
               </label>
-              <label>
-                <span>Ad soyad <i>(isteğe bağlı)</i></span>
+              <label className="alan">
+                <span className="etiket">Ad soyad <i>(isteğe bağlı)</i></span>
                 <input
+                  className="girdi"
                   value={adSoyad}
                   onChange={(e) => setAdSoyad(e.target.value)}
                   autoComplete="name"
                 />
               </label>
-              <label>
-                <span>E-posta</span>
+              <label className="alan">
+                <span className="etiket">E-posta</span>
                 <input
+                  className="girdi"
                   type="email"
                   value={eposta}
                   onChange={(e) => setEposta(e.target.value)}
@@ -179,9 +201,10 @@ export default function Giris() {
             </>
           )}
 
-          <label>
-            <span>Parola</span>
+          <label className="alan">
+            <span className="etiket">Parola</span>
             <input
+              className="girdi"
               type="password"
               value={parola}
               onChange={(e) => setParola(e.target.value)}
@@ -190,11 +213,11 @@ export default function Giris() {
             />
           </label>
 
-          {hata && <p className="uyari" role="alert">{hata}</p>}
-          {bilgi && <p className="bilgi">{bilgi}</p>}
+          {hata && <p className="bildirim" role="alert">{hata}</p>}
+          {bilgi && <p className="bildirim bilgi" role="status">{bilgi}</p>}
 
-          <button type="submit" className="birincil" disabled={bekliyor}>
-            {bekliyor ? "…" : kip === "giris" ? "Giriş yap" : "Hesap oluştur"}
+          <button type="submit" className="dugme birincil genis" disabled={bekliyor}>
+            {bekliyor ? "Bekleniyor" : kip === "giris" ? "Giriş yap" : "Hesap oluştur"}
           </button>
         </form>
       </div>

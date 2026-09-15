@@ -13,16 +13,16 @@ const config: CapacitorConfig = {
   webDir: "dist",
   android: {
     // Karanlık tema: açılışta beyaz parlama olmasın.
-    backgroundColor: "#05070C",
+    backgroundColor: "#08090B",
   },
   ios: {
-    backgroundColor: "#05070C",
+    backgroundColor: "#08090B",
     contentInset: "always",
   },
   plugins: {
     SplashScreen: {
       launchShowDuration: 600,
-      backgroundColor: "#05070C",
+      backgroundColor: "#08090B",
       showSpinner: false,
     },
   },

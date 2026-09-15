@@ -1,0 +1,155 @@
+/* ═══════════════════════════════════════════════════════════════════
+   YAZVEB — tasarım jetonları
+   ═══════════════════════════════════════════════════════════════════
+   Uygulamadaki her renk, boşluk, yazı boyutu ve süre buradan gelir.
+   Bir bileşende çıplak "17px" ya da "#1a1a1a" görürsen hatadır.
+
+   RENK FİKRİ
+   ──────────
+   Zemin neredeyse siyah ama ölü değil: grafit tonları derinlik verir.
+   Tek vurgu rengi var — "Sinyal". Logodaki beynin mavisinden türetildi,
+   doygunluğu bilerek düşürüldü: neon değil, soğuk bir cam ışığı. Yalnızca
+   bir şey CANLI olduğunda görünür (dinleme, yanıt, odak, seçim).
+   Gradyan yok, mor yok, ikinci vurgu yok.
+   ═══════════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* ── Zemin katmanları (koyudan açığa) ── */
+  --z-0: #050506;          /* boşluk */
+  --z-1: #08090b;          /* sayfa */
+  --z-2: #0d0f12;          /* yükseltilmiş yüzey */
+  --z-3: #14171b;          /* etkileşimli yüzey */
+  --z-4: #1b1f24;          /* basılı / seçili yüzey */
+
+  /* ── Metin (mat beyazdan grafite) ── */
+  --m-1: #ecedee;          /* birincil — başlık, yanıt metni */
+  --m-2: #a9adb3;          /* ikincil — gövde, kullanıcı mesajı */
+  --m-3: #7c8188;          /* üçüncül — üst veri, etiket */
+  --m-4: #464a50;          /* pasif — yer tutucu, devre dışı */
+
+  /* ── Çizgiler: renk değil, beyazın çok düşük opaklığı ── */
+  --c-ince: rgba(255, 255, 255, 0.06);
+  --c-orta: rgba(255, 255, 255, 0.10);
+  --c-guclu: rgba(255, 255, 255, 0.16);
+  --isik-ic: inset 0 1px 0 rgba(255, 255, 255, 0.05);   /* üst kenar parıltısı */
+
+  /* ── Sinyal: tek vurgu ── */
+  --sinyal: #8ccfe2;
+  --sinyal-rgb: 140, 207, 226;
+  --sinyal-soluk: rgba(var(--sinyal-rgb), 0.14);
+  --sinyal-cizgi: rgba(var(--sinyal-rgb), 0.38);
+
+  /* ── İşlevsel renkler (vurgu değil, durum) ── */
+  --hata: #e08c78;
+  --hata-soluk: rgba(224, 140, 120, 0.10);
+
+  /* ── Boşluk: 4 tabanlı, 8'in katlarına yaslanır ── */
+  --b-1: 4px;
+  --b-2: 8px;
+  --b-3: 12px;
+  --b-4: 16px;
+  --b-5: 24px;
+  --b-6: 32px;
+  --b-7: 48px;
+  --b-8: 64px;
+  --b-9: 96px;
+
+  /* ── Köşe: küçük tutulur; büyük yuvarlak kart yok ── */
+  --k-1: 6px;
+  --k-2: 10px;
+  --k-3: 14px;
+  --k-tam: 999px;
+
+  /* ── Tipografi: tek aile, üç ağırlık ── */
+  --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --a-normal: 400;
+  --a-orta: 500;
+  --a-kalin: 600;
+
+  --y-etiket: 11px;        /* büyük harf üst veri */
+  --y-kucuk: 13px;
+  --y-govde: 15px;
+  --y-okuma: 16px;         /* asistan yanıtı */
+  --y-baslik: 20px;
+  --y-buyuk: 28px;
+  --y-dev: clamp(30px, 4.2vw, 44px);
+
+  --s-sik: 1.25;
+  --s-govde: 1.55;
+  --s-okuma: 1.68;
+
+  --h-sik: -0.022em;       /* büyük başlıkların optik sıkılığı */
+  --h-etiket: 0.12em;
+
+  /* ── Hareket: dört katman, her birinin kendi eğrisi ── */
+  --t-mikro: 140ms;        /* dokunma, hover */
+  --t-ui: 320ms;           /* bileşen girişi, gösterge */
+  --t-sinema: 760ms;       /* sahne değişimi */
+  --t-ortam: 9s;           /* arka plan nefesi */
+
+  --e-dokunus: cubic-bezier(0.2, 0, 0, 1);        /* hızlı başlar, yumuşak durur */
+  --e-giris: cubic-bezier(0.16, 1, 0.3, 1);       /* uzun, doğal yavaşlama */
+  --e-cikis: cubic-bezier(0.4, 0, 1, 1);          /* çekilir, gecikmez */
+  --e-sinema: cubic-bezier(0.65, 0, 0.18, 1);     /* ağır başlar, ağır biter */
+  --kademe: 60ms;          /* sıralı giriş aralığı */
+
+  /* ── Cam: yalnızca yüzen kontroller ── */
+  --cam: rgba(16, 18, 22, 0.62);
+  --cam-bulanik: blur(20px) saturate(140%);
+
+  /* ── Gölge: doğal, kısa, sıcak değil ── */
+  --g-yuzen: 0 1px 1px rgba(0, 0, 0, 0.4), 0 12px 32px -8px rgba(0, 0, 0, 0.6);
+
+  /* ── Katmanlar ── */
+  --kat-arka: 0;
+  --kat-icerik: 1;
+  --kat-yuzen: 20;
+  --kat-gezinme: 30;
+  --kat-pencere: 40;
+  --kat-ipucu: 50;
+
+  /* ── Güvenli alan (çentik, gezinme çubuğu) ── */
+  --ust: env(safe-area-inset-top, 0px);
+  --alt: env(safe-area-inset-bottom, 0px);
+
+  /* ── Kontrol boyutları: dokunma hedefi en az 40 ── */
+  --d-kucuk: 32px;
+  --d-orta: 40px;
+  --d-buyuk: 48px;
+  --d-yazici: 56px;
+
+  /* ── Yerleşim ── */
+  --sutun: 680px;          /* okuma sütunu */
+  --gezinme-pay: calc(76px + var(--alt));
+}
+
+@media (min-width: 900px) {
+  :root { --gezinme-pay: 0px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --t-ui: 1ms;
+    --t-sinema: 1ms;
+    --kademe: 0ms;
+  }
+}

@@ -10,17 +10,18 @@
     "preview": "vite preview",
     "guvenlik": "node guvenlik_kontrol.mjs",
     "baglanti": "node baglanti_kontrol.mjs",
-    "yayina-hazir": "npm run build && npm run guvenlik"
+    "yayina-hazir": "npm run build && npm run guvenlik",
+    "test:transkript": "tsx testler/transkript.test.mts"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.2",
     "@capacitor/cli": "^6.2.2",
     "@capacitor/core": "^6.2.2",
     "@capacitor/ios": "^6.2.2",
+    "@fontsource-variable/inter": "^5.3.0",
     "@supabase/supabase-js": "^2.116.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^7.18.3",
     "ws": "^8.21.3"
   },
   "devDependencies": {
@@ -30,7 +31,6 @@
     "@types/react-dom": "^18.3.1",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.3.3",
-    "deno": "^2.9.6",
     "eslint": "^9.13.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.14",

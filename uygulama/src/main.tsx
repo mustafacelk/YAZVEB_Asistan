@@ -1,7 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import Uygulama from "./uygulama";
-import "./stil.css";
+import "./tasarim/jetonlar.css";
+import "./tasarim/temel.css";
+import "./tasarim/ekranlar.css";
 
 createRoot(document.getElementById("kok")!).render(
   <StrictMode>

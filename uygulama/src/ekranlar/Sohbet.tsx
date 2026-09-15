@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { supabase, ROL_ADI, type Mesaj, type Profil } from "../veri/supabase";
 import { useOturum } from "../veri/oturum";
+import Simge from "../tasarim/Simge";
 
 const SAYFA = 60;
+
+const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
 
 /**
  * Genel sohbet — topluluğun tek ortak odası.
@@ -18,7 +21,6 @@ export default function Sohbet() {
   const [taslak, setTaslak] = useState("");
   const [yukleniyor, setYukleniyor] = useState(true);
   const [hata, setHata] = useState<string | null>(null);
-  const dipRef = useRef<HTMLDivElement | null>(null);
   const listeRef = useRef<HTMLDivElement | null>(null);
 
   // Kullanıcı yukarı kaydırdıysa yeni mesaj gelince zorla aşağı atma;
@@ -26,9 +28,17 @@ export default function Sohbet() {
   const dipteMi = useRef(true);
 
   const kaydir = useCallback((zorla = false) => {
-    if (!zorla && !dipteMi.current) return;
-    dipRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const el = listeRef.current;
+    if (!el || (!zorla && !dipteMi.current)) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: zorla ? "auto" : "smooth" });
   }, []);
+
+  // Hata bildirimi kendiliğinden kaybolur; ekranda kalıcı kırmızı yazı yorar.
+  useEffect(() => {
+    if (!hata) return;
+    const z = setTimeout(() => setHata(null), 4000);
+    return () => clearTimeout(z);
+  }, [hata]);
 
   useEffect(() => {
     let gecerli = true;
@@ -110,67 +120,86 @@ export default function Sohbet() {
   }
 
   const gruplar = useMemo(() => grupla(mesajlar), [mesajlar]);
+  const uyeSayisi = Object.keys(kisiler).length;
 
   return (
-    <div className="sohbet">
+    <div className="oda">
+      <header className="oda-basi">
+        <div className="sutun">
+          <div>
+            <span className="etiket gir">Topluluk</span>
+            <h1 className="gir" style={kademe(1)}>Genel sohbet</h1>
+          </div>
+          {uyeSayisi > 0 && (
+            <span className="etiket rakam gir" style={kademe(2)}>{uyeSayisi} üye</span>
+          )}
+        </div>
+      </header>
+
       <div
-        className="sohbet-liste"
+        className="oda-akis"
         ref={listeRef}
+        aria-live="polite"
+        aria-relevant="additions"
         onScroll={(e) => {
           const el = e.currentTarget;
-          dipteMi.current =
-            el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+          dipteMi.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
         }}
       >
-        {yukleniyor && <p className="sessiz">Sohbet yükleniyor…</p>}
+        {yukleniyor && (
+          <div className="sutun yigin" aria-label="Yükleniyor">
+            {[62, 40, 54].map((g, i) => (
+              <div key={i} className="iskelet" style={{ width: g + "%" }} />
+            ))}
+          </div>
+        )}
+
         {!yukleniyor && mesajlar.length === 0 && (
-          <p className="sessiz">Henüz mesaj yok. İlk yazan sen ol.</p>
+          <div className="bos gir">
+            <Simge ad="sohbet" boyut={28} />
+            <b>Oda sessiz.</b>
+            <span>İlk mesajı sen yaz.</span>
+          </div>
         )}
 
         {gruplar.map((grup) => {
           const kisi = kisiler[grup.yazar];
           const benimMi = grup.yazar === profil?.id;
+          const ilk = grup.mesajlar[0];
           return (
-            <div
-              key={grup.anahtar}
-              className={"balon-grup" + (benimMi ? " benim" : "")}
-            >
-              {!benimMi && (
-                <div className="balon-basi">
-                  <b>{kisi?.kullanici_adi ?? "üye"}</b>
-                  {kisi && kisi.rol !== "uye" && (
-                    <span className={"rozet rol-" + kisi.rol}>
-                      {ROL_ADI[kisi.rol]}
-                    </span>
-                  )}
-                </div>
-              )}
+            <section key={grup.anahtar} className={"grup" + (benimMi ? " benim" : "")}>
+              <div className="grup-ust">
+                {!benimMi && <b>{kisi?.ad_soyad || kisi?.kullanici_adi || "üye"}</b>}
+                {!benimMi && kisi && kisi.rol !== "uye" && (
+                  <span className={"rozet rol-" + kisi.rol}>{ROL_ADI[kisi.rol]}</span>
+                )}
+                <time dateTime={ilk.olusturuldu}>{saat(ilk.olusturuldu)}</time>
+              </div>
               {grup.mesajlar.map((m) => (
-                <div key={m.id} className="balon">
+                <div key={m.id} className="satir">
                   <p>{m.icerik}</p>
-                  <time>{saat(m.olusturuldu)}</time>
                   {(benimMi || yetkiliMi) && (
                     <button
-                      className="balon-sil"
+                      className="ikon-dugme kucuk"
                       onClick={() => sil(m.id)}
                       aria-label="Mesajı sil"
-                      title="Sil"
+                      data-ipucu="Sil"
                     >
-                      ×
+                      <Simge ad="cop" boyut={16} />
                     </button>
                   )}
                 </div>
               ))}
-            </div>
+            </section>
           );
         })}
-        <div ref={dipRef} />
       </div>
 
-      {hata && <p className="uyari cubuk" role="alert">{hata}</p>}
+      {hata && <p className="bildirim cam" role="alert">{hata}</p>}
 
       <form
-        className="yazma"
+        className="yazici yalin cam gir"
+        style={kademe(3)}
         onSubmit={(e) => {
           e.preventDefault();
           gonder();
@@ -179,12 +208,13 @@ export default function Sohbet() {
         <input
           value={taslak}
           onChange={(e) => setTaslak(e.target.value)}
-          placeholder="Mesaj yaz…"
+          placeholder="Odaya yaz"
           maxLength={2000}
           aria-label="Mesaj"
+          enterKeyHint="send"
         />
-        <button type="submit" disabled={!taslak.trim()} aria-label="Gönder">
-          ↑
+        <button type="submit" className="gonder-dugme" disabled={!taslak.trim()} aria-label="Gönder">
+          <Simge ad="gonder" boyut={18} />
         </button>
       </form>
     </div>
@@ -193,7 +223,7 @@ export default function Sohbet() {
 
 // ── Yardımcılar ────────────────────────────────────────────────────
 
-/** Aynı kişinin arka arkaya mesajları tek balon grubunda toplanır. */
+/** Aynı kişinin 5 dakika içindeki arka arkaya mesajları tek grupta toplanır. */
 function grupla(mesajlar: Mesaj[]) {
   const gruplar: { anahtar: string; yazar: string; mesajlar: Mesaj[] }[] = [];
   for (const m of mesajlar) {

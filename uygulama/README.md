@@ -203,14 +203,24 @@ neredeyse aynı deneyimi alır.
 
 ```
 src/
-  veri/supabase.ts   bağlantı ve tipler
-  veri/oturum.tsx    kim giriş yapmış, rolü ne
+  veri/supabase.ts     bağlantı ve tipler
+  veri/oturum.tsx      kim giriş yapmış, rolü ne
+  veri/transkript.ts   konuşma tanıma parçalarını tekrarsız birleştirir
   ekranlar/
-    Giris.tsx        giriş ve kayıt
-    Sohbet.tsx       genel sohbet (anlık)
-    Etkinlikler.tsx  takvim, rol kısıtlı düzenleme
-    Topluluk.tsx     üye listesi, rol dağıtma, hesap
-  stil.css           görsel dil
+    Asistan.tsx        küre, sesli/yazılı asistan
+    Giris.tsx          giriş ve kayıt
+    Sohbet.tsx         genel sohbet (anlık)
+    Etkinlikler.tsx    takvim, rol kısıtlı düzenleme
+    Topluluk.tsx       üye listesi, rol dağıtma, hesap
+  canli/
+    sahne.ts           WebGL parçacık küresi (durumlar, sönümlü hareket)
+    olcer.ts           mikrofon ve yanıt sesinden gerçek genlik
+    Kure.tsx           kürenin React kabuğu
+  tasarim/
+    jetonlar.css       TEK KAYNAK: renk, boşluk, yazı, hareket, katman
+    temel.css          zemin, kontroller, gezinme, sahne geçişi
+    ekranlar.css       ekran düzenleri
+    Simge.tsx          ikon seti (24 ızgara, 1.5 çizgi)
 veritabani/
   01_sema.sql        tablolar, tetikleyiciler
   02_yetkiler.sql    satır düzeyi güvenlik

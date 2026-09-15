@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { supabase, type Etkinlik } from "../veri/supabase";
 import { useOturum } from "../veri/oturum";
+import Simge from "../tasarim/Simge";
 
 type Taslak = {
   id?: number;
@@ -11,6 +13,11 @@ type Taslak = {
 };
 
 const BOS: Taslak = { baslik: "", aciklama: "", yer: "", baslangic: "" };
+
+/** Silme onayının açık kalma süresi. */
+const ONAY_MS = 3000;
+
+const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
 
 /**
  * Etkinlik takvimi.
@@ -29,6 +36,7 @@ export default function Etkinlikler() {
   const [yukleniyor, setYukleniyor] = useState(true);
   const [taslak, setTaslak] = useState<Taslak | null>(null);
   const [hata, setHata] = useState<string | null>(null);
+  const [kaydediliyor, setKaydediliyor] = useState(false);
 
   useEffect(() => {
     let gecerli = true;
@@ -58,6 +66,14 @@ export default function Etkinlikler() {
     };
   }, []);
 
+  // Pencere açıkken Esc kapatır.
+  useEffect(() => {
+    if (!taslak) return;
+    const tus = (e: KeyboardEvent) => { if (e.key === "Escape") setTaslak(null); };
+    window.addEventListener("keydown", tus);
+    return () => window.removeEventListener("keydown", tus);
+  }, [taslak]);
+
   async function tazele() {
     const { data } = await supabase
       .from("etkinlikler")
@@ -79,16 +95,18 @@ export default function Etkinlikler() {
       baslik: taslak.baslik.trim(),
       aciklama: taslak.aciklama.trim() || null,
       yer: taslak.yer.trim() || null,
-      baslangic: new Date(taslak.baslangic).toISOString(),
+      baslangic: taslak.baslangic ? new Date(taslak.baslangic).toISOString() : "",
     };
     if (!govde.baslik || !taslak.baslangic) {
       setHata("Başlık ve tarih gerekli.");
       return;
     }
 
+    setKaydediliyor(true);
     const { error } = taslak.id
       ? await supabase.from("etkinlikler").update(govde).eq("id", taslak.id)
       : await supabase.from("etkinlikler").insert(govde);
+    setKaydediliyor(false);
 
     if (error) {
       // En olası sebep: yönetici, başkanın kilitlediği kaydı düzenlemeye
@@ -105,7 +123,6 @@ export default function Etkinlikler() {
   }
 
   async function sil(e: Etkinlik) {
-    if (!confirm(`"${e.baslik}" silinsin mi?`)) return;
     const { error } = await supabase.from("etkinlikler").delete().eq("id", e.id);
     if (error) setHata("Silinemedi. Başkanın kilitlediği kayıtlar korunur.");
     else tazele();
@@ -119,142 +136,230 @@ export default function Etkinlikler() {
 
   return (
     <div className="sayfa">
-      <header className="sayfa-basi">
-        <h2>Etkinlikler</h2>
-        {yetkiliMi && (
-          <button className="birincil ufak" onClick={() => setTaslak({ ...BOS })}>
-            + Yeni
-          </button>
+      <div className="sutun">
+        <header className="sayfa-basi">
+          <div>
+            <span className="etiket gir">Takvim</span>
+            <h1 className="gir" style={kademe(1)}>Etkinlikler</h1>
+          </div>
+          {yetkiliMi && (
+            <button className="dugme birincil gir" style={kademe(2)} onClick={() => { setHata(null); setTaslak({ ...BOS }); }}>
+              <Simge ad="arti" boyut={16} />
+              Yeni etkinlik
+            </button>
+          )}
+        </header>
+
+        {hata && !taslak && <p className="bildirim" role="alert">{hata}</p>}
+
+        {yukleniyor && (
+          <div className="yigin" aria-label="Yükleniyor">
+            {[70, 45, 60].map((g, i) => (
+              <div key={i} className="iskelet" style={{ width: g + "%" }} />
+            ))}
+          </div>
         )}
-      </header>
 
-      {hata && <p className="uyari" role="alert">{hata}</p>}
-      {yukleniyor && <p className="sessiz">Yükleniyor…</p>}
+        {!yukleniyor && liste.length === 0 && (
+          <div className="bos gir">
+            <Simge ad="etkinlik" boyut={28} />
+            <b>Takvim boş.</b>
+            <span>{yetkiliMi ? "İlk etkinliği sen ekle." : "Yeni etkinlikler burada görünecek."}</span>
+          </div>
+        )}
 
-      {!yukleniyor && liste.length === 0 && (
-        <p className="sessiz">Henüz etkinlik yok.</p>
-      )}
+        {yaklasan.length > 0 && (
+          <section>
+            <div className="bolum-basi gir" style={kademe(2)}>
+              <span className="etiket">Yaklaşan</span>
+              <span className="etiket rakam">{yaklasan.length}</span>
+            </div>
+            {yaklasan.map((e, i) => (
+              <Satir
+                key={e.id}
+                etkinlik={e}
+                sira={i + 3}
+                siradaki={i === 0}
+                duzenlenebilir={duzenlenebilir(e)}
+                onDuzenle={() => { setHata(null); setTaslak(taslagaCevir(e)); }}
+                onSil={() => sil(e)}
+              />
+            ))}
+          </section>
+        )}
 
-      {yaklasan.length > 0 && (
-        <>
-          <h3 className="bolum">Yaklaşan</h3>
-          {yaklasan.map((e) => (
-            <Kart
-              key={e.id}
-              etkinlik={e}
-              duzenlenebilir={duzenlenebilir(e)}
-              onDuzenle={() => setTaslak(taslagaCevir(e))}
-              onSil={() => sil(e)}
-            />
-          ))}
-        </>
-      )}
+        {gecmis.length > 0 && (
+          <section>
+            <div className="bolum-basi">
+              <span className="etiket">Geçmiş</span>
+              <span className="etiket rakam">{gecmis.length}</span>
+            </div>
+            {gecmis.map((e) => (
+              <Satir
+                key={e.id}
+                etkinlik={e}
+                gecmis
+                duzenlenebilir={duzenlenebilir(e)}
+                onDuzenle={() => { setHata(null); setTaslak(taslagaCevir(e)); }}
+                onSil={() => sil(e)}
+              />
+            ))}
+          </section>
+        )}
+      </div>
 
-      {gecmis.length > 0 && (
-        <>
-          <h3 className="bolum">Geçmiş</h3>
-          {gecmis.map((e) => (
-            <Kart
-              key={e.id}
-              etkinlik={e}
-              gecmis
-              duzenlenebilir={duzenlenebilir(e)}
-              onDuzenle={() => setTaslak(taslagaCevir(e))}
-              onSil={() => sil(e)}
-            />
-          ))}
-        </>
-      )}
-
-      {taslak && (
+      {/* Pencere body'ye taşınır: sahne katmanı kendi yığın bağlamını
+          kuruyor ve içindeki hiçbir şey gezinme çubuğunun üstüne çıkamıyor. */}
+      {taslak && createPortal(
         <div className="katman" onClick={() => setTaslak(null)}>
-          <div className="pencere" onClick={(o) => o.stopPropagation()}>
-            <h3>{taslak.id ? "Etkinliği düzenle" : "Yeni etkinlik"}</h3>
-            <div className="alan-yigini">
-              <label>
-                <span>Başlık</span>
+          <div
+            className="pencere"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="etkinlik-pencere-baslik"
+            onClick={(o) => o.stopPropagation()}
+          >
+            <div className="pencere-basi">
+              <h2 id="etkinlik-pencere-baslik">{taslak.id ? "Etkinliği düzenle" : "Yeni etkinlik"}</h2>
+              <button className="ikon-dugme" onClick={() => setTaslak(null)} aria-label="Kapat">
+                <Simge ad="kapat" />
+              </button>
+            </div>
+            <form
+              className="yigin"
+              onSubmit={(o) => { o.preventDefault(); kaydet(); }}
+            >
+              <label className="alan">
+                <span className="etiket">Başlık</span>
                 <input
+                  className="girdi"
                   value={taslak.baslik}
                   onChange={(o) => setTaslak({ ...taslak, baslik: o.target.value })}
                   maxLength={120}
+                  autoFocus
                 />
               </label>
-              <label>
-                <span>Tarih ve saat</span>
+              <label className="alan">
+                <span className="etiket">Tarih ve saat</span>
                 <input
+                  className="girdi"
                   type="datetime-local"
                   value={taslak.baslangic}
                   onChange={(o) => setTaslak({ ...taslak, baslangic: o.target.value })}
                 />
               </label>
-              <label>
-                <span>Yer</span>
+              <label className="alan">
+                <span className="etiket">Yer <i>(isteğe bağlı)</i></span>
                 <input
+                  className="girdi"
                   value={taslak.yer}
                   onChange={(o) => setTaslak({ ...taslak, yer: o.target.value })}
                   maxLength={120}
                 />
               </label>
-              <label>
-                <span>Açıklama</span>
+              <label className="alan">
+                <span className="etiket">Açıklama <i>(isteğe bağlı)</i></span>
                 <textarea
+                  className="girdi"
                   rows={4}
                   value={taslak.aciklama}
                   onChange={(o) => setTaslak({ ...taslak, aciklama: o.target.value })}
                   maxLength={2000}
                 />
               </label>
+              {hata && <p className="bildirim" role="alert">{hata}</p>}
               <div className="pencere-dip">
-                <button onClick={() => setTaslak(null)}>Vazgeç</button>
-                <button className="birincil" onClick={kaydet}>Kaydet</button>
+                <button type="button" className="dugme" onClick={() => setTaslak(null)}>Vazgeç</button>
+                <button type="submit" className="dugme birincil" disabled={kaydediliyor}>
+                  {kaydediliyor ? "Kaydediliyor" : "Kaydet"}
+                </button>
               </div>
-            </div>
+            </form>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
 }
 
-function Kart({
+function Satir({
   etkinlik,
   duzenlenebilir,
   gecmis,
+  siradaki,
+  sira = 0,
   onDuzenle,
   onSil,
 }: {
   etkinlik: Etkinlik;
   duzenlenebilir: boolean;
   gecmis?: boolean;
+  siradaki?: boolean;
+  sira?: number;
   onDuzenle: () => void;
   onSil: () => void;
 }) {
+  // Silme iki adımlı: ilk dokunuş onay ister, 3 sn içinde ikinci dokunuş siler.
+  const [onay, setOnay] = useState(false);
+  const zaman = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (zaman.current) clearTimeout(zaman.current); }, []);
+
   const t = new Date(etkinlik.baslangic);
   return (
-    <article className={"kart" + (gecmis ? " solgun" : "")}>
-      <div className="kart-tarih">
+    <article className={"etkinlik gir" + (gecmis ? " gecmis" : "")} style={kademe(Math.min(sira, 8))}>
+      <div className="etkinlik-tarih">
         <b>{t.toLocaleDateString("tr-TR", { day: "2-digit" })}</b>
-        <span>{t.toLocaleDateString("tr-TR", { month: "short" })}</span>
+        <span className="etiket">{t.toLocaleDateString("tr-TR", { month: "short" })}</span>
       </div>
-      <div className="kart-govde">
-        <h4>
+
+      <div className="etkinlik-govde">
+        {siradaki && <span className="etiket siradaki">Sıradaki</span>}
+        <h3>
           {etkinlik.baslik}
           {etkinlik.baskan_kilidi && (
-            <span className="rozet rol-baskan" title="Başkan tarafından düzenlendi">
+            <span className="rozet rol-baskan" title="Başkan tarafından düzenlendi; yöneticiler değiştiremez">
               Başkan
             </span>
           )}
-        </h4>
-        <p className="kart-ust">
-          {t.toLocaleString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
-          {etkinlik.yer ? " · " + etkinlik.yer : ""}
-        </p>
-        {etkinlik.aciklama && <p className="kart-metin">{etkinlik.aciklama}</p>}
+        </h3>
+        <div className="etkinlik-meta">
+          <span className="rakam">
+            {t.toLocaleDateString("tr-TR", { weekday: "long" })} ·{" "}
+            {t.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}
+          </span>
+          {etkinlik.yer && (
+            <span>
+              <Simge ad="konum" boyut={14} />
+              {etkinlik.yer}
+            </span>
+          )}
+        </div>
+        {etkinlik.aciklama && <p className="etkinlik-aciklama">{etkinlik.aciklama}</p>}
       </div>
+
       {duzenlenebilir && (
-        <div className="kart-eylem">
-          <button onClick={onDuzenle} aria-label="Düzenle" title="Düzenle">✎</button>
-          <button onClick={onSil} aria-label="Sil" title="Sil">🗑</button>
+        <div className="etkinlik-eylem">
+          <button className="ikon-dugme kucuk" onClick={onDuzenle} aria-label="Düzenle" data-ipucu="Düzenle">
+            <Simge ad="kalem" boyut={16} />
+          </button>
+          <button
+            className={"ikon-dugme kucuk" + (onay ? " onay-sil" : "")}
+            onClick={() => {
+              if (onay) {
+                if (zaman.current) clearTimeout(zaman.current);
+                setOnay(false);
+                onSil();
+                return;
+              }
+              setOnay(true);
+              zaman.current = setTimeout(() => setOnay(false), ONAY_MS);
+            }}
+            aria-label={onay ? `"${etkinlik.baslik}" silinsin mi? Onaylamak için tekrar dokun` : "Sil"}
+            data-ipucu={onay ? "Silmek için tekrar" : "Sil"}
+          >
+            <Simge ad="cop" boyut={16} />
+          </button>
         </div>
       )}
     </article>
