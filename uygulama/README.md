@@ -249,21 +249,29 @@ npm run test:transkript    # mikrofon parçalarını birleştirme (12)
 npm run yayina-hazir       # derleme + paket taraması (sır, kaynak haritası, CSP)
 ```
 
-Veritabanı yetki ve güvenlik testleri (86) — Docker gerekir:
+Veritabanı testleri (186) — Docker gerekir. Yetki ve güvenlik (86) + ödül iş
+mantığı ve saldırı senaryoları (100) tek paket hâlinde çalışır:
 
 ```bash
-docker run -d --name yz-test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=yazveb postgres:16-alpine
+docker run -d --name yz-test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=yazveb \
+  -p 127.0.0.1:5433:5432 postgres:17-alpine
 cd veritabani
-for f in 00_test_altyapisi.sql 01_sema.sql 02_yetkiler.sql 99_testler.sql 03_kurulum.sql 04_guvenlik.sql 99_guvenlik_testleri.sql; do
-  docker cp $f yz-test:/tmp/
-done
+for f in *.sql; do docker cp $f yz-test:/tmp/; done
 docker exec yz-test psql -U postgres -d yazveb -v ON_ERROR_STOP=1 -q \
   -f /tmp/00_test_altyapisi.sql -f /tmp/01_sema.sql -f /tmp/02_yetkiler.sql \
   -f /tmp/99_testler.sql -f /tmp/03_kurulum.sql -f /tmp/04_guvenlik.sql \
-  -f /tmp/99_guvenlik_testleri.sql
+  -f /tmp/99_guvenlik_testleri.sql -f /tmp/05_oduller.sql -f /tmp/99_odul_testleri.sql
 ```
 
 Bir kural bozulursa betik hata ile durur.
+
+Paket **boş bir veritabanı** ister: kendi test kullanıcılarını ve etkinliklerini
+kurar, aynı veritabanına ikinci kez çalıştırılamaz. Tekrarlamadan önce:
+
+```bash
+docker exec yz-test psql -U postgres -d postgres -q \
+  -c "drop database yazveb" -c "create database yazveb"
+```
 
 ---
 
@@ -370,19 +378,15 @@ npm run test:odul       # QR gidiş-dönüşü (50 rastgele token), ilerleme dil
 ```
 
 İş mantığı ve saldırı senaryoları (100) — tekrar tarama, süre, iptal, konum,
-kilit, stok, son 3, tükenme, sınırsız, PIN, başkasının ödülü, hız sınırı:
+kilit, stok, son 3, tükenme, sınırsız, PIN, başkasının ödülü, hız sınırı —
+yukarıdaki "Testleri çalıştırma" paketinin içinde çalışır.
+
+Gerçek eşzamanlılık (20 kişi aynı anda son ödüle) ayrı ve **boş** bir
+veritabanına karşı, yukarıdaki kabı kullanarak:
 
 ```bash
-docker exec yz-test psql -U postgres -d yazveb -v ON_ERROR_STOP=1 -q \
-  -f /tmp/00_test_altyapisi.sql -f /tmp/01_sema.sql -f /tmp/02_yetkiler.sql \
-  -f /tmp/99_testler.sql -f /tmp/03_kurulum.sql -f /tmp/04_guvenlik.sql \
-  -f /tmp/05_oduller.sql -f /tmp/99_odul_testleri.sql
-```
-
-Gerçek eşzamanlılık (20 kişi aynı anda son ödüle), boş bir test veritabanına karşı:
-
-```bash
-PG_URL=postgres://postgres:test@127.0.0.1:5432/yazveb npm run test:yaris
+docker exec yz-test psql -U postgres -d postgres -q -c "create database yaris"
+PG_URL=postgres://postgres:test@127.0.0.1:5433/yaris npm run test:yaris
 ```
 
 ---
