@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { supabase, type Etkinlik } from "../veri/supabase";
 import { useOturum } from "../veri/oturum";
 import Simge from "../tasarim/Simge";
+import Tarayici from "../odul/Tarayici";
 
 type Taslak = {
   id?: number;
@@ -30,8 +31,9 @@ const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
  *
  * Buradaki kontroller yalnızca düğmeleri gizler. Kural veritabanında.
  */
-export default function Etkinlikler() {
+export default function Etkinlikler({ onPuanKazan }: { onPuanKazan?: () => void }) {
   const { yetkiliMi, baskanMi } = useOturum();
+  const [tarama, setTarama] = useState(false);
   const [liste, setListe] = useState<Etkinlik[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [taslak, setTaslak] = useState<Taslak | null>(null);
@@ -142,12 +144,19 @@ export default function Etkinlikler() {
             <span className="etiket gir">Takvim</span>
             <h1 className="gir" style={kademe(1)}>Etkinlikler</h1>
           </div>
-          {yetkiliMi && (
-            <button className="dugme birincil gir" style={kademe(2)} onClick={() => { setHata(null); setTaslak({ ...BOS }); }}>
-              <Simge ad="arti" boyut={16} />
-              Yeni etkinlik
+          <div className="sayfa-basi-eylem">
+            {/* Etkinlikteki üye için en kısa yol: takvimden doğrudan QR'ye. */}
+            <button className="dugme cizgili gir" style={kademe(2)} onClick={() => setTarama(true)}>
+              <Simge ad="tara" boyut={16} />
+              Puan kazan
             </button>
-          )}
+            {yetkiliMi && (
+              <button className="dugme birincil gir" style={kademe(3)} onClick={() => { setHata(null); setTaslak({ ...BOS }); }}>
+                <Simge ad="arti" boyut={16} />
+                Yeni etkinlik
+              </button>
+            )}
+          </div>
         </header>
 
         {hata && !taslak && <p className="bildirim" role="alert">{hata}</p>}
@@ -207,6 +216,15 @@ export default function Etkinlikler() {
           </section>
         )}
       </div>
+
+      {tarama && (
+        <Tarayici
+          mod={{ tur: "gorev" }}
+          onKapat={() => setTarama(false)}
+          onDegisti={() => {}}
+          onOdulGoster={() => onPuanKazan?.()}
+        />
+      )}
 
       {/* Pencere body'ye taşınır: sahne katmanı kendi yığın bağlamını
           kuruyor ve içindeki hiçbir şey gezinme çubuğunun üstüne çıkamıyor. */}

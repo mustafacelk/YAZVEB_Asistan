@@ -296,8 +296,8 @@ select.girdi { height: var(--d-kucuk); padding: 0 var(--b-2); font-size: var(--y
   bottom: calc(var(--alt) + var(--b-3));
   transform: translateX(-50%);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  width: min(calc(100% - var(--b-6)), 360px);
+  grid-template-columns: repeat(var(--adet, 4), 1fr);
+  width: min(calc(100% - var(--b-5)), 400px);
   padding: var(--b-1);
   border-radius: var(--k-tam);
 }
@@ -306,7 +306,7 @@ select.girdi { height: var(--d-kucuk); padding: 0 var(--b-2); font-size: var(--y
   top: var(--b-1);
   bottom: var(--b-1);
   left: var(--b-1);
-  width: calc((100% - var(--b-2)) / 4);
+  width: calc((100% - var(--b-2)) / var(--adet, 4));
   border-radius: var(--k-tam);
   background: var(--z-4);
   box-shadow: var(--isik-ic);
@@ -356,7 +356,7 @@ select.girdi { height: var(--d-kucuk); padding: 0 var(--b-2); font-size: var(--y
     bottom: auto;
     transform: translateY(-50%);
     grid-template-columns: none;
-    grid-template-rows: repeat(4, var(--d-buyuk));
+    grid-template-rows: repeat(var(--adet, 4), var(--d-buyuk));
     width: auto;
   }
   .gezinme-gosterge {

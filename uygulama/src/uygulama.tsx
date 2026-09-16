@@ -6,14 +6,16 @@ import Sohbet from "./ekranlar/Sohbet";
 import Etkinlikler from "./ekranlar/Etkinlikler";
 import Topluluk from "./ekranlar/Topluluk";
 import Asistan from "./ekranlar/Asistan";
+import Oduller from "./ekranlar/Oduller";
 import Simge, { type SimgeAdi } from "./tasarim/Simge";
 
-type Sekme = "asistan" | "sohbet" | "etkinlik" | "topluluk";
+type Sekme = "asistan" | "sohbet" | "etkinlik" | "odul" | "topluluk";
 
 const SEKMELER: { anahtar: Sekme; ad: string; simge: SimgeAdi }[] = [
   { anahtar: "asistan", ad: "Asistan", simge: "asistan" },
   { anahtar: "sohbet", ad: "Sohbet", simge: "sohbet" },
   { anahtar: "etkinlik", ad: "Etkinlikler", simge: "etkinlik" },
+  { anahtar: "odul", ad: "Ödüller", simge: "odul" },
   { anahtar: "topluluk", ad: "Topluluk", simge: "topluluk" },
 ];
 
@@ -85,14 +87,15 @@ function Ekranlar() {
       <main className="sahne" data-asama={asama} key={gorunen}>
         {gorunen === "asistan" && <Asistan />}
         {gorunen === "sohbet" && <Sohbet />}
-        {gorunen === "etkinlik" && <Etkinlikler />}
+        {gorunen === "etkinlik" && <Etkinlikler onPuanKazan={() => git("odul")} />}
+        {gorunen === "odul" && <Oduller />}
         {gorunen === "topluluk" && <Topluluk />}
       </main>
 
       <nav
         className="gezinme cam"
         aria-label="Ana gezinme"
-        style={{ "--i": sira } as CSSProperties}
+        style={{ "--i": sira, "--adet": SEKMELER.length } as CSSProperties}
       >
         <span className="gezinme-gosterge" aria-hidden="true" />
         {SEKMELER.map((s) => (

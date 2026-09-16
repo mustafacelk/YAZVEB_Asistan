@@ -160,6 +160,29 @@ for (const tablo of ["profiller", "mesajlar", "etkinlikler"]) {
   }
 }
 
+// ── 5. Community Rewards (05_oduller.sql) ──────────────────────────
+// Ödül fonksiyonları var mı ve anonime kapalı mı? Tablolar API'de hiç
+// görünmemeli (ayrı "odul" şemasında).
+{
+  const { durum } = await iste("/rest/v1/rpc/odul_profil", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (durum === 404) yaz("!", "Ödül sistemi kurulmamış", "05_oduller.sql'i çalıştır");
+  else if (durum === 200) yaz("✗", "GÜVENLİK: ödül profili anonim okunabiliyor");
+  else yaz("✓", "Ödül sistemi kurulu, anonime kapalı", `HTTP ${durum}`);
+}
+{
+  const { durum } = await iste("/rest/v1/rpc/odul_gorev_tamamla", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ p_icerik: "KONTROL" }),
+  });
+  if (durum === 200) yaz("✗", "GÜVENLİK: anonim kullanıcı görev tamamlayabiliyor");
+  else if (durum !== 404) yaz("✓", "Anonim kullanıcı puan kazanamıyor", `HTTP ${durum}`);
+}
+
 const hatali = sonuc.filter((s) => s.durum === "✗").length;
 console.log(
   `\n═══ ${sonuc.length - hatali}/${sonuc.length} kontrol geçti ═══\n`,

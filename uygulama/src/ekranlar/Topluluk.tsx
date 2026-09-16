@@ -1,9 +1,12 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useEffect, useState, type CSSProperties } from "react";
 import { supabase, ROL_ADI, type Profil, type Rol } from "../veri/supabase";
 import { useOturum } from "../veri/oturum";
 import Simge from "../tasarim/Simge";
 
 const SIRA: Record<Rol, number> = { baskan: 0, yonetici: 1, uye: 2 };
+
+// Yalnızca yetkililer açtığında yüklenir.
+const Yonetim = lazy(() => import("../yonetim/Yonetim"));
 
 const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
 
@@ -16,7 +19,8 @@ const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
  * engeller (topluluk başkansız kalmasın).
  */
 export default function Topluluk() {
-  const { profil, baskanMi, cikis, profiliTazele } = useOturum();
+  const { profil, baskanMi, yetkiliMi, cikis, profiliTazele } = useOturum();
+  const [yonetimAcik, setYonetimAcik] = useState(false);
   const [kisiler, setKisiler] = useState<Profil[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [hata, setHata] = useState<string | null>(null);
@@ -90,6 +94,11 @@ export default function Topluluk() {
             <span className="etiket gir">YAZVEB</span>
             <h1 className="gir" style={kademe(1)}>Topluluk</h1>
           </div>
+          {yetkiliMi && (
+            <button className="dugme cizgili gir" style={kademe(2)} onClick={() => setYonetimAcik(true)}>
+              <Simge ad="ayar" boyut={16} /> Ödül yönetimi
+            </button>
+          )}
         </header>
 
         {hata && <p className="bildirim" role="alert">{hata}</p>}
@@ -181,6 +190,11 @@ export default function Topluluk() {
           </ul>
         )}
       </div>
+      {yonetimAcik && (
+        <Suspense fallback={null}>
+          <Yonetim onKapat={() => setYonetimAcik(false)} />
+        </Suspense>
+      )}
     </div>
   );
 }

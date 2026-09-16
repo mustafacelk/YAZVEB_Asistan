@@ -219,6 +219,16 @@ src/
     sahne.ts           WebGL parçacık küresi (durumlar, sönümlü hareket)
     olcer.ts           mikrofon ve yanıt sesinden gerçek genlik
     Kure.tsx           kürenin React kabuğu
+  odul/
+    Tarayici.tsx       kamera + kısa kod, görev başarısı
+    Reveal.tsx         sürpriz ödül açılışı
+    OdulGoster.tsx     işletmeye gösterilen ödül + PIN onayı
+    SponsorKarti.tsx   sponsor kartı, kıtlık etiketi, detay
+    qr.ts              QR çözme (BarcodeDetector / jsQR)
+  yonetim/
+    Yonetim.tsx        ödül yönetim paneli (lazy yüklenir)
+    QrKod.tsx          QR üretimi (SVG) ve yazdırma
+  ekranlar/Oduller.tsx ilerleme profili: puan, seviye, sponsorlar, cüzdan, sıralama
   tasarim/
     jetonlar.css       TEK KAYNAK: renk, boşluk, yazı, hareket, katman
     temel.css          zemin, kontroller, gezinme, sahne geçişi
@@ -302,6 +312,78 @@ update public.kota_ayarlari set dakika = 12, gun = 150, genel = 3000 where tur =
 - Custom SMTP + **Confirm email** (bkz. Kurulum → 4)
 - Başka alan adına taşınırsan: kenar fonksiyonuna ve Vercel'e
   `IZINLI_KOKENLER` değişkeni (virgülle ayrılmış kökenler)
+
+---
+
+## Community Rewards (QR, puan, sponsor, ödül)
+
+### Döngü
+
+Etkinliğe gel → QR'yi okut (ya da kısa kodu yaz) → puan → seviye → sponsor
+kilidi açılır → sponsordaki QR'yi okut → sürpriz ödül → işletmede göster →
+çalışan PIN'iyle onaylar.
+
+### Kurulum
+
+1. Supabase SQL editöründe **`veritabani/05_oduller.sql`**'i çalıştır
+   (04'ten sonra; tekrar çalıştırmak zararsız).
+2. `node baglanti_kontrol.mjs` → "Ödül sistemi kurulu, anonime kapalı" ✓
+3. Uygulamada **Topluluk → Ödül yönetimi** (ya da Ödüller → Yönetim).
+
+### Yönetim
+
+| Ne | Kim |
+| --- | --- |
+| QR görevi oluştur, QR göster/yazdır, QR yenile, iptal | başkan + yönetici |
+| Sponsor, kampanya, ödül stoğu, işletme PIN'i | başkan + yönetici |
+| Başkanın oluşturduğu/düzenlediği görev, sponsor, kampanya | yalnızca başkan |
+| Elle puan ekle/düş, seviyeler, seri bonusu, sıralama aç/kapa, denetim kaydı | yalnızca başkan |
+
+- **Etkinlik QR'si:** görev oluştur → QR simgesi → perdeye yansıt ya da yazdır.
+  Kamerası olmayan için altında kısa kod yazar.
+- **Sponsor QR'si:** kampanyanın QR'sini yazdırıp işletmeye bırak. İşletmeye
+  **PIN'i** ayrıca ilet; ödül onayında çalışan girer. PIN tanımlanmadan ödül
+  kullanılamaz.
+- **Stok:** kampanyayı düzenle → kaleme "stok ekle". Tükenen kampanya yeniden
+  açılır. Sınırsız kalemde stok düşmez, kişi başı hak yine işler.
+- **QR sızdıysa:** "QR yenile" — basılmış eski QR'ler anında geçersiz olur.
+
+### Güvenlik modeli
+
+- Tablolar API'ye açık olmayan `odul` şemasında; istemci yalnızca `odul_*`
+  fonksiyonlarını çağırır. Puan, kilit, stok, ödül kararı sunucuda.
+- QR içeriği `YAZVEB:G:` / `YAZVEB:S:` + 192 bit rastgele token. Sıralı kimlik yok.
+- Eşzamanlılık: görev ve kampanya satırı kilitlenir; son ödülü iki kişi aynı
+  anda isterse biri alır. Stok eksiye düşemez.
+- Ödül havuzu (sürpriz kampanyada hangi ödüller var) istemciye hiç gönderilmez.
+- Kaba kuvvet: 10 dakikada 10 hatalı kod; ödül başına 15 dakikada 5 hatalı PIN;
+  dakikada 20 tarama.
+- Ödül ekranında saniyesi akan saat ve 30 saniyede değişen doğrulama kodu;
+  asıl koruma PIN ile sunucuda "kullanıldı" işareti — ekran görüntüsüyle ikinci
+  kullanım yok.
+- Her yönetim işlemi `odul.denetim` tablosuna yazılır.
+
+### Testler
+
+```bash
+npm run test:odul       # QR gidiş-dönüşü (50 rastgele token), ilerleme dili (21)
+```
+
+İş mantığı ve saldırı senaryoları (100) — tekrar tarama, süre, iptal, konum,
+kilit, stok, son 3, tükenme, sınırsız, PIN, başkasının ödülü, hız sınırı:
+
+```bash
+docker exec yz-test psql -U postgres -d yazveb -v ON_ERROR_STOP=1 -q \
+  -f /tmp/00_test_altyapisi.sql -f /tmp/01_sema.sql -f /tmp/02_yetkiler.sql \
+  -f /tmp/99_testler.sql -f /tmp/03_kurulum.sql -f /tmp/04_guvenlik.sql \
+  -f /tmp/05_oduller.sql -f /tmp/99_odul_testleri.sql
+```
+
+Gerçek eşzamanlılık (20 kişi aynı anda son ödüle), boş bir test veritabanına karşı:
+
+```bash
+PG_URL=postgres://postgres:test@127.0.0.1:5432/yazveb npm run test:yaris
+```
 
 ---
 

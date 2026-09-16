@@ -68,6 +68,7 @@ jobs:
           npm audit --omit=dev --audit-level=high
           npm run test:guvenlik
           npm run test:transkript
+          npm run test:odul
 
       - name: Web derlemesi
         env:
@@ -86,6 +87,8 @@ jobs:
         # Yoksa oluşturulur, varsa eşitlenir.
         run: |
           if [ -d android ]; then npx cap sync android; else npx cap add android; fi
+          # QR tarayıcı için kamera (ve konum şartlı görevler için konum) izni.
+          node android_izinleri.mjs
 
       - name: APK derle
         run: ./gradlew assembleDebug --no-daemon
