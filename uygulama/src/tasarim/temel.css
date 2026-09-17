@@ -153,7 +153,21 @@ input, textarea, select { font-size: var(--y-okuma); }
 }
 .ikon-dugme:hover:not(:disabled) { background: var(--z-3); color: var(--m-1); }
 .ikon-dugme:active:not(:disabled) { transform: scale(0.92); }
-.ikon-dugme.kucuk { width: var(--d-kucuk); height: var(--d-kucuk); }
+.ikon-dugme.kucuk { position: relative; width: var(--d-kucuk); height: var(--d-kucuk); }
+/* Görünüş 32, dokunma alanı 44: kalabalıkta tek elle ıskalanmasın. */
+.ikon-dugme.kucuk::before { content: ""; position: absolute; inset: -6px; }
+
+/* Satır içi, yazı gibi duran düğme; dokunma alanı yazıdan büyük. */
+.metin-dugme {
+  padding: var(--b-3) 0 var(--b-3) var(--b-4);
+  margin: calc(var(--b-3) * -1) 0;
+  font-size: var(--y-kucuk);
+  color: var(--m-2);
+  transition: color var(--t-mikro) var(--e-dokunus);
+}
+.metin-dugme:hover { color: var(--m-1); }
+
+.tek-satir { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ikon-dugme[aria-pressed="true"] { color: var(--sinyal); }
 
 /* ── Alanlar ────────────────────────────────────────────────────── */
@@ -342,12 +356,36 @@ select.girdi { height: var(--d-kucuk); padding: 0 var(--b-2); font-size: var(--y
   height: 52px;
 }
 .gezinme-etiket {
-  font-size: 10px;
+  font-size: var(--y-etiket);
   font-weight: var(--a-orta);
   letter-spacing: 0.02em;
   line-height: 1;
 }
 .gezinme-gosterge::after { display: none; }
+
+/* Orta: tarama. Sekme değil eylem; çubuğun tek dolu öğesi, başparmağın
+   doğal durduğu yerde. Parlama yok, yalnızca açık yüzey. */
+.gezinme-tara {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 52px;
+}
+.gezinme-tara-yuz {
+  display: grid;
+  place-items: center;
+  width: var(--d-yazici);
+  height: 44px;
+  border-radius: var(--k-tam);
+  background: var(--m-1);
+  color: var(--z-0);
+  box-shadow: var(--isik-ic);
+  transition: transform var(--t-mikro) var(--e-dokunus), background-color var(--t-mikro) var(--e-dokunus);
+}
+.gezinme-tara:hover .gezinme-tara-yuz { background: #ffffff; }
+.gezinme-tara:active .gezinme-tara-yuz { transform: scale(0.92); }
+.gezinme-tara:focus-visible { outline: none; }
+.gezinme-tara:focus-visible .gezinme-tara-yuz { outline: 2px solid var(--sinyal); outline-offset: 2px; }
 
 @media (min-width: 900px) {
   .gezinme {
@@ -370,6 +408,8 @@ select.girdi { height: var(--d-kucuk); padding: 0 var(--b-2); font-size: var(--y
   }
   .gezinme-gosterge::after { left: auto; right: 5px; bottom: 50%; margin: 0 0 -1.5px; }
   .gezinme-oge { width: var(--d-buyuk); height: var(--d-buyuk); }
+  .gezinme-tara { width: var(--d-buyuk); height: var(--d-buyuk); }
+  .gezinme-tara-yuz { width: var(--d-orta); height: var(--d-orta); }
   .gezinme-etiket { display: none; }
   .gezinme-gosterge::after { display: block; }
 }

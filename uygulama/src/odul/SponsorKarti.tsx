@@ -105,11 +105,11 @@ export function SponsorDetay({ sponsor: ilk, onKapat, onTara }: {
 
   let engel: string | null = null;
   if (!kilit.acik) engel = hedefCumlesi({ ...kilit, sponsor: sponsor.ad });
-  else if (kampanya.durum === "tukendi") engel = "Bu kampanyanın ödülleri tükendi. Bu kampanyayı kaçırdın.";
+  else if (kampanya.durum === "tukendi") engel = "Bu kampanyanın ödülleri bitti. Yeni kampanya açıldığında burada görünür.";
   else if (kampanya.durum === "bitti") engel = "Kampanya sona erdi. Yeni kampanyalar burada görünecek.";
   else if (kampanya.durum === "yok") engel = "Bu sponsorun şu an aktif bir kampanyası yok.";
   else if (kampanya.durum === "yakinda") engel = `Kampanya ${tarih(kampanya.baslangic)} tarihinde başlıyor.`;
-  else if ("hak" in kampanya && kampanya.hak === 0) engel = "Bu kampanyadaki hakkını kullandın. Ödüllerim'de seni bekliyor.";
+  else if ("hak" in kampanya && kampanya.hak === 0) engel = "Bu kampanyadaki hakkını kullandın. Ödülün Ödüllerim'de.";
 
   return createPortal(
     <div className="katman" onClick={onKapat}>
@@ -171,19 +171,25 @@ export function SponsorDetay({ sponsor: ilk, onKapat, onTara }: {
                 {kampanya.hak > 0
                   ? `${kampanya.hak} ödül hakkın var.`
                   : "Hakkını kullandın."}
-                {kampanya.surpriz ? " Ödül, işletmedeki QR'yi okuttuğunda açılır." : ""}
               </p>
             )}
-            {"oduller" in kampanya && kampanya.oduller && (
+            {"oduller" in kampanya && kampanya.oduller && kampanya.oduller.length > 0 && (
+              <>
+              <span className="etiket">{kampanya.surpriz && kampanya.oduller.length > 1 ? "Olası ödüller" : "Ödül"}</span>
+              {kampanya.surpriz && kampanya.oduller.length > 1 && (
+                // Ne kazanılabileceği açık; sürpriz olan yalnızca hangisinin çıkacağı.
+                <p className="soluk">Hangisinin çıkacağı QR'yi okuttuğunda belli olur. Sayılar gerçek kalan stoktur.</p>
+              )}
               <ul className="kampanya-kalemleri">
                 {kampanya.oduller.map((o, i) => (
                   <li key={i} data-bitti={o.kalan === 0}>
                     <Simge ad={odulIkonu(o.ikon)} boyut={18} />
                     <span>{o.baslik}</span>
-                    <span className="rakam soluk">{o.toplam === null ? "Sınırsız" : `${o.kalan} / ${o.toplam}`}</span>
+                    <span className="rakam soluk">{o.toplam === null ? "Sınırsız" : o.kalan === 0 ? "Bitti" : `${o.kalan} kaldı`}</span>
                   </li>
                 ))}
               </ul>
+              </>
             )}
             {"bitis" in kampanya && aktifKampanya && (
               <p className="etiket soluk">Bitiş · {tarih(kampanya.bitis)}</p>
@@ -191,11 +197,23 @@ export function SponsorDetay({ sponsor: ilk, onKapat, onTara }: {
           </section>
         )}
 
+        {taranabilir && (
+          // Kasada "şimdi ne yapacağım?" sorusu kalmasın.
+          <section className="sponsor-bolum">
+            <span className="etiket">Nasıl alırsın</span>
+            <ol className="nasil-adimlari">
+              <li>İşletmeye git{sponsor.adres ? ` (${sponsor.adres})` : ""}.</li>
+              <li>Kasadaki YAZVEB QR'sini okut; ödülün o an açılır.</li>
+              <li>"Ödülü göster" ekranını çalışana göster, çalışan onaylar.</li>
+            </ol>
+          </section>
+        )}
+
         {engel && <p className="bildirim bilgi">{engel}</p>}
 
         <div className="pencere-dip">
           <button className="dugme birincil genis" disabled={!taranabilir} onClick={() => onTara(sponsor)}>
-            <Simge ad="tara" boyut={18} /> QR taratarak ödülü aç
+            <Simge ad="tara" boyut={18} /> İşletmedeki QR'yi okut
           </button>
         </div>
       </div>

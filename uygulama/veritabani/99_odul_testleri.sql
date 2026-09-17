@@ -279,8 +279,19 @@ select bekle('profil: sonraki kilit Coffee Lab, 400 XP kaldı',
 select test_kullanici('uye');   -- 500 XP
 select bekle('500 XP: kilit açık',
   (select (s->'kilit'->>'acik')::boolean from jsonb_array_elements(public.odul_sponsorlar()) s where s->>'ad' = 'Coffee Lab'));
-select bekle('sürpriz kampanyada ödül kalemleri istemciye GÖNDERİLMEZ',
-  (select s->'kampanya'->'oduller' = 'null'::jsonb from jsonb_array_elements(public.odul_sponsorlar()) s where s->>'ad' = 'Coffee Lab'));
+select bekle('sürpriz kampanyada olası ödüller şeffaf: başlık + kalan adet var',
+  (select jsonb_array_length(s->'kampanya'->'oduller') > 0
+      and bool_and(o ? 'baslik' and o ? 'kalan')
+   from jsonb_array_elements(public.odul_sponsorlar()) s,
+        jsonb_array_elements(s->'kampanya'->'oduller') o
+   where s->>'ad' = 'Coffee Lab' group by s));
+select bekle('olası ödüllerde kalem kimliği, ağırlık, token, kısa kod, PIN YOK',
+  (select bool_and(not (o ? 'id') and not (o ? 'agirlik'))
+      and not (s->'kampanya' ? 'token') and not (s->'kampanya' ? 'kisa_kod')
+      and not (s ? 'pin_ozet') and not (s ? 'pin')
+   from jsonb_array_elements(public.odul_sponsorlar()) s,
+        jsonb_array_elements(s->'kampanya'->'oduller') o
+   where s->>'ad' = 'Coffee Lab' group by s));
 select bekle('stok 3 → SON 3 durumu (az)',
   (select s->'kampanya'->>'durum' = 'az' and (s->'kampanya'->>'kalan')::int = 3
    from jsonb_array_elements(public.odul_sponsorlar()) s where s->>'ad' = 'Coffee Lab'));
@@ -373,6 +384,8 @@ select bekle('göster: kod + 4 haneli dönen doğrulama + sunucu saati',
   (select r->>'durum' = 'aktif' and r->>'kod' = (select v->'kazanim'->>'kod' from kazanc1)
       and r->>'dogrulama' ~ '^[0-9]{4}$' and r ? 'sunucu_zamani'
    from (select public.odul_goster((select (v->'kazanim'->>'id')::uuid from kazanc1)) r) x));
+select bekle('göster: kullanılacak yerin adresi alanı var',
+  (select public.odul_goster((select (v->'kazanim'->>'id')::uuid from kazanc1)) ? 'adres'));
 
 select test_kullanici('ali');
 select bekle('başkası ödül kimliğiyle GÖREMEZ (bulunamadi)',
@@ -443,6 +456,58 @@ select bekle('gizli profil sıralamada görünmez',
 select bekle('sıralamada gerçek ad değil kullanıcı adı var',
   (select bool_and(l ? 'ad' and not (l ? 'ad_soyad')) from jsonb_array_elements(public.odul_liderlik()->'liste') l));
 select bekle('kendi sıram hesaplanır', (select (public.odul_liderlik()->'ben'->>'sira') is not null));
+reset role;
+
+-- Haftalık sıralama: eren'in bütün puanı GEÇEN haftadan.
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('a0000000-0000-0000-0000-000000000009', 'eren@test', '{"kullanici_adi":"eren"}')
+on conflict do nothing;
+insert into odul.hesaplar (kullanici, xp) values (kim('eren'), 90000) on conflict do nothing;
+insert into odul.puan_islemleri (kullanici, miktar, tur, aciklama, zaman)
+values (kim('eren'), 90000, 'yonetici', 'geçen hafta', now() - interval '8 days');
+create temporary table hafta_bas as
+select date_trunc('week', now() at time zone 'Europe/Istanbul') at time zone 'Europe/Istanbul' as bas;
+create temporary table beklenen_hafta as
+select coalesce(sum(miktar), 0)::int as xp from odul.puan_islemleri
+where kullanici = kim('uye') and zaman >= (select bas from hafta_bas);
+grant select on beklenen_hafta to authenticated;
+
+set role authenticated;
+select test_kullanici('uye');
+select bekle('varsayılan dönem: hafta', (select public.odul_liderlik()->>'donem' = 'hafta'));
+select bekle('haftalık: geçen haftanın puanı sayılmaz (eren yok)',
+  (select not exists (select 1 from jsonb_array_elements(public.odul_liderlik('hafta')->'liste') l where l->>'ad' = 'eren')));
+select bekle('tüm zamanlar: aynı puan sayılır, eren zirvede',
+  (select exists (select 1 from jsonb_array_elements(public.odul_liderlik('tum')->'liste') l
+                  where l->>'ad' = 'eren' and (l->>'sira')::int = 1)));
+select bekle('haftalık: benim puanım bu haftanın defter toplamı',
+  (select (public.odul_liderlik('hafta')->'ben'->>'xp')::int = (select xp from beklenen_hafta)));
+select bekle('haftalık: gizli profil yine görünmez',
+  (select not exists (select 1 from jsonb_array_elements(public.odul_liderlik('hafta')->'liste') l where l->>'ad' = 'can')));
+select bekle('haftalık: topluluk özeti var, kimlik yok',
+  (select (r->'topluluk'->>'uye')::int > 0 and (r->'topluluk'->>'xp')::int > 0
+          and not (r->'topluluk' ? 'liste')
+   from (select public.odul_liderlik('hafta') r) x));
+select reddedilmeli('geçersiz dönem reddedilir', $$select public.odul_liderlik('yil')$$);
+
+select bekle('etkinlik özeti: katıldığım etkinlik işaretli, puan var',
+  (select (e->>'katildi')::boolean and (e->>'puan')::int = 100
+   from jsonb_array_elements(public.odul_etkinlik_ozeti()) e
+   where (e->>'etkinlik_id')::bigint = (select id from public.etkinlikler where baslik = 'AI Summit')));
+select bekle('etkinlik özetinde görev kodu, token, konum YOK',
+  (select bool_and(not (e ? 'kisa_kod') and not (e ? 'token') and not (e ? 'enlem') and not (e ? 'gorevler'))
+   from jsonb_array_elements(public.odul_etkinlik_ozeti()) e));
+select test_kullanici('eren');
+select bekle('etkinlik özeti: katılmayan için katildi = false',
+  (select not (e->>'katildi')::boolean
+   from jsonb_array_elements(public.odul_etkinlik_ozeti()) e
+   where (e->>'etkinlik_id')::bigint = (select id from public.etkinlikler where baslik = 'AI Summit')));
+reset role;
+
+set role anon;
+select test_anonim();
+select reddedilmeli('anonim etkinlik özetini göremez', $$select public.odul_etkinlik_ozeti()$$);
+select reddedilmeli('anonim sıralamayı göremez', $$select public.odul_liderlik('hafta')$$);
 reset role;
 
 

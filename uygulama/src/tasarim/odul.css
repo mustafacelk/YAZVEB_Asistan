@@ -93,6 +93,11 @@
 
 .bolum-secici { margin: var(--b-6) 0 var(--b-4); }
 .bolum-secici button { display: inline-flex; align-items: center; justify-content: center; gap: var(--b-1); }
+/* Dört bölüm + sayaç 375 px'e sığsın: dar ekranda yazı küçülür, sayaç daralır. */
+@media (max-width: 420px) {
+  .bolum-secici button { padding-inline: 0; font-size: calc(var(--y-kucuk) - 1px); letter-spacing: -0.01em; gap: 3px; }
+  .bolum-secici .sayac { min-width: 16px; height: 16px; line-height: 16px; font-size: 10px; }
+}
 .sayac {
   min-width: 18px; height: 18px; padding: 0 var(--b-1);
   border-radius: var(--k-tam);
@@ -707,3 +712,54 @@ select.girdi.buyuk-secim { height: var(--d-buyuk); font-size: var(--y-govde); pa
 @media (prefers-reduced-motion: reduce) {
   .tarama-cizgisi, .odul-kart-canli { animation: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   ARAŞTIRMA SONRASI EKLER
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Bir sonraki adım: XP'nin ne işe yaradığı. */
+.sonraki-adim { display: grid; gap: var(--b-1); }
+.sonraki-adim .hedef-cumlesi { color: var(--m-1); font-size: var(--y-okuma); }
+.sonraki-adim .soluk { font-size: var(--y-kucuk); }
+
+/* Gerçek kalan süre; yalnızca 3 günden az kaldıysa görünür. */
+.son-kullanim { font-size: var(--y-kucuk); color: var(--sinyal); }
+
+.donem-secici { margin-bottom: var(--b-3); }
+.siralama-baglam { margin-bottom: var(--b-4); font-size: var(--y-kucuk); }
+.siralama-baglam b { color: var(--m-1); font-weight: var(--a-orta); }
+section > .gizlilik-anahtari:last-child { margin: var(--b-5) 0 0; }
+
+/* Kamera izni öncesi açıklama: kısa kod eşit ağırlıkta. */
+.izin-oncesi {
+  padding: var(--b-6) var(--b-5);
+  border-radius: var(--k-3);
+  background: var(--z-1);
+  box-shadow: var(--isik-ic), inset 0 0 0 1px var(--c-ince);
+  text-align: center;
+}
+.izin-oncesi h2 { font-size: var(--y-baslik); }
+.izin-oncesi p { color: var(--m-2); }
+.izin-isareti {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--k-tam);
+  box-shadow: inset 0 0 0 1px var(--sinyal-cizgi);
+  color: var(--sinyal);
+}
+
+.basari-baslik { color: var(--m-1); font-size: var(--y-baslik); font-weight: var(--a-kalin); letter-spacing: var(--h-sik); }
+.basari-sonraki { color: var(--m-2); text-align: center; }
+
+.reveal-nasil { max-width: 28ch; font-size: var(--y-kucuk); text-align: center; }
+
+.nasil-adimlari { display: grid; gap: var(--b-2); margin: 0; padding-left: var(--b-5); color: var(--m-2); }
+.nasil-adimlari li::marker { color: var(--sinyal); font-variant-numeric: tabular-nums; }
+
+/* Ödülü göster: orta satır tek kap. */
+.odul-orta { align-self: center; display: grid; justify-items: center; gap: var(--b-4); width: 100%; padding: var(--b-2) 0; }
+.odul-yonerge { padding: 0 var(--b-5); color: var(--m-1); font-size: var(--y-okuma); text-align: center; }
+.odul-yer { display: inline-flex; align-items: center; gap: var(--b-1); color: var(--m-2); font-size: var(--y-kucuk); text-align: center; }
+.odul-kodu { white-space: nowrap; }

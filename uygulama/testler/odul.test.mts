@@ -8,7 +8,7 @@ import qrcode from "qrcode-generator";
 import jsQR from "jsqr";
 import { randomBytes } from "node:crypto";
 import { kisaKodSadelestir, yazvebKoduMu } from "../src/odul/qr.ts";
-import { hedefCumlesi, seviyeIlerlemesi } from "../src/veri/odul_bicim.ts";
+import { hedefCumlesi, seviyeIlerlemesi, sonKullanimEtiketi, sonrakiAdim } from "../src/veri/odul_bicim.ts";
 
 let hata = 0;
 let adet = 0;
@@ -89,6 +89,46 @@ const sv = { sira: 2, ad: "EXPLORER", esik: 250, ikon: "", sonraki: { ad: "BUILD
 bekle("seviye ilerlemesi yarı yolda 0.5", seviyeIlerlemesi(375, sv) === 0.5);
 bekle("seviye ilerlemesi eşik altında 0", seviyeIlerlemesi(100, sv) === 0);
 bekle("en üst seviyede 1", seviyeIlerlemesi(9999, { ...sv, sonraki: null }) === 1);
+
+// ── Bir sonraki adım ──────────────────────────────────────────────
+const svB = { sira: 2, ad: "EXPLORER", esik: 250, ikon: "", sonraki: { ad: "BUILDER", esik: 500 } };
+const kilitK = (eksik: number, sponsor = "Coffee Lab", gerekli = 450, eksikEtk = 0) =>
+  ({ acik: false, gerekli_xp: gerekli, gerekli_seviye: null, gerekli_etkinlik: 0, eksik_xp: eksik, eksik_etkinlik: eksikEtk, sponsor, id: "x" });
+const pr = (xp: number, kilit: ReturnType<typeof kilitK> | null, etk = 3) =>
+  ({ xp, etkinlik_sayisi: etk, seviye: svB, sonraki_kilit: kilit, toplam_sponsor: 2 });
+
+{
+  const a = sonrakiAdim(pr(420, kilitK(30)));
+  bekle("sponsor seviyeden yakın: ana cümle sponsor", a.ana === "Coffee Lab kilidine 30 XP kaldı." && a.ikincil === "BUILDER seviyesine 80 XP.", JSON.stringify(a));
+}
+{
+  const a = sonrakiAdim(pr(420, kilitK(180, "Kitapçı", 600)));
+  bekle("seviye sponsordan yakın: ana cümle seviye", a.ana === "BUILDER seviyesine 80 XP kaldı." && a.ikincil === "Kitapçı kilidine 180 XP.", JSON.stringify(a));
+}
+{
+  const a = sonrakiAdim(pr(420, kilitK(80, "Kitapçı", 500)));
+  bekle("aynı eşik: aynı anda seviye", a.ana === "Kitapçı kilidine 80 XP kaldı." && a.ikincil === "Aynı anda BUILDER seviyesine çıkarsın.", JSON.stringify(a));
+}
+{
+  const a = sonrakiAdim(pr(420, kilitK(0, "Kitapçı", 400, 2)));
+  bekle("yalnız etkinlik eksik", a.ana === "Kitapçı için 2 etkinliğe daha katıl.", JSON.stringify(a));
+}
+{
+  const a = sonrakiAdim({ ...pr(0, kilitK(450), 0) });
+  bekle("sıfır puan: ilk adım + neyin açılacağı", a.ana.startsWith("İlk etkinliğinde") && a.ikincil === "450 XP'de Coffee Lab kilidi açılıyor.", JSON.stringify(a));
+}
+{
+  const a = sonrakiAdim({ ...pr(9999, null), seviye: { ...svB, sonraki: null } });
+  bekle("en üst seviye, kilit kalmadı", a.ana === "En üst seviyedesin." && a.ikincil === "Bütün sponsor kilitleri açık.", JSON.stringify(a));
+}
+
+// ── Son kullanım ──────────────────────────────────────────────────
+const simdi = Date.parse("2026-09-17T12:00:00Z");
+const sonra = (saat: number) => new Date(simdi + saat * 3_600_000).toISOString();
+bekle("uzak son kullanım: etiket yok", sonKullanimEtiketi(sonra(24 * 10), simdi) === null);
+bekle("3 gün içinde: gün sayısı", sonKullanimEtiketi(sonra(50), simdi) === "3 gün kaldı");
+bekle("24 saatten az", sonKullanimEtiketi(sonra(5), simdi) === "Son 24 saat");
+bekle("geçmiş: etiket yok (süresi doldu ayrıca gösterilir)", sonKullanimEtiketi(sonra(-1), simdi) === null);
 
 console.log(`\n${adet - hata}/${adet} geçti`);
 process.exit(hata ? 1 : 0);

@@ -14,7 +14,7 @@ const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
  * gerçek zamanlı yayından. Yayın da satır kurallarına uyar; kullanıcı
  * yalnızca görmeye yetkili olduğu satırları alır.
  */
-export default function Sohbet() {
+export default function Sohbet({ onGeri }: { onGeri?: () => void }) {
   const { profil, yetkiliMi } = useOturum();
   const [mesajlar, setMesajlar] = useState<Mesaj[]>([]);
   const [kisiler, setKisiler] = useState<Record<string, Profil>>({});
@@ -127,9 +127,16 @@ export default function Sohbet() {
     <div className="oda">
       <header className="oda-basi">
         <div className="sutun">
-          <div>
+          <div className="oda-kimlik">
+            {onGeri && (
+              <button className="ikon-dugme oda-geri gir" onClick={onGeri} aria-label="Topluluğa dön">
+                <Simge ad="geri" />
+              </button>
+            )}
+            <div>
             <span className="etiket gir">Topluluk</span>
             <h1 className="gir" style={kademe(1)}>Genel sohbet</h1>
+            </div>
           </div>
           {uyeSayisi > 0 && (
             <span className="etiket rakam gir" style={kademe(2)}>{uyeSayisi} üye</span>

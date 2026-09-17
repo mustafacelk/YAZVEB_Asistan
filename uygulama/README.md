@@ -209,12 +209,14 @@ src/
   veri/supabase.ts     bağlantı ve tipler
   veri/oturum.tsx      kim giriş yapmış, rolü ne
   veri/transkript.ts   konuşma tanıma parçalarını tekrarsız birleştirir
+  veri/gezinme.ts      sekmeler, alt görünümler, "ödül değişti" olayı
   ekranlar/
-    Asistan.tsx        küre, sesli/yazılı asistan
+    Ana.tsx            açılış: sıradaki etkinlik, bir sonraki adım, bekleyen ödül
+    Asistan.tsx        küre, sesli/yazılı asistan (Ana'dan açılır)
     Giris.tsx          giriş ve kayıt
-    Sohbet.tsx         genel sohbet (anlık)
-    Etkinlikler.tsx    takvim, rol kısıtlı düzenleme
-    Topluluk.tsx       üye listesi, rol dağıtma, hesap
+    Sohbet.tsx         genel sohbet, anlık (Topluluk'tan açılır)
+    Etkinlikler.tsx    takvim, etkinlik başına XP / katılım, rol kısıtlı düzenleme
+    Topluluk.tsx       sohbet girişi, hesap, verilerin nasıl kullanıldığı, üyeler
   canli/
     sahne.ts           WebGL parçacık küresi (durumlar, sönümlü hareket)
     olcer.ts           mikrofon ve yanıt sesinden gerçek genlik
@@ -249,8 +251,8 @@ npm run test:transkript    # mikrofon parçalarını birleştirme (12)
 npm run yayina-hazir       # derleme + paket taraması (sır, kaynak haritası, CSP)
 ```
 
-Veritabanı testleri (186) — Docker gerekir. Yetki ve güvenlik (86) + ödül iş
-mantığı ve saldırı senaryoları (100) tek paket hâlinde çalışır:
+Veritabanı testleri (200) — Docker gerekir. Yetki ve güvenlik (86) + ödül iş
+mantığı, sıralama ve saldırı senaryoları (114) tek paket hâlinde çalışır:
 
 ```bash
 docker run -d --name yz-test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=yazveb \
@@ -329,7 +331,32 @@ update public.kota_ayarlari set dakika = 12, gun = 150, genel = 3000 where tur =
 
 Etkinliğe gel → QR'yi okut (ya da kısa kodu yaz) → puan → seviye → sponsor
 kilidi açılır → sponsordaki QR'yi okut → sürpriz ödül → işletmede göster →
-çalışan PIN'iyle onaylar.
+çalışan PIN'iyle onaylar → sıradaki etkinlik.
+
+### Gezinme
+
+Çubukta dört sekme ve ortada tarama: **Ana · Etkinlikler · [Tara] · Ödüller ·
+Topluluk**. Tarama her ekrandan tek dokunuş. Asistan Ana'dan, genel sohbet
+Topluluk'tan açılır; çubuk beş öğeyi geçmez.
+
+### Ürün kararları (UX araştırması sonrası)
+
+| Karar | Neden |
+| --- | --- |
+| Ana ekran yalnızca sıradaki etkinlik, bir sonraki adım, bekleyen ödül | İlk bakışta "burada benim için ne var?" cevabı; kontrol paneli değil |
+| "Bir sonraki adım" cümlesi (en yakın kilit ya da seviye) | XP bir sayı değil, bir sonuç: "Coffee Lab kilidine 30 XP" |
+| Takvimde etkinlik başına "+100 XP" ve "Katıldın" | "Bu etkinliğe gelirsem ne olur?" |
+| Kamera izninden önce YAZVEB'in kendi açıklaması, kısa kod eşit ağırlıkta | Bağlamsız izin penceresi reddedilir; görüntü cihazdan çıkmaz |
+| Bağlantı hatasında okutulan kod saklanır, tek dokunuşla tekrar gönderilir | Kalabalıkta QR'yi yeniden yakalamak zorunda kalınmaz |
+| Sıralama varsayılan olarak haftalık, her pazartesi sıfırlanır | Tüm zamanlar tablosu yeni gelen üyeyi kalıcı olarak alta iter |
+| Sürpriz kampanyada olası ödüller ve gerçek kalan adet görünür | Sürpriz hangisinin çıkacağı; kör kutu kumar hissi verir |
+| Açılış animasyonu 750 ms, dokununca biter | Beklenti evet, yapay bekletme hayır |
+| İşletme ekranında tek cümle yönerge, adres, "kullanıldı" onay anı | Öğrenci "ne yapacağım?", çalışan "geçerli mi?" diye sormasın |
+
+Bilerek **eklenmeyenler**: başlangıçta hediye XP (defteri şişirir, sıralamayı
+bozar), "puanların silinecek" uyarıları ve bırakma maliyeti tasarımı (karanlık
+desen), rozet/unvan enflasyonu, bildirim altyapısı (önce içerik), bölüm bazlı
+sıralama (profilde bölüm verisi yok).
 
 ### Kurulum
 
@@ -363,7 +390,11 @@ kilidi açılır → sponsordaki QR'yi okut → sürpriz ödül → işletmede g
 - QR içeriği `YAZVEB:G:` / `YAZVEB:S:` + 192 bit rastgele token. Sıralı kimlik yok.
 - Eşzamanlılık: görev ve kampanya satırı kilitlenir; son ödülü iki kişi aynı
   anda isterse biri alır. Stok eksiye düşemez.
-- Ödül havuzu (sürpriz kampanyada hangi ödüller var) istemciye hiç gönderilmez.
+- Olası ödüller (başlık, ikon, kalan adet) istemciye gider; kalem kimliği,
+  çekiliş ağırlığı, token, kısa kod ve PIN gitmez. Hangisinin çıkacağı yalnızca
+  sunucuda, tarama anında belirlenir.
+- Etkinlik özeti (`odul_etkinlik_ozeti`) yalnızca etkinlik başına toplam puanı
+  ve kişinin katılıp katılmadığını döner; görev kodları sızmaz.
 - Kaba kuvvet: 10 dakikada 10 hatalı kod; ödül başına 15 dakikada 5 hatalı PIN;
   dakikada 20 tarama.
 - Ödül ekranında saniyesi akan saat ve 30 saniyede değişen doğrulama kodu;
@@ -374,11 +405,12 @@ kilidi açılır → sponsordaki QR'yi okut → sürpriz ödül → işletmede g
 ### Testler
 
 ```bash
-npm run test:odul       # QR gidiş-dönüşü (50 rastgele token), ilerleme dili (21)
+npm run test:odul       # QR gidiş-dönüşü, ilerleme dili, bir sonraki adım, son kullanım (31)
 ```
 
-İş mantığı ve saldırı senaryoları (100) — tekrar tarama, süre, iptal, konum,
-kilit, stok, son 3, tükenme, sınırsız, PIN, başkasının ödülü, hız sınırı —
+İş mantığı ve saldırı senaryoları (114) — tekrar tarama, süre, iptal, konum,
+kilit, stok, son 3, tükenme, sınırsız, PIN, başkasının ödülü, hız sınırı,
+haftalık sıralama, etkinlik özeti —
 yukarıdaki "Testleri çalıştırma" paketinin içinde çalışır.
 
 Gerçek eşzamanlılık (20 kişi aynı anda son ödüle) ayrı ve **boş** bir

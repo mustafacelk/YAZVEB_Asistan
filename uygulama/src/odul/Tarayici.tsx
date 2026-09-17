@@ -3,13 +3,16 @@ import { createPortal } from "react-dom";
 import Simge from "../tasarim/Simge";
 import {
   GOREV_MESAJI,
+  gorevMesaji,
   hedefCumlesi,
   konumAl,
   odul,
   OdulHatasi,
   sayi,
   seviyeIlerlemesi,
+  sonrakiAdim,
   SPONSOR_MESAJI,
+  tarihSaat,
   titret,
   type GorevSonucu,
   type Sponsor,
@@ -20,16 +23,31 @@ import Reveal from "./Reveal";
 
 export type TaramaModu = { tur: "gorev" } | { tur: "sponsor"; sponsor: Sponsor };
 
+type Gonderim = { icerik: string; yontem: "qr" | "kod" };
+
 type Asama =
+  | { ad: "hazirlik" }
+  | { ad: "izin" }
   | { ad: "kamera" }
   | { ad: "kod" }
   | { ad: "dogruluyor" }
   | { ad: "gorev_tamam"; sonuc: Extract<GorevSonucu, { durum: "tamam" }> }
   | { ad: "odul"; sonuc: Extract<SponsorSonucu, { durum: "tamam" }> }
-  | { ad: "hata"; mesaj: string; kodaDon?: boolean };
+  /** `tekrar`: bağlantı hatası; aynı kod yeniden okutulmadan gönderilebilir. */
+  | { ad: "hata"; mesaj: string; kodaDon?: boolean; tekrar?: Gonderim };
 
 /** Aynı QR'nin art arda karelerde tekrar okunmasını yok sayma süresi. */
 const TEKRAR_BEKLE_MS = 2500;
+
+/** Kamera bir kez başarıyla açıldıysa açıklama ekranı bir daha gösterilmez. */
+const KAMERA_ANAHTARI = "yazveb:kamera-izni";
+
+function kameraIzniHatirlaniyor() {
+  try { return localStorage.getItem(KAMERA_ANAHTARI) === "verildi"; } catch { return false; }
+}
+function kameraIzniniHatirla() {
+  try { localStorage.setItem(KAMERA_ANAHTARI, "verildi"); } catch { /* gizli sekme */ }
+}
 
 /**
  * QR tarayıcı — tam ekran.
@@ -37,6 +55,14 @@ const TEKRAR_BEKLE_MS = 2500;
  * Kamera zorunlu değil: izin verilmezse ya da kullanıcı istemezse aynı ekranda
  * kısa kod girilir. Okunan metin YALNIZCA sunucuya gider; puan, ödül, kilit
  * kararlarının hiçbiri burada verilmez.
+ *
+ * İZİN
+ * ────
+ * Sistem izin penceresi bağlamsız açılırsa "bu uygulama neden kameramı
+ * istiyor?" sorusu cevapsız kalır ve izin reddedilir. İlk seferde önce
+ * YAZVEB kendi cümlesiyle neden gerektiğini ve görüntünün cihazdan
+ * çıkmadığını söyler; kısa kod seçeneği aynı ekranda eşit ağırlıkta durur.
+ * İzin daha önce verildiyse bu adım atlanır.
  */
 export default function Tarayici({
   mod,
@@ -54,7 +80,8 @@ export default function Tarayici({
   const donguRef = useRef(0);
   const sonOkunanRef = useRef<{ metin: string; zaman: number } | null>(null);
   const mesgulRef = useRef(false);
-  const [asama, setAsama] = useState<Asama>({ ad: "kamera" });
+  const [asama, setAsama] = useState<Asama>(() =>
+    kameraIzniHatirlaniyor() ? { ad: "kamera" } : { ad: "hazirlik" });
   const [kameraDurumu, setKameraDurumu] = useState<"aciliyor" | "acik" | "yok" | "reddedildi">("aciliyor");
   const [kod, setKod] = useState("");
   const [uyari, setUyari] = useState<string | null>(null);
@@ -75,6 +102,31 @@ export default function Tarayici({
     };
   }, [onKapat, kamerayiKapat]);
 
+  // İzin durumu tarayıcıdan sorulabiliyorsa açıklama ekranı gereksizse atlanır.
+  useEffect(() => {
+    if (asama.ad !== "hazirlik") return;
+    let iptal = false;
+    const sonuc = (durum: PermissionState | null) => {
+      if (iptal) return;
+      if (durum === "granted") setAsama({ ad: "kamera" });
+      else if (durum === "denied") { setKameraDurumu("reddedildi"); setAsama({ ad: "kod" }); }
+      else setAsama({ ad: "izin" });
+    };
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setKameraDurumu("yok");
+      setAsama({ ad: "kod" });
+      return;
+    }
+    if (navigator.permissions?.query) {
+      navigator.permissions.query({ name: "camera" as PermissionName })
+        .then((d) => sonuc(d.state))
+        .catch(() => sonuc(null));   // Firefox/eski WebView "camera" adını tanımıyor
+    } else {
+      sonuc(null);
+    }
+    return () => { iptal = true; };
+  }, [asama.ad]);
+
   const gonder = useCallback(async (icerik: string, yontem: "qr" | "kod") => {
     if (mesgulRef.current) return;
     mesgulRef.current = true;
@@ -87,7 +139,11 @@ export default function Tarayici({
           // Konum yalnızca sunucu isterse ve yalnızca bu an için alınır.
           const konum = await konumAl();
           if (!konum) {
-            setAsama({ ad: "hata", mesaj: GOREV_MESAJI.konum_gerekli, kodaDon: yontem === "kod" });
+            setAsama({
+              ad: "hata",
+              mesaj: `${GOREV_MESAJI.konum_gerekli} Konum izni kapalıysa telefon ayarlarından açıp tekrar dene.`,
+              kodaDon: yontem === "kod",
+            });
             return;
           }
           sonuc = await odul.gorevTamamla(icerik, konum);
@@ -99,7 +155,10 @@ export default function Tarayici({
           onDegisti();
         } else {
           titret(60);
-          setAsama({ ad: "hata", mesaj: GOREV_MESAJI[sonuc.durum], kodaDon: yontem === "kod" });
+          const mesaj = sonuc.durum === "baslamadi" && sonuc.baslangic
+            ? `${GOREV_MESAJI.baslamadi} ${tarihSaat(sonuc.baslangic)} itibarıyla okutabilirsin.`
+            : gorevMesaji(sonuc.durum, yontem);
+          setAsama({ ad: "hata", mesaj, kodaDon: yontem === "kod" });
         }
       } else {
         const sonuc = await odul.sponsorTara(mod.sponsor.id, icerik);
@@ -109,14 +168,24 @@ export default function Tarayici({
           setAsama({ ad: "odul", sonuc });
           onDegisti();
         } else if (sonuc.durum === "kilitli") {
-          setAsama({ ad: "hata", mesaj: `Bu sponsorun kilidi henüz açık değil. ${hedefCumlesi({ ...sonuc.kilit, sponsor: mod.sponsor.ad }) ?? ""}` });
+          setAsama({ ad: "hata", mesaj: `${mod.sponsor.ad} kilidi henüz açılmadı. ${hedefCumlesi({ ...sonuc.kilit, sponsor: mod.sponsor.ad }) ?? ""}` });
         } else {
           titret(60);
           setAsama({ ad: "hata", mesaj: SPONSOR_MESAJI[sonuc.durum], kodaDon: yontem === "kod" });
         }
       }
     } catch (h) {
-      setAsama({ ad: "hata", mesaj: h instanceof OdulHatasi ? h.message : "Bağlantı sorunu. Tekrar dene.", kodaDon: yontem === "kod" });
+      // Bağlantı koptuysa okutulan kod kaybolmasın: kalabalıkta QR'yi tekrar
+      // yakalamaya çalışmak yerine tek dokunuşla yeniden gönderilir.
+      const gecici = !(h instanceof OdulHatasi) || h.gecici;
+      setAsama({
+        ad: "hata",
+        mesaj: gecici
+          ? "Bağlantı zayıf, sunucuya ulaşamadık. Kodun kaybolmadı; tekrar gönderebilirsin."
+          : (h as OdulHatasi).message,
+        kodaDon: yontem === "kod",
+        tekrar: gecici ? { icerik, yontem } : undefined,
+      });
     } finally {
       mesgulRef.current = false;
     }
@@ -141,6 +210,7 @@ export default function Tarayici({
           });
         }
         if (iptal) return;
+        kameraIzniniHatirla();
         const video = videoRef.current;
         if (!video) return;
         video.srcObject = akisRef.current;
@@ -165,7 +235,7 @@ export default function Tarayici({
 
           const tur = yazvebKoduMu(metin);
           if (!tur) {
-            setUyari("Bu bir YAZVEB kodu değil.");
+            setUyari(mod.tur === "gorev" ? "Bu QR YAZVEB'e ait değil. Etkinlikteki YAZVEB QR'sini okut." : "Bu QR YAZVEB'e ait değil. İşletmedeki YAZVEB QR'sini okut.");
             return;
           }
           if (tur !== mod.tur) {
@@ -209,6 +279,7 @@ export default function Tarayici({
   }
 
   const baslik = mod.tur === "gorev" ? "Puan kazan" : mod.sponsor.ad;
+  const sponsorMu = mod.tur === "sponsor";
 
   return createPortal(
     <div className="tarayici" role="dialog" aria-modal="true" aria-label={`${baslik} — QR tara`}>
@@ -230,6 +301,25 @@ export default function Tarayici({
       />
       <div className="tarayici-karartma" aria-hidden="true" />
 
+      {asama.ad === "izin" && (
+        <div className="tarayici-merkez izin-oncesi">
+          <div className="izin-isareti" aria-hidden="true"><Simge ad="tara" boyut={30} /></div>
+          <h2>{sponsorMu ? "İşletmedeki QR'yi okut" : "Etkinlikteki QR'yi okut"}</h2>
+          <p>
+            QR kodunu tarayabilmek için kameraya ihtiyacımız var. Görüntü telefonunda işlenir;
+            kaydedilmez, hiçbir yere gönderilmez.
+          </p>
+          <div className="basari-dugmeleri">
+            <button className="dugme birincil genis" onClick={() => setAsama({ ad: "kamera" })} autoFocus>
+              Kamerayı aç
+            </button>
+            <button className="dugme genis" onClick={() => setAsama({ ad: "kod" })}>
+              <Simge ad="klavye" boyut={18} /> Kısa kodla devam et
+            </button>
+          </div>
+        </div>
+      )}
+
       {asama.ad === "kamera" && (
         <div className="tarayici-merkez">
           <div className="tarama-cercevesi" data-durum={kameraDurumu} aria-hidden="true">
@@ -237,7 +327,7 @@ export default function Tarayici({
             <span className="tarama-cizgisi" />
           </div>
           <p className="tarayici-ipucu">
-            {kameraDurumu === "aciliyor" ? "Kamera açılıyor…" : `QR kodunu çerçeveye getir`}
+            {kameraDurumu === "aciliyor" ? "Kamera açılıyor…" : "QR kodunu çerçevenin içine getir"}
           </p>
           {uyari && <p className="tarayici-uyari" role="status">{uyari}</p>}
         </div>
@@ -249,10 +339,12 @@ export default function Tarayici({
           <h2>Kısa kodu gir</h2>
           <p className="soluk">
             {kameraDurumu === "reddedildi"
-              ? "Kamera izni verilmedi. Etkinlikte gösterilen kısa kodu yazabilirsin."
+              ? "Kamera izni kapalı. Kısa kodla aynı şekilde devam edebilirsin; kamerayı kullanmak istersen telefon ayarlarından YAZVEB'e izin ver."
               : kameraDurumu === "yok"
-                ? "Bu cihazda kamera kullanılamıyor. Kısa kodu yazabilirsin."
-                : "Etkinlikte gösterilen kodu yaz."}
+                ? "Bu cihazda kamera kullanılamıyor. Kısa kodla aynı şekilde devam edebilirsin."
+                : sponsorMu
+                  ? "QR'nin altında yazan kodu gir."
+                  : "Etkinlikte QR'nin altında gösterilen kodu gir."}
           </p>
           <input
             className="kod-alani"
@@ -260,6 +352,7 @@ export default function Tarayici({
             onChange={(e) => setKod(kisaKodSadelestir(e.target.value))}
             placeholder="YAZ25"
             inputMode="text"
+            enterKeyHint="go"
             autoCapitalize="characters"
             autoComplete="off"
             spellCheck={false}
@@ -277,7 +370,7 @@ export default function Tarayici({
       {asama.ad === "dogruluyor" && (
         <div className="tarayici-merkez" role="status" aria-live="polite">
           <div className="dogrulama-halkasi" aria-hidden="true" />
-          <p className="etiket">Doğrulanıyor</p>
+          <p className="etiket">{sponsorMu ? "Ödülün hazırlanıyor" : "Kod doğrulanıyor"}</p>
         </div>
       )}
 
@@ -285,17 +378,27 @@ export default function Tarayici({
         <div className="tarayici-merkez" role="alert">
           <div className="hata-isareti" aria-hidden="true"><Simge ad="kapat" boyut={28} /></div>
           <p className="tarayici-mesaj">{asama.mesaj}</p>
-          <button
-            className="dugme birincil genis"
-            onClick={() => {
-              const kodaDon = asama.kodaDon || kameraDurumu !== "acik";
-              if (kodaDon) kamerayiKapat();   // kod yazarken kamera açık kalmasın
-              sonOkunanRef.current = null;
-              setAsama({ ad: kodaDon ? "kod" : "kamera" });
-            }}
-          >
-            Tekrar dene
-          </button>
+          <div className="basari-dugmeleri">
+            {asama.tekrar && (
+              <button className="dugme birincil genis" onClick={() => {
+                const t = asama.tekrar!;
+                gonder(t.icerik, t.yontem);
+              }}>
+                <Simge ad="yenile" boyut={18} /> Tekrar gönder
+              </button>
+            )}
+            <button
+              className={"dugme genis" + (asama.tekrar ? "" : " birincil")}
+              onClick={() => {
+                const kodaDon = asama.kodaDon || kameraDurumu !== "acik";
+                if (kodaDon) kamerayiKapat();   // kod yazarken kamera açık kalmasın
+                sonOkunanRef.current = null;
+                setAsama({ ad: kodaDon ? "kod" : "kamera" });
+              }}
+            >
+              {asama.kodaDon || kameraDurumu !== "acik" ? "Kodu yeniden gir" : "Yeniden tara"}
+            </button>
+          </div>
         </div>
       )}
 
@@ -315,7 +418,7 @@ export default function Tarayici({
           {asama.ad === "kamera" ? (
             <button className="dugme" onClick={() => { kamerayiKapat(); setAsama({ ad: "kod" }); }}>
               <Simge ad="klavye" boyut={18} />
-              Kamera kullanmak istemiyor musun? Kısa kodu gir
+              Kısa kodla gir
             </button>
           ) : kameraDurumu !== "reddedildi" && kameraDurumu !== "yok" ? (
             <button className="dugme" onClick={() => setAsama({ ad: "kamera" })}>
@@ -330,7 +433,12 @@ export default function Tarayici({
   );
 }
 
-/** Görev başarısı: güçlü ama sade geri bildirim. Konfeti yok. */
+/**
+ * Görev başarısı: güçlü ama sade geri bildirim. Konfeti yok.
+ *
+ * "Başarılı" demek yetmez; üç soruyu cevaplar: ne oldu (katılımın kaydedildi),
+ * ne kazandım (+XP, seri), bu beni nereye götürüyor (bir sonraki adım).
+ */
 function GorevBasarisi({
   sonuc,
   onKapat,
@@ -362,12 +470,21 @@ function GorevBasarisi({
     return () => cancelAnimationFrame(kare);
   }, [toplam, sonuc.xp, sonuc.xp_once]);
 
-  const hedef = hedefCumlesi(sonuc.sonraki_kilit);
   const ilerleme = seviyeIlerlemesi(xp, sonuc.seviye);
+  // Görev sonucu toplam sponsor sayısını taşımaz; "bütün kilitler açık"
+  // iddiasında bulunmamak için 0 verilir.
+  const sonraki = sonrakiAdim({
+    xp: sonuc.xp,
+    etkinlik_sayisi: 1,
+    seviye: sonuc.seviye,
+    sonraki_kilit: sonuc.sonraki_kilit ? { ...sonuc.sonraki_kilit, id: "" } : null,
+    toplam_sponsor: 0,
+  });
 
   return (
     <div className="tarayici-merkez basari" role="status" aria-live="assertive">
       <div className="basari-isareti" aria-hidden="true"><Simge ad="tik" boyut={30} /></div>
+      <p className="basari-baslik">Katılımın kaydedildi</p>
       <p className="etiket">{sonuc.baslik}</p>
       <p className="puan-kazanimi rakam" aria-label={`${toplam} puan kazandın`}>+{sayi(gosterilen)}<span>XP</span></p>
       {sonuc.bonus > 0 && (
@@ -385,11 +502,11 @@ function GorevBasarisi({
       {sonuc.yeni_kilitler.length > 0 && (
         <p className="yeni-kilit"><Simge ad="kilitAcik" boyut={16} /> Kilit açıldı: {sonuc.yeni_kilitler.join(", ")}</p>
       )}
-      {hedef && <p className="soluk">{hedef}</p>}
+      <p className="basari-sonraki">{sonraki.ana}</p>
 
       <div className="basari-dugmeleri">
         <button className="dugme birincil genis" onClick={onKapat}>Tamam</button>
-        <button className="dugme genis" onClick={onTekrar}>Bir kod daha</button>
+        <button className="dugme genis" onClick={onTekrar}>Başka bir kod okut</button>
       </div>
     </div>
   );

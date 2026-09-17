@@ -5,6 +5,7 @@ import { hizliCevap } from "../veri/hizli";
 import { HATA_CEVABI } from "../veri/sohbet_kaliplari";
 import { apiAdresi } from "../veri/api";
 import { birlestir, oturumMetni } from "../veri/transkript";
+import { selamAdi } from "../veri/bicim";
 import Kure from "../canli/Kure";
 import type { Durum } from "../canli/sahne";
 import {
@@ -65,7 +66,7 @@ const DURUM_ADI: Record<Durum, string> = {
  * Ekranın durumu (dinliyor / düşünüyor / konuşuyor) kürenin hareketiyle
  * gösterilir. Genlik gerçek sesten ölçülür (bkz. canli/olcer.ts).
  */
-export default function Asistan() {
+export default function Asistan({ onGeri }: { onGeri?: () => void }) {
   const { profil } = useOturum();
   const [turlar, setTurlar] = useState<Tur[]>([]);
   const [taslak, setTaslak] = useState("");
@@ -366,6 +367,12 @@ export default function Asistan() {
   return (
     <div className="asistan" data-kip={kip}>
       <header className="asistan-ust">
+        <div className="ust-sol-grup">
+        {onGeri && (
+          <button className="ikon-dugme gir" onClick={onGeri} aria-label="Ana ekrana dön" data-ipucu="Ana ekran" data-ipucu-yon="alt">
+            <Simge ad="geri" />
+          </button>
+        )}
         <div className="ust-sol">
           <div className="marka-isareti gir" aria-hidden={kip === "sohbet"}>
             <img src="/logo-128.webp" alt="" width={32} height={32} />
@@ -381,6 +388,7 @@ export default function Asistan() {
             <Simge ad="geri" boyut={18} />
             <span className="dar-gizle">Yeni konuşma</span>
           </button>
+        </div>
         </div>
 
         <div className="ust-orta">
@@ -520,13 +528,6 @@ function duzenle(metin: string) {
 }
 
 /** "mustafa çelik" → "Mustafa". Ad yoksa kullanıcı adı, o da yoksa boş. */
-function selamAdi(adSoyad?: string | null, kullaniciAdi?: string) {
-  const ilk = (adSoyad ?? "").trim().split(/\s+/)[0];
-  const kaynak = ilk || kullaniciAdi || "";
-  if (!kaynak) return "";
-  return kaynak.charAt(0).toLocaleUpperCase("tr") + kaynak.slice(1);
-}
-
 function saat(zaman: number) {
   return new Date(zaman).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
 }

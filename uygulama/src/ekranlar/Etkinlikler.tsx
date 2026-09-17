@@ -3,7 +3,9 @@ import { createPortal } from "react-dom";
 import { supabase, type Etkinlik } from "../veri/supabase";
 import { useOturum } from "../veri/oturum";
 import Simge from "../tasarim/Simge";
-import Tarayici from "../odul/Tarayici";
+import { odul, sayi, type EtkinlikOzeti } from "../veri/odul";
+import { ODUL_DEGISTI } from "../veri/gezinme";
+import { suruyorMu } from "../veri/bicim";
 
 type Taslak = {
   id?: number;
@@ -30,10 +32,14 @@ const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
  *              o kayda bir daha dokunamaz
  *
  * Buradaki kontroller yalnızca düğmeleri gizler. Kural veritabanında.
+ *
+ * "Bu etkinliğe gelirsem ne olur?" — puan görevi olan etkinlikte kazanılacak
+ * XP, katıldığın geçmiş etkinlikte "Katıldın" yazar. Katılmadığın geçmiş
+ * etkinlikte hiçbir şey: kaçırdın demek yok.
  */
-export default function Etkinlikler({ onPuanKazan }: { onPuanKazan?: () => void }) {
+export default function Etkinlikler() {
   const { yetkiliMi, baskanMi } = useOturum();
-  const [tarama, setTarama] = useState(false);
+  const [ozet, setOzet] = useState<Map<number, EtkinlikOzeti>>(new Map());
   const [liste, setListe] = useState<Etkinlik[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [taslak, setTaslak] = useState<Taslak | null>(null);
@@ -62,9 +68,15 @@ export default function Etkinlikler({ onPuanKazan }: { onPuanKazan?: () => void 
       )
       .subscribe();
 
+    const ozetiAl = () =>
+      odul.etkinlikOzeti().then((l) => { if (gecerli) setOzet(new Map(l.map((o) => [o.etkinlik_id, o]))); });
+    ozetiAl();
+    window.addEventListener(ODUL_DEGISTI, ozetiAl);
+
     return () => {
       gecerli = false;
       supabase.removeChannel(kanal);
+      window.removeEventListener(ODUL_DEGISTI, ozetiAl);
     };
   }, []);
 
@@ -131,9 +143,10 @@ export default function Etkinlikler({ onPuanKazan }: { onPuanKazan?: () => void 
   }
 
   const simdi = Date.now();
-  const yaklasan = liste.filter((e) => new Date(e.baslangic).getTime() >= simdi);
+  // Sürmekte olan etkinlik "geçmiş" sayılmaz: tam o an QR okutuluyor.
+  const yaklasan = liste.filter((e) => new Date(e.baslangic).getTime() >= simdi || suruyorMu(e, simdi));
   const gecmis = liste
-    .filter((e) => new Date(e.baslangic).getTime() < simdi)
+    .filter((e) => new Date(e.baslangic).getTime() < simdi && !suruyorMu(e, simdi))
     .reverse();
 
   return (
@@ -145,11 +158,6 @@ export default function Etkinlikler({ onPuanKazan }: { onPuanKazan?: () => void 
             <h1 className="gir" style={kademe(1)}>Etkinlikler</h1>
           </div>
           <div className="sayfa-basi-eylem">
-            {/* Etkinlikteki üye için en kısa yol: takvimden doğrudan QR'ye. */}
-            <button className="dugme cizgili gir" style={kademe(2)} onClick={() => setTarama(true)}>
-              <Simge ad="tara" boyut={16} />
-              Puan kazan
-            </button>
             {yetkiliMi && (
               <button className="dugme birincil gir" style={kademe(3)} onClick={() => { setHata(null); setTaslak({ ...BOS }); }}>
                 <Simge ad="arti" boyut={16} />
@@ -189,6 +197,7 @@ export default function Etkinlikler({ onPuanKazan }: { onPuanKazan?: () => void 
                 etkinlik={e}
                 sira={i + 3}
                 siradaki={i === 0}
+                ozet={ozet.get(e.id)}
                 duzenlenebilir={duzenlenebilir(e)}
                 onDuzenle={() => { setHata(null); setTaslak(taslagaCevir(e)); }}
                 onSil={() => sil(e)}
@@ -208,6 +217,7 @@ export default function Etkinlikler({ onPuanKazan }: { onPuanKazan?: () => void 
                 key={e.id}
                 etkinlik={e}
                 gecmis
+                ozet={ozet.get(e.id)}
                 duzenlenebilir={duzenlenebilir(e)}
                 onDuzenle={() => { setHata(null); setTaslak(taslagaCevir(e)); }}
                 onSil={() => sil(e)}
@@ -216,15 +226,6 @@ export default function Etkinlikler({ onPuanKazan }: { onPuanKazan?: () => void 
           </section>
         )}
       </div>
-
-      {tarama && (
-        <Tarayici
-          mod={{ tur: "gorev" }}
-          onKapat={() => setTarama(false)}
-          onDegisti={() => {}}
-          onOdulGoster={() => onPuanKazan?.()}
-        />
-      )}
 
       {/* Pencere body'ye taşınır: sahne katmanı kendi yığın bağlamını
           kuruyor ve içindeki hiçbir şey gezinme çubuğunun üstüne çıkamıyor. */}
@@ -306,6 +307,7 @@ function Satir({
   duzenlenebilir,
   gecmis,
   siradaki,
+  ozet,
   sira = 0,
   onDuzenle,
   onSil,
@@ -314,6 +316,7 @@ function Satir({
   duzenlenebilir: boolean;
   gecmis?: boolean;
   siradaki?: boolean;
+  ozet?: EtkinlikOzeti;
   sira?: number;
   onDuzenle: () => void;
   onSil: () => void;
@@ -332,7 +335,18 @@ function Satir({
       </div>
 
       <div className="etkinlik-govde">
-        {siradaki && <span className="etiket siradaki">Sıradaki</span>}
+        {(siradaki || ozet) && (
+          <span className="etkinlik-ust">
+            {siradaki && (
+              <span className="etiket siradaki">{suruyorMu(etkinlik) ? "Şu an" : "Sıradaki"}</span>
+            )}
+            {ozet?.katildi ? (
+              <span className="xp-cipi katildi"><Simge ad="tik" boyut={14} /> Katıldın</span>
+            ) : !gecmis && ozet && ozet.puan > 0 ? (
+              <span className="xp-cipi rakam" title="Etkinlikte QR'yi okutunca kazanacağın puan">+{sayi(ozet.puan)} XP</span>
+            ) : null}
+          </span>
+        )}
         <h3>
           {etkinlik.baslik}
           {etkinlik.baskan_kilidi && (

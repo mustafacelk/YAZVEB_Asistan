@@ -1,18 +1,21 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import Simge, { odulIkonu } from "../tasarim/Simge";
 import {
-  hedefCumlesi,
   odul,
   OdulHatasi,
   sayi,
   seviyeIlerlemesi,
+  sonKullanimEtiketi,
+  sonrakiAdim,
   tarih,
   tarihSaat,
+  type Donem,
   type KazanimOzeti,
   type Liderlik,
   type Profil,
   type Sponsor,
 } from "../veri/odul";
+import { ODUL_DEGISTI, type OdulBolumu } from "../veri/gezinme";
 import Tarayici, { type TaramaModu } from "../odul/Tarayici";
 import OdulGoster from "../odul/OdulGoster";
 import { SponsorDetay, SponsorKarti } from "../odul/SponsorKarti";
@@ -20,7 +23,7 @@ import { SponsorDetay, SponsorKarti } from "../odul/SponsorKarti";
 // Yönetim paneli yalnızca yetkililer açtığında yüklenir.
 const Yonetim = lazy(() => import("../yonetim/Yonetim"));
 
-type Bolum = "sponsorlar" | "oduller" | "siralama" | "gecmis";
+type Bolum = OdulBolumu;
 const BOLUMLER: { anahtar: Bolum; ad: string }[] = [
   { anahtar: "sponsorlar", ad: "Sponsorlar" },
   { anahtar: "oduller", ad: "Ödüllerim" },
@@ -34,15 +37,16 @@ const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
  * Ödüller — kullanıcının YAZVEB içindeki ilerleme profili.
  *
  * İlk bakışta üç şey görünür: kaç puanın var, hangi seviyedesin, bir sonraki
- * hedefin ne. Hemen altında tek ana eylem: QR TARA. Geri kalan her şey
- * sekmelerde; ekran bağırmaz.
+ * adımın ne. Tarama gezinme çubuğunun ortasında; burada tekrarlanmaz.
+ * Geri kalan her şey sekmelerde; ekran bağırmaz.
  */
-export default function Oduller() {
+export default function Oduller({ bolum: istenenBolum }: { bolum?: OdulBolumu }) {
   const [profil, setProfil] = useState<Profil | null>(null);
   const [sponsorlar, setSponsorlar] = useState<Sponsor[] | null>(null);
   const [cuzdan, setCuzdan] = useState<KazanimOzeti[] | null>(null);
   const [liderlik, setLiderlik] = useState<Liderlik | null>(null);
-  const [bolum, setBolum] = useState<Bolum>("sponsorlar");
+  const [bolum, setBolum] = useState<Bolum>(istenenBolum ?? "sponsorlar");
+  const [donem, setDonem] = useState<Donem>("hafta");
   const [hata, setHata] = useState<string | null>(null);
   const [tarama, setTarama] = useState<TaramaModu | null>(null);
   const [detay, setDetay] = useState<Sponsor | null>(null);
@@ -61,12 +65,19 @@ export default function Oduller() {
     }
   }, []);
 
-  useEffect(() => { tazele(); }, [tazele]);
+  useEffect(() => {
+    tazele();
+    window.addEventListener(ODUL_DEGISTI, tazele);
+    return () => window.removeEventListener(ODUL_DEGISTI, tazele);
+  }, [tazele]);
+
+  // Başka ekrandan belirli bir bölüme gelindi (ör. Ana → bekleyen ödüller).
+  useEffect(() => { if (istenenBolum) setBolum(istenenBolum); }, [istenenBolum]);
 
   useEffect(() => {
     if (bolum !== "siralama") return;
-    odul.liderlik().then(setLiderlik).catch(() => setLiderlik({ acik: false }));
-  }, [bolum, profil?.xp, profil?.gizli]);
+    odul.liderlik(donem).then(setLiderlik).catch(() => setLiderlik({ acik: false }));
+  }, [bolum, donem, profil?.xp, profil?.gizli]);
 
   const sira = BOLUMLER.findIndex((b) => b.anahtar === bolum);
   const aktifOdul = cuzdan?.filter((z) => z.durum === "aktif").length ?? 0;
@@ -94,7 +105,7 @@ export default function Oduller() {
             <div className="iskelet" style={{ width: "100%" }} />
           </div>
         ) : (
-          <IlerlemeKarti profil={profil} onTara={() => setTarama({ tur: "gorev" })} />
+          <IlerlemeKarti profil={profil} />
         )}
 
         <div className="secici bolum-secici gir" role="tablist" aria-label="Ödül bölümleri"
@@ -109,7 +120,11 @@ export default function Oduller() {
         </div>
 
         {bolum === "sponsorlar" && (
-          sponsorlar === null ? null : sponsorlar.length === 0 ? (
+          sponsorlar === null ? (!hata && (
+            <div className="sponsor-izgara" aria-label="Yükleniyor">
+              {[0, 1].map((i) => <div key={i} className="iskelet" style={{ height: 150 }} />)}
+            </div>
+          )) : sponsorlar.length === 0 ? (
             <div className="bos gir">
               <Simge ad="kilit" boyut={28} />
               <b>Sponsor ağı hazırlanıyor.</b>
@@ -124,9 +139,11 @@ export default function Oduller() {
           )
         )}
 
-        {bolum === "oduller" && <Cuzdan liste={cuzdan} onGoster={setGosterilen} />}
+        {bolum === "oduller" && (
+          <Cuzdan liste={cuzdan} onGoster={setGosterilen} onKesfet={() => setBolum("sponsorlar")} />
+        )}
         {bolum === "siralama" && profil && (
-          <Siralama veri={liderlik} gizli={profil.gizli} onGizlilik={async (g) => {
+          <Siralama veri={liderlik} donem={donem} onDonem={setDonem} gizli={profil.gizli} onGizlilik={async (g) => {
             await odul.gizlilik(g).catch(() => {});
             tazele();
           }} />
@@ -159,10 +176,10 @@ export default function Oduller() {
   );
 }
 
-function IlerlemeKarti({ profil, onTara }: { profil: Profil; onTara: () => void }) {
+function IlerlemeKarti({ profil }: { profil: Profil }) {
   const { seviye, xp } = profil;
   const oran = seviyeIlerlemesi(xp, seviye);
-  const hedef = hedefCumlesi(profil.sonraki_kilit);
+  const adim = sonrakiAdim(profil);
   const gosterilenXp = useSayac(xp);
 
   return (
@@ -186,29 +203,24 @@ function IlerlemeKarti({ profil, onTara }: { profil: Profil; onTara: () => void 
            aria-valuemin={seviye.esik} aria-valuemax={seviye.sonraki?.esik ?? xp} aria-valuenow={xp}
            aria-label="Seviye ilerlemesi"><i /></div>
       <div className="ilerleme-satiri">
-        <span className="etiket rakam">{sayi(seviye.esik)}</span>
+        <span className="etiket rakam">{seviye.ad} · {sayi(seviye.esik)}</span>
         <span className="etiket rakam">
           {seviye.sonraki ? `${seviye.sonraki.ad} · ${sayi(seviye.sonraki.esik)}` : "En üst seviye"}
         </span>
       </div>
 
-      <p className="hedef-cumlesi">
-        {xp === 0
-          ? "Macera burada başlıyor. İlk etkinlikte QR'yi okut."
-          : hedef ?? (profil.toplam_sponsor > 0 ? "Bütün sponsor kilitleri açık." : seviye.aciklama ?? "")}
-      </p>
+      {/* XP bir sayı değil, bir yol: en yakın somut kazanç + bağlam. */}
+      <div className="sonraki-adim">
+        <span className="etiket">Bir sonraki adım</span>
+        <p className="hedef-cumlesi">{adim.ana}</p>
+        {adim.ikincil && <p className="soluk">{adim.ikincil}</p>}
+      </div>
 
       <div className="ilerleme-ozet">
         <div><b className="rakam">{profil.etkinlik_sayisi}</b><span className="etiket">Etkinlik</span></div>
-        <div><b className="rakam">{profil.acik_sponsor}/{profil.toplam_sponsor}</b><span className="etiket">Kilit</span></div>
-        <div><b className="rakam">{profil.aktif_odul}</b><span className="etiket">Ödül</span></div>
+        <div><b className="rakam">{profil.acik_sponsor}/{profil.toplam_sponsor}</b><span className="etiket">Kilit açık</span></div>
+        <div><b className="rakam">{profil.aktif_odul}</b><span className="etiket">Bekleyen</span></div>
       </div>
-
-      <button className="tara-dugmesi" onClick={onTara}>
-        <Simge ad="tara" boyut={22} />
-        <span>QR tara</span>
-        <small>veya kısa kod gir</small>
-      </button>
     </section>
   );
 }
@@ -234,14 +246,19 @@ function useSayac(hedef: number) {
   return deger;
 }
 
-function Cuzdan({ liste, onGoster }: { liste: KazanimOzeti[] | null; onGoster: (id: string) => void }) {
+function Cuzdan({ liste, onGoster, onKesfet }: {
+  liste: KazanimOzeti[] | null;
+  onGoster: (id: string) => void;
+  onKesfet: () => void;
+}) {
   if (liste === null) return null;
   if (liste.length === 0) {
     return (
       <div className="bos gir">
         <Simge ad="hediye" boyut={28} />
-        <b>Henüz ödül kazanmadın.</b>
-        <span>Kilidi açık bir sponsorun QR'sini okut, sürpriz ödül burada belirir.</span>
+        <b>Henüz ödülün yok.</b>
+        <span>Kilidini açtığın bir sponsorun işletmesindeki QR'yi okuttuğunda ödülün burada belirir.</span>
+        <button className="dugme cizgili" onClick={onKesfet}>Sponsorlara bak</button>
       </div>
     );
   }
@@ -265,6 +282,9 @@ function Cuzdan({ liste, onGoster }: { liste: KazanimOzeti[] | null; onGoster: (
                   <div className="cuzdan-bilgi">
                     <span className="etiket">{z.sponsor}</span>
                     <b>{z.baslik}</b>
+                    {z.durum === "aktif" && sonKullanimEtiketi(z.son_kullanma) && (
+                      <span className="son-kullanim rakam">{sonKullanimEtiketi(z.son_kullanma)}</span>
+                    )}
                     <span className="soluk rakam">
                       Kazanıldı {tarih(z.zaman)}
                       {z.durum === "aktif" ? ` · Son kullanım ${tarih(z.son_kullanma)}` : ""}
@@ -286,22 +306,46 @@ function Cuzdan({ liste, onGoster }: { liste: KazanimOzeti[] | null; onGoster: (
   );
 }
 
-function Siralama({ veri, gizli, onGizlilik }: { veri: Liderlik | null; gizli: boolean; onGizlilik: (g: boolean) => void }) {
+function Siralama({ veri, donem, onDonem, gizli, onGizlilik }: {
+  veri: Liderlik | null;
+  donem: Donem;
+  onDonem: (d: Donem) => void;
+  gizli: boolean;
+  onGizlilik: (g: boolean) => void;
+}) {
   if (!veri) return null;
   if (!veri.acik) {
     return <div className="bos gir"><Simge ad="grafik" boyut={28} /><b>Sıralama şu an kapalı.</b></div>;
   }
+  // Eski veritabanı dönem bilmez: seçici gösterilmez, tablo tüm zamanlardır.
+  const donemli = veri.donem !== undefined;
+  const haftalik = donemli && veri.donem === "hafta";
+
   return (
     <section>
-      <label className="gizlilik-anahtari">
-        <input type="checkbox" checked={gizli} onChange={(e) => onGizlilik(e.target.checked)} />
-        <span>
-          <b>Gizli profil</b>
-          <span className="soluk">Açıkken adın sıralamada görünmez. Puanın ve ödüllerin etkilenmez.</span>
-        </span>
-      </label>
+      {donemli && (
+        <div className="secici donem-secici" role="tablist" aria-label="Sıralama dönemi"
+             style={{ ["--secim" as string]: donem === "hafta" ? 0 : 1, ["--adet" as string]: 2 }}>
+          <span className="secici-gosterge" aria-hidden="true" />
+          <button type="button" role="tab" aria-selected={donem === "hafta"} onClick={() => onDonem("hafta")}>Bu hafta</button>
+          <button type="button" role="tab" aria-selected={donem === "tum"} onClick={() => onDonem("tum")}>Tüm zamanlar</button>
+        </div>
+      )}
+
+      {haftalik && (
+        <p className="siralama-baglam soluk">
+          {veri.topluluk && veri.topluluk.uye > 0 && (
+            <>Bu hafta <b className="rakam">{veri.topluluk.uye}</b> üye toplam <b className="rakam">{sayi(veri.topluluk.xp)} XP</b> kazandı. </>
+          )}
+          Sıralama her pazartesi sıfırlanır.
+        </p>
+      )}
+
       {veri.liste.length === 0 ? (
-        <div className="bos"><b>Sıralama henüz boş.</b><span>İlk puanı alan zirveye yerleşir.</span></div>
+        <div className="bos">
+          <b>{haftalik ? "Bu hafta henüz puan kazanan yok." : "Sıralama henüz boş."}</b>
+          <span>{haftalik ? "Haftanın ilk etkinliğinde QR'yi okutan listeye girer." : "İlk puanı alan listeye girer."}</span>
+        </div>
       ) : (
         <ol className="siralama-listesi">
           {veri.liste.map((s) => (
@@ -316,9 +360,18 @@ function Siralama({ veri, gizli, onGizlilik }: { veri: Liderlik | null; gizli: b
       )}
       {veri.ben.sira && !veri.liste.some((s) => s.ben) && (
         <p className="soluk siralama-ben">
-          {veri.ben.gizli ? "Profilin gizli. " : ""}Senin sıran: <b className="rakam">{veri.ben.sira}</b> · {sayi(veri.ben.xp)} XP
+          {veri.ben.gizli ? "Profilin gizli; bu bilgiyi yalnızca sen görüyorsun. " : ""}
+          {haftalik ? "Bu haftaki sıran" : "Sıran"}: <b className="rakam">{veri.ben.sira}</b> · {sayi(veri.ben.xp)} XP
         </p>
       )}
+
+      <label className="gizlilik-anahtari">
+        <input type="checkbox" checked={gizli} onChange={(e) => onGizlilik(e.target.checked)} />
+        <span>
+          <b>Gizli profil</b>
+          <span className="soluk">Açıkken adın sıralamada görünmez. Puanın ve ödüllerin etkilenmez.</span>
+        </span>
+      </label>
     </section>
   );
 }

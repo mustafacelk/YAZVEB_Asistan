@@ -135,6 +135,8 @@ export type GosterSonucu = {
   dogrulama: string;
   pencere_bitis: string;
   sunucu_zamani: string;
+  /** Eski veritabanında yok; o yüzden isteğe bağlı. */
+  adres?: string | null;
 };
 
 export type KullanSonucu = {
@@ -144,18 +146,35 @@ export type KullanSonucu = {
   kalan_deneme?: number;
 };
 
+export type Donem = "hafta" | "tum";
+
 export type Liderlik =
   | { acik: false }
   | {
       acik: true;
+      /** Eski veritabanı dönem bilmez; o durumda alan yok ve tablo tüm zamanlardır. */
+      donem?: Donem;
       liste: { sira: number; ad: string; xp: number; seviye: string; seri: number; ben: boolean }[];
       ben: { xp: number; gizli: boolean; sira: number | null };
+      topluluk?: { uye: number; xp: number } | null;
     };
+
+/** Etkinlik başına XP bağlamı: kazanılabilir puan ve katılım. */
+export type EtkinlikOzeti = { etkinlik_id: number; puan: number; katildi: boolean };
 
 // ── Çağrı ──────────────────────────────────────────────────────────
 
-/** Sunucudan gelen hata metinleri yalnızca bizim yazdığımız mesajlarsa gösterilir. */
-export class OdulHatasi extends Error {}
+/**
+ * Sunucudan gelen hata metinleri yalnızca bizim yazdığımız mesajlarsa gösterilir.
+ *
+ * `gecici`: bağlantı ya da sunucu kaynaklı; aynı istek birazdan tekrar
+ * gönderilebilir. Kullanıcının kodu yeniden okutması gerekmez.
+ */
+export class OdulHatasi extends Error {
+  constructor(mesaj: string, readonly gecici = false) {
+    super(mesaj);
+  }
+}
 
 async function cagir<T>(fonksiyon: string, parametre?: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.rpc(fonksiyon, parametre ?? {});
@@ -163,7 +182,8 @@ async function cagir<T>(fonksiyon: string, parametre?: Record<string, unknown>):
     // 42501 / 22023 / 23505: veritabanındaki kendi yazdığımız, kullanıcıya
     // gösterilebilir cümleler. Diğer hatalar (bağlantı, iç hata) genel mesaj.
     const bizim = ["42501", "22023", "23505", "22003", "P0001"].includes(error.code ?? "");
-    throw new OdulHatasi(bizim && error.message ? error.message : "Sunucuya ulaşılamadı. Biraz sonra tekrar dene.");
+    if (bizim && error.message) throw new OdulHatasi(error.message);
+    throw new OdulHatasi("Sunucuya ulaşamadık. Bağlantını kontrol edip tekrar dene.", true);
   }
   return data as T;
 }
@@ -183,49 +203,76 @@ export const odul = {
   cuzdan: () => cagir<KazanimOzeti[]>("odul_cuzdan"),
   goster: (id: string) => cagir<GosterSonucu>("odul_goster", { p_id: id }),
   kullan: (id: string, pin: string) => cagir<KullanSonucu>("odul_kullan", { p_id: id, p_pin: pin }),
-  liderlik: () => cagir<Liderlik>("odul_liderlik"),
+  /**
+   * Veritabanı güncellenmeden önce yeni istemci yayına çıkabilir. Dönemli
+   * çağrı tanınmazsa eski (dönemsiz, tüm zamanlar) sürüme düşülür.
+   */
+  liderlik: async (donem: Donem = "hafta"): Promise<Liderlik> => {
+    try {
+      return await cagir<Liderlik>("odul_liderlik", { p_donem: donem });
+    } catch (h) {
+      if (!(h instanceof OdulHatasi) || !h.gecici) throw h;
+      return cagir<Liderlik>("odul_liderlik");
+    }
+  },
+  /** Yeni bir özellik; veritabanında yoksa takvim XP bilgisi olmadan çalışır. */
+  etkinlikOzeti: () =>
+    cagir<EtkinlikOzeti[]>("odul_etkinlik_ozeti").catch((): EtkinlikOzeti[] => []),
   gizlilik: (gizli: boolean) => cagir<void>("odul_gizlilik", { p_gizli: gizli }),
 };
 
 // ── İnsan dili ─────────────────────────────────────────────────────
 
+// Her mesaj iki soruyu cevaplar: ne oldu, şimdi ne yapabilirim?
+// Suç kullanıcıya atılmaz; teknik terim yok.
+
 export const GOREV_MESAJI: Record<Exclude<GorevDurumu, "tamam">, string> = {
-  zaten_alindi: "Bu görevin puanını zaten aldın.",
-  gecersiz: "Bu kod geçerli değil. Harfleri kontrol et.",
-  suresi_doldu: "Bu görevin süresi doldu.",
-  baslamadi: "Bu görev henüz başlamadı.",
+  zaten_alindi: "Bu görevin puanı zaten hesabında. Geçmiş bölümünde görebilirsin.",
+  gecersiz: "Bu kodu bulamadık. Harfleri kontrol edip tekrar dene.",
+  suresi_doldu: "Bu görevin süresi doldu. Etkinlik sürüyorsa görevliden güncel kodu iste.",
+  baslamadi: "Bu görev henüz açılmadı.",
   tukendi: "Bu görevin kontenjanı doldu.",
-  konum_gerekli: "Bu görev etkinlik alanında tamamlanabiliyor. Konum izni gerekiyor.",
-  konum_uzak: "Etkinlik alanında değilsin gibi görünüyor.",
-  sinir: "Çok fazla deneme yaptın. Birkaç dakika sonra tekrar dene.",
-  kimliksiz: "Oturumun sona ermiş. Tekrar giriş yap.",
-  sponsor_qr: "Bu bir sponsor QR'si. Sponsorlar bölümünden ilgili sponsoru açıp okut.",
+  konum_gerekli: "Bu görev yalnızca etkinlik alanında tamamlanıyor. Bunun için konum iznine ihtiyacımız var; konumun kaydedilmez.",
+  konum_uzak: "Etkinlik alanının dışında görünüyorsun. Kapalı alanda konum sapabilir; açık bir yere yaklaşıp tekrar dene.",
+  sinir: "Kısa sürede çok deneme yapıldı. Birkaç dakika sonra tekrar dene.",
+  kimliksiz: "Oturumun sona ermiş. Devam etmek için tekrar giriş yap.",
+  sponsor_qr: "Bu bir sponsor QR'si. Ödüller'de ilgili sponsoru açıp oradan okut.",
 };
 
+/** QR ile okunan geçersiz kodda "harfleri kontrol et" demek yanlış yönlendirir. */
+export function gorevMesaji(durum: Exclude<GorevDurumu, "tamam">, yontem: "qr" | "kod"): string {
+  if (durum === "gecersiz" && yontem === "qr") {
+    return "Bu QR artık geçerli değil. Etkinlikte gösterilen güncel QR'yi okut.";
+  }
+  return GOREV_MESAJI[durum];
+}
+
 export const SPONSOR_MESAJI: Record<Exclude<SponsorSonucu["durum"], "tamam" | "kilitli">, string> = {
-  zaten_alindi: "Bu kampanyadaki hakkını kullandın.",
-  gecersiz: "Bu kod geçerli değil.",
-  yanlis_sponsor: "Bu QR başka bir sponsora ait.",
+  zaten_alindi: "Bu kampanyadaki hakkını kullandın. Ödülün Ödüllerim'de duruyor.",
+  gecersiz: "Bu kod bu kampanyada geçerli değil. İşletmedeki güncel QR'yi okut.",
+  yanlis_sponsor: "Bu QR başka bir sponsora ait. Doğru sponsoru açıp tekrar dene.",
   suresi_doldu: "Bu kampanya sona erdi.",
   baslamadi: "Kampanya henüz başlamadı.",
-  tukendi: "Ödüller tükendi. Bu kampanyayı kaçırdın.",
-  sinir: "Çok fazla deneme yaptın. Birkaç dakika sonra tekrar dene.",
-  kimliksiz: "Oturumun sona ermiş. Tekrar giriş yap.",
-  gorev_qr: "Bu bir etkinlik QR'si. Ödüller ekranındaki QR TARA ile okut.",
+  tukendi: "Bu kampanyanın ödülleri bitti. Yeni kampanya açıldığında burada görünür.",
+  sinir: "Kısa sürede çok deneme yapıldı. Birkaç dakika sonra tekrar dene.",
+  kimliksiz: "Oturumun sona ermiş. Devam etmek için tekrar giriş yap.",
+  gorev_qr: "Bu bir etkinlik QR'si. Alttaki tarama düğmesiyle okut.",
 };
 
 export const KULLAN_MESAJI: Record<KullanSonucu["durum"], string> = {
   kullanildi: "Ödül kullanıldı.",
   zaten_kullanildi: "Bu ödül daha önce kullanılmış.",
   pin_hatali: "PIN hatalı.",
-  pin_tanimsiz: "Bu sponsor için işletme PIN'i tanımlanmamış. Topluluk yönetimine haber ver.",
-  sinir: "Çok fazla hatalı deneme. 15 dakika sonra tekrar dene.",
+  pin_tanimsiz: "Bu işletmenin onay PIN'i henüz tanımlanmamış. Ödülün geçerli; YAZVEB yönetimine haber ver.",
+  sinir: "Çok fazla hatalı PIN denendi. Güvenlik için 15 dakika bekleniyor.",
   suresi_doldu: "Bu ödülün süresi dolmuş.",
   iptal: "Bu ödül iptal edilmiş.",
   bulunamadi: "Ödül bulunamadı.",
-  kimliksiz: "Oturumun sona ermiş.",
+  kimliksiz: "Oturumun sona ermiş. Devam etmek için tekrar giriş yap.",
 };
 
 // ── Biçimlendirme ──────────────────────────────────────────────────
 // Saf fonksiyonlar ayrı dosyada: ağa dokunmadan test edilebilsinler.
-export { hedefCumlesi, konumAl, sayi, seviyeIlerlemesi, tarih, tarihSaat, titret } from "./odul_bicim";
+export {
+  hedefCumlesi, konumAl, sayi, seviyeIlerlemesi, sonKullanimEtiketi, sonrakiAdim, tarih, tarihSaat, titret,
+} from "./odul_bicim";

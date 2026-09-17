@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Simge, { odulIkonu } from "../tasarim/Simge";
 import { KULLAN_MESAJI, odul, OdulHatasi, tarih, tarihSaat, titret, type GosterSonucu } from "../veri/odul";
+import { useGezinme } from "../veri/gezinme";
 
 /**
  * İşletmeye gösterilen ödül ekranı.
@@ -15,6 +16,16 @@ import { KULLAN_MESAJI, odul, OdulHatasi, tarih, tarihSaat, titret, type GosterS
  * Görüntü birkaç saniyede eskir. Asıl koruma ise ikinci adım: işletme
  * çalışanı kendi PIN'ini girer, ödül SUNUCUDA "kullanıldı" olur ve aynı
  * ödül bir daha geçmez.
+ *
+ * İKİ KİŞİ, İKİ SORU
+ * ──────────────────
+ * Öğrenci: "Şimdi ne yapacağım?" → ekranın üstünde tek cümle.
+ * Çalışan: "Bu gerçekten geçerli mi?" → büyük GEÇERLİ, akan saat, dönen kod,
+ * "daha önce kullanılmadı". Onaydan sonra iki tarafın da göreceği net bir
+ * "Kullanıldı" anı; belirsiz bir yeniden yükleme değil.
+ *
+ * "Kaydırarak onayla" yok: ödülü kullanan öğrenci değil, PIN'i bilen çalışan.
+ * Yanlışlıkla kullanım PIN olmadan zaten mümkün değil.
  */
 export default function OdulGoster({ kazanimId, onKapat, onDegisti }: {
   kazanimId: string;
@@ -25,6 +36,8 @@ export default function OdulGoster({ kazanimId, onKapat, onDegisti }: {
   const [hata, setHata] = useState<string | null>(null);
   const [simdi, setSimdi] = useState(Date.now());
   const [pinAcik, setPinAcik] = useState(false);
+  const [yeniKullanildi, setYeniKullanildi] = useState(false);
+  const { git } = useGezinme();
   const farkRef = useRef(0);   // sunucu saati - cihaz saati
 
   const yukle = useCallback(async () => {
@@ -69,10 +82,28 @@ export default function OdulGoster({ kazanimId, onKapat, onDegisti }: {
         <span className="tarayici-bosluk" />
       </div>
 
+      {/* Izgara üç satır: üst çubuk, orta, alt. Orta satırdaki her şey tek kapta. */}
+      <div className="odul-orta">
       {hata && <p className="bildirim" role="alert">{hata}</p>}
       {!veri && !hata && <div className="dogrulama-halkasi" aria-label="Yükleniyor" />}
 
-      {veri && (
+      {veri?.durum === "aktif" && (
+        <p className="odul-yonerge">Bu ekranı kasadaki çalışana göster.</p>
+      )}
+
+      {yeniKullanildi && veri?.durum === "kullanildi" ? (
+        <div className="tarayici-merkez basari odul-kullanildi" role="status" aria-live="assertive">
+          <div className="basari-isareti" aria-hidden="true"><Simge ad="tik" boyut={30} /></div>
+          <p className="basari-baslik">Ödül kullanıldı</p>
+          <p className="etiket">{veri.sponsor} · {veri.baslik}</p>
+          {veri.kullanildi && <p className="rakam soluk">{tarihSaat(veri.kullanildi)}</p>}
+          <p className="basari-sonraki">Keyfini çıkar. Yeni ödüller için etkinliklere katılmaya devam et.</p>
+          <div className="basari-dugmeleri">
+            <button className="dugme birincil genis" onClick={onKapat}>Tamam</button>
+            <button className="dugme genis" onClick={() => { onKapat(); git("etkinlik"); }}>Sıradaki etkinliklere bak</button>
+          </div>
+        </div>
+      ) : veri && (
         <div className="odul-kart" data-durum={veri.durum}>
           <div className="odul-kart-canli" aria-hidden="true" />
           <p className="odul-kart-marka">
@@ -83,7 +114,7 @@ export default function OdulGoster({ kazanimId, onKapat, onDegisti }: {
           <p className="odul-kart-sponsor">{veri.sponsor}</p>
 
           <dl className="odul-kart-bilgi">
-            <div><dt>Kod</dt><dd className="rakam">{veri.kod}</dd></div>
+            <div><dt>Kod</dt><dd className="rakam odul-kodu">{veri.kod}</dd></div>
             <div>
               <dt>Durum</dt>
               <dd className={"durum-" + veri.durum}>
@@ -92,6 +123,7 @@ export default function OdulGoster({ kazanimId, onKapat, onDegisti }: {
               </dd>
             </div>
           </dl>
+          {veri.durum === "aktif" && <p className="odul-kart-kucuk">Bu ödül daha önce kullanılmadı.</p>}
 
           {veri.durum === "aktif" ? (
             <div className="odul-canli">
@@ -112,13 +144,15 @@ export default function OdulGoster({ kazanimId, onKapat, onDegisti }: {
           ) : null}
         </div>
       )}
+      </div>
 
-      {veri?.durum === "aktif" && (
+      {veri?.durum === "aktif" && !yeniKullanildi && (
         <div className="tarayici-alt">
+          {veri.adres && <p className="odul-yer"><Simge ad="konum" boyut={14} /> {veri.adres}</p>}
           <button className="dugme birincil genis" onClick={() => setPinAcik(true)}>
             <Simge ad="kalkan" boyut={18} /> İşletme onayı
           </button>
-          <p className="soluk odul-not">Onayı işletme çalışanı kendi PIN'iyle verir. Onaydan sonra ödül kullanılmış sayılır.</p>
+          <p className="soluk odul-not">Onay düğmesine işletme çalışanı dokunur ve kendi PIN'ini girer. Onaydan sonra ödül kullanılmış sayılır.</p>
         </div>
       )}
 
@@ -126,7 +160,7 @@ export default function OdulGoster({ kazanimId, onKapat, onDegisti }: {
         <PinPaneli
           kazanimId={veri.id}
           onKapat={() => setPinAcik(false)}
-          onKullanildi={() => { setPinAcik(false); yukle(); onDegisti(); }}
+          onKullanildi={(yeni) => { setPinAcik(false); setYeniKullanildi(yeni); yukle(); onDegisti(); }}
         />
       )}
     </div>,
@@ -138,7 +172,8 @@ export default function OdulGoster({ kazanimId, onKapat, onDegisti }: {
 function PinPaneli({ kazanimId, onKapat, onKullanildi }: {
   kazanimId: string;
   onKapat: () => void;
-  onKullanildi: () => void;
+  /** `yeni`: bu onayla kullanıldı (daha önce kullanılmış değil). */
+  onKullanildi: (yeni: boolean) => void;
 }) {
   const [pin, setPin] = useState("");
   const [mesaj, setMesaj] = useState<string | null>(null);
@@ -152,7 +187,7 @@ function PinPaneli({ kazanimId, onKapat, onKullanildi }: {
       const s = await odul.kullan(kazanimId, pin);
       if (s.durum === "kullanildi") {
         titret([20, 50, 20]);
-        onKullanildi();
+        onKullanildi(true);
         return;
       }
       titret(80);
@@ -160,7 +195,7 @@ function PinPaneli({ kazanimId, onKapat, onKullanildi }: {
       setMesaj(s.durum === "pin_hatali" && typeof s.kalan_deneme === "number"
         ? `PIN hatalı. ${s.kalan_deneme} deneme hakkı kaldı.`
         : KULLAN_MESAJI[s.durum]);
-      if (s.durum === "zaten_kullanildi") onKullanildi();
+      if (s.durum === "zaten_kullanildi") onKullanildi(false);
     } catch (h) {
       setMesaj(h instanceof OdulHatasi ? h.message : "Bağlantı sorunu.");
     } finally {
@@ -183,7 +218,7 @@ function PinPaneli({ kazanimId, onKapat, onKullanildi }: {
           {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((t) => (
             <button key={t} onClick={() => tus(t)} className="rakam">{t}</button>
           ))}
-          <button onClick={() => setPin((p) => p.slice(0, -1))} aria-label="Sil">⌫</button>
+          <button onClick={() => setPin((p) => p.slice(0, -1))} aria-label="Son haneyi sil"><Simge ad="geri" boyut={22} /></button>
           <button onClick={() => tus("0")} className="rakam">0</button>
           <button className="pin-onay" onClick={onayla} disabled={pin.length < 4 || bekliyor} aria-label="Onayla">
             <Simge ad="tik" boyut={24} />

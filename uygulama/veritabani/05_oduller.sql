@@ -465,12 +465,15 @@ begin
     'toplam', case when coalesce(sinirsiz, false) then null else toplam end,
     'hak', greatest(0, k.kisi_basi_limit - alinan),
     'alinan', alinan,
-    -- Sürpriz kampanyada ödül kalemleri GÖNDERİLMEZ.
-    'oduller', case when k.surpriz then null else (
+    -- Olası ödüller sürpriz kampanyada da gösterilir. Sürpriz olan,
+    -- HANGİSİNİN çıkacağıdır; ne kazanılabileceği değil. Kör kutu (ne
+    -- çıkabileceği bilinmeyen çekiliş) kumar hissi verir ve güveni zedeler.
+    -- Yalnızca başlık, ikon, tür ve kalan adet: kalem kimliği, ağırlık, kod yok.
+    'oduller', (
       select coalesce(jsonb_agg(jsonb_build_object('baslik', o.baslik, 'ikon', o.ikon, 'tur', o.tur,
                                                    'kalan', o.kalan, 'toplam', o.toplam)
                                 order by o.olusturuldu), '[]'::jsonb)
-      from odul.kampanya_odulleri o where o.kampanya_id = k.id) end);
+      from odul.kampanya_odulleri o where o.kampanya_id = k.id));
 end $$;
 
 create or replace function odul.sponsor_karti(p_s odul.sponsorlar, p_kim uuid, p_xp integer, p_etkinlik integer)
@@ -904,6 +907,9 @@ begin
     'id', z.id, 'kod', z.kod, 'sponsor', z.sponsor_ad, 'baslik', z.odul_baslik,
     'ikon', z.odul_ikon, 'tur', z.odul_tur, 'aciklama', z.odul_aciklama,
     'zaman', z.zaman, 'son_kullanma', z.son_kullanma, 'kullanildi', z.kullanildi,
+    -- Öğrenci işletmenin kapısında "doğru yerde miyim?" diye sormasın.
+    'adres', (select sp.adres from odul.kampanyalar kk join odul.sponsorlar sp on sp.id = kk.sponsor_id
+              where kk.id = z.kampanya_id),
     'dogrulama', lpad(((('x' || substr(ozet, 1, 8))::bit(32)::bigint) % 10000)::text, 4, '0'),
     'pencere_bitis', to_timestamp((pencere + 1) * 30),
     'sunucu_zamani', now());
@@ -948,33 +954,88 @@ begin
 end $$;
 
 
-create or replace function public.odul_liderlik()
+-- Sıralama. Varsayılan dönem HAFTA.
+-- Tüm zamanlar tablosu yeni ya da seyrek gelen üyeyi kalıcı olarak alt
+-- sıralara iter; sosyal karşılaştırma motivasyonu düşürür. Her pazartesi
+-- (İstanbul saati) sıfırlanan tablo herkese yeniden şans verir.
+--   'hafta'  bu haftaki defter toplamı
+--   'tum'    hesaptaki toplam XP
+drop function if exists public.odul_liderlik();
+create or replace function public.odul_liderlik(p_donem text default 'hafta')
 returns jsonb language plpgsql stable security definer
 set search_path = public, odul
 as $$
 declare
   kim uuid := auth.uid();
-  benim_xp integer;
-  benim_gizli boolean;
+  bas timestamptz := date_trunc('week', now() at time zone 'Europe/Istanbul') at time zone 'Europe/Istanbul';
+  sonuc jsonb;
 begin
   if kim is null then raise exception 'Giriş gerekli.' using errcode = '42501'; end if;
+  if p_donem is null or p_donem not in ('hafta', 'tum') then
+    raise exception 'Geçersiz dönem.' using errcode = '22023';
+  end if;
   if not (select liderlik_acik from odul.ayarlar) then return jsonb_build_object('acik', false); end if;
-  select xp, gizli into benim_xp, benim_gizli from odul.hesaplar where kullanici = kim;
-  -- Gerçek ad değil, kullanıcı adı. Gizli profiller listede hiç yer almaz.
-  return jsonb_build_object(
+
+  with puanlar as (
+    select h.kullanici, h.gizli, h.seri, h.xp as toplam_xp,
+           case when p_donem = 'tum' then h.xp
+                else coalesce((select sum(pi.miktar) from odul.puan_islemleri pi
+                               where pi.kullanici = h.kullanici and pi.zaman >= bas), 0)::integer
+           end as puan
+    from odul.hesaplar h
+  ),
+  sirali as (
+    select p.*, pr.kullanici_adi, rank() over (order by p.puan desc) as sira
+    from puanlar p join public.profiller pr on pr.id = p.kullanici
+    -- Gerçek ad değil, kullanıcı adı. Gizli profiller listede hiç yer almaz.
+    where not p.gizli and p.puan > 0
+  )
+  select jsonb_build_object(
     'acik', true,
+    'donem', p_donem,
+    'baslangic', case when p_donem = 'hafta' then bas end,
     'liste', (select coalesce(jsonb_agg(jsonb_build_object(
-                'sira', sira, 'ad', kullanici_adi, 'xp', xp, 'seviye', odul.seviye_bilgisi(xp)->>'ad',
-                'seri', seri, 'ben', kullanici = kim) order by sira), '[]')
-              from (select h.kullanici, p.kullanici_adi, h.xp, h.seri,
-                           rank() over (order by h.xp desc) as sira
-                    from odul.hesaplar h join public.profiller p on p.id = h.kullanici
-                    where not h.gizli and h.xp > 0
-                    order by h.xp desc limit 20) t),
-    'ben', jsonb_build_object(
-      'xp', coalesce(benim_xp, 0), 'gizli', coalesce(benim_gizli, false),
-      'sira', case when coalesce(benim_xp, 0) = 0 then null else
-              (select count(*) + 1 from odul.hesaplar where not gizli and xp > coalesce(benim_xp, 0)) end));
+                'sira', t.sira, 'ad', t.kullanici_adi, 'xp', t.puan,
+                'seviye', odul.seviye_bilgisi(t.toplam_xp)->>'ad',
+                'seri', t.seri, 'ben', t.kullanici = kim) order by t.sira, t.kullanici_adi), '[]')
+              from (select * from sirali order by sira, kullanici_adi limit 20) t),
+    'ben', (select jsonb_build_object(
+              'xp', coalesce(p.puan, 0), 'gizli', coalesce(p.gizli, false),
+              'sira', case when coalesce(p.puan, 0) <= 0 then null
+                           else (select count(*) + 1 from puanlar x where not x.gizli and x.puan > p.puan) end)
+            from (select 1) _ left join puanlar p on p.kullanici = kim),
+    -- Kimse tek başına değil: bu hafta toplulukça ne yapıldı. Toplam sayı,
+    -- kimlik yok (gizli profiller de sayıya dahil, adları değil).
+    'topluluk', case when p_donem = 'hafta' then jsonb_build_object(
+                  'uye', (select count(*) from puanlar where puan > 0),
+                  'xp', (select coalesce(sum(puan), 0) from puanlar where puan > 0)) end)
+  into sonuc;
+  return sonuc;
+end $$;
+
+
+-- Etkinlik takvimi için XP bağlamı: "Bu etkinliğe gelirsem ne olur?"
+-- Görev kodu, kısa kod, konum, görev sayısı GÖNDERİLMEZ. Etkinlik başına
+-- yalnızca şu an kazanılabilir toplam puan ve bu kullanıcının katılıp
+-- katılmadığı.
+create or replace function public.odul_etkinlik_ozeti()
+returns jsonb language plpgsql stable security definer
+set search_path = public, odul
+as $$
+declare kim uuid := auth.uid();
+begin
+  if kim is null then raise exception 'Giriş gerekli.' using errcode = '42501'; end if;
+  return (
+    select coalesce(jsonb_agg(jsonb_build_object('etkinlik_id', x.etkinlik_id, 'puan', x.puan, 'katildi', x.katildi)), '[]')
+    from (
+      select g.etkinlik_id,
+             coalesce(sum(g.puan) filter (where g.aktif and g.iptal_zamani is null and g.bitis > now()), 0) as puan,
+             bool_or(exists (select 1 from odul.gorev_kullanimlari gk
+                             where gk.gorev_id = g.id and gk.kullanici = kim)) as katildi
+      from odul.gorevler g
+      where g.etkinlik_id is not null
+      group by g.etkinlik_id
+    ) x);
 end $$;
 
 

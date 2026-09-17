@@ -18,10 +18,17 @@ type Asama = "karar" | "gerilim" | "kapanis" | "goster";
 /**
  * Sürpriz ödül açılışı — uygulamanın en özel anı.
  *
- *   karar    ekran kısa süre kararır                 350 ms
- *   gerilim  kapalı kart + "YAZVEB ödülü", bir nefes  900 ms
- *   kapanis  kart yatayda kapanır                    300 ms
+ *   karar    ekran kısa süre kararır                 150 ms
+ *   gerilim  kapalı kart + "YAZVEB ödülü", bir nefes  450 ms
+ *   kapanis  kart yatayda kapanır                    150 ms
  *   goster   ödül yüzü açılır, "Ödüllerime eklendi"
+ *
+ * NEDEN BU KADAR KISA
+ * ───────────────────
+ * İlk sürüm 1,55 saniye bekletiyordu. Beklenti anı değerlidir ama sonuç
+ * zaten sunucuda belli; uzatılmış bekleme yapay gerilimdir ve kasada ya da
+ * kalabalıkta ayakta duran kişiyi oyalar. Toplam 750 ms: merak hissi kalır,
+ * bekletme kalmaz. Ekrana dokunmak animasyonu anında bitirir.
  *
  * NEDEN 3D ÇEVİRME DEĞİL
  * ──────────────────────
@@ -48,9 +55,9 @@ export default function Reveal({
   useEffect(() => {
     if (azHareket) return;
     const zamanlar = [
-      setTimeout(() => setAsama("gerilim"), 350),
-      setTimeout(() => setAsama("kapanis"), 1250),
-      setTimeout(() => { setAsama("goster"); titret(22); }, 1550),
+      setTimeout(() => setAsama("gerilim"), 150),
+      setTimeout(() => setAsama("kapanis"), 600),
+      setTimeout(() => { setAsama((a) => (a === "goster" ? a : "goster")); titret(22); }, 750),
     ];
     return () => zamanlar.forEach(clearTimeout);
   }, [azHareket]);
@@ -59,7 +66,8 @@ export default function Reveal({
 
   return (
     <div className="reveal" data-asama={asama} role="dialog" aria-modal="true"
-         aria-label={acik ? `${kazanim.sponsor}: ${kazanim.baslik}` : "Ödül açılıyor"}>
+         aria-label={acik ? `${kazanim.sponsor}: ${kazanim.baslik}` : "Ödül açılıyor"}
+         onClick={() => { if (!acik) setAsama("goster"); }}>
       <div className="reveal-perde" aria-hidden="true" />
 
       <p className="reveal-ust etiket" aria-hidden={acik}>YAZVEB ödülü</p>
@@ -72,6 +80,7 @@ export default function Reveal({
             <h2>{kazanim.baslik}</h2>
             {kazanim.aciklama && <p className="soluk">{kazanim.aciklama}</p>}
             <p className="etiket rakam">Son kullanım · {tarih(kazanim.son_kullanma)}</p>
+            <p className="reveal-nasil soluk">İşletmede "Ödülü göster"e dokun, ekranı çalışana göster.</p>
           </div>
         ) : (
           <div className="reveal-kart reveal-arka" aria-hidden="true">

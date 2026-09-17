@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState, type CSSProperties } from "react";
-import { supabase, ROL_ADI, type Profil, type Rol } from "../veri/supabase";
+import { supabase, ROL_ADI, type Mesaj, type Profil, type Rol } from "../veri/supabase";
 import { useOturum } from "../veri/oturum";
+import { useGezinme } from "../veri/gezinme";
 import Simge from "../tasarim/Simge";
 
 const SIRA: Record<Rol, number> = { baskan: 0, yonetici: 1, uye: 2 };
@@ -20,6 +21,8 @@ const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
  */
 export default function Topluluk() {
   const { profil, baskanMi, yetkiliMi, cikis, profiliTazele } = useOturum();
+  const { git } = useGezinme();
+  const [sonMesaj, setSonMesaj] = useState<Mesaj | null | undefined>(undefined);
   const [yonetimAcik, setYonetimAcik] = useState(false);
   const [kisiler, setKisiler] = useState<Profil[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
@@ -30,6 +33,12 @@ export default function Topluluk() {
 
   useEffect(() => {
     getir();
+    supabase
+      .from("mesajlar")
+      .select("*")
+      .order("olusturuldu", { ascending: false })
+      .limit(1)
+      .then(({ data }) => setSonMesaj((data as Mesaj[] | null)?.[0] ?? null));
   }, []);
 
   useEffect(() => {
@@ -103,7 +112,23 @@ export default function Topluluk() {
 
         {hata && <p className="bildirim" role="alert">{hata}</p>}
 
-        <section className="hesap gir" style={kademe(2)} aria-labelledby="hesap-baslik">
+        {/* Topluluğun ortak odası: sekme değil, topluluğun içinde. */}
+        <button className="ana-satir sohbet-girisi gir" style={kademe(2)} onClick={() => git("sohbet")}>
+          <span className="ana-satir-ikon"><Simge ad="sohbet" boyut={20} /></span>
+          <span className="ana-satir-govde">
+            <b>Genel sohbet</b>
+            <span className="soluk tek-satir">
+              {sonMesaj === undefined
+                ? "\u00a0"
+                : sonMesaj
+                  ? `${kisiAdi(kisiler, sonMesaj.yazar)}: ${sonMesaj.icerik}`
+                  : "Oda sessiz. İlk mesajı sen yaz."}
+            </span>
+          </span>
+          <Simge ad="ileri" boyut={16} />
+        </button>
+
+        <section className="hesap gir" style={kademe(3)} aria-labelledby="hesap-baslik">
           <div className="hesap-kimlik">
             <span className="monogram buyuk" aria-hidden="true">
               {bashar(profil?.ad_soyad || profil?.kullanici_adi)}
@@ -146,9 +171,11 @@ export default function Topluluk() {
               {kaydedildi ? "Kaydedildi" : "Kaydet"}
             </button>
           </form>
+
+          <VeriOzeti />
         </section>
 
-        <div className="bolum-basi gir" style={kademe(3)}>
+        <div className="bolum-basi gir" style={kademe(4)}>
           <span className="etiket">Üyeler</span>
           <span className="etiket rakam">{kisiler.length || ""}</span>
         </div>
@@ -196,6 +223,42 @@ export default function Topluluk() {
         </Suspense>
       )}
     </div>
+  );
+}
+
+function kisiAdi(kisiler: Profil[], id: string) {
+  const k = kisiler.find((x) => x.id === id);
+  return k ? k.ad_soyad || "@" + k.kullanici_adi : "Üye";
+}
+
+/**
+ * Verilerin nerede ve ne için — hukuk metni değil, düz cümleler.
+ *
+ * Buradaki her cümle koda karşı doğrulandı: kamera görüntüsü cihazda
+ * çözülür (odul/qr.ts), konum yalnızca karşılaştırılır ve yazılmaz
+ * (odul_gorev_tamamla), IP yalnızca kısaltılmış özet olarak ve hız sınırı
+ * için tutulur (istek_ip_ozeti, 24 saat / 30 gün), asistan soruları
+ * saklanmaz. Kod değişirse bu metin de değişmeli.
+ */
+function VeriOzeti() {
+  return (
+    <details className="veri-ozeti">
+      <summary>
+        <Simge ad="kalkan" boyut={16} />
+        <span>Verilerin nasıl kullanılıyor?</span>
+      </summary>
+      <ul>
+        <li><b>Hesap:</b> kullanıcı adı, e-posta ve istersen görünen adın. Başka kişisel bilgi istemiyoruz.</li>
+        <li><b>Kamera:</b> QR kodu telefonunda okunur. Görüntü kaydedilmez, hiçbir yere gönderilmez.</li>
+        <li><b>Konum:</b> yalnızca konum şartlı bir görevde, o an etkinlik alanında olup olmadığını kontrol etmek için kullanılır. Kaydedilmez.</li>
+        <li><b>Puan ve ödüller:</b> kazandığın her puan ve ödül hesabında kayıtlı; Ödüller → Geçmiş'te hepsini görebilirsin.</li>
+        <li><b>Sıralama:</b> yalnızca kullanıcı adın görünür. Gizli profili açarak tamamen çıkabilirsin.</li>
+        <li><b>Asistan:</b> sorun, yanıt üretmek için yapay zekâ servisine gönderilir; YAZVEB soruları saklamaz. Sesli yanıt açıksa yanıt metni seslendirme servisine gider.</li>
+        <li><b>Sohbet:</b> genel sohbetteki mesajlar topluluk üyelerine görünür ve saklanır. Kendi mesajını silebilirsin.</li>
+        <li><b>Güvenlik:</b> kötüye kullanımı sınırlamak için IP adresinin geri çevrilemeyen kısa bir özeti en fazla 30 gün tutulur.</li>
+      </ul>
+      <p className="soluk">Verilerini satmıyoruz, reklam için kullanmıyoruz. Hesabının silinmesini istersen YAZVEB yönetimine yaz.</p>
+    </details>
   );
 }
 
