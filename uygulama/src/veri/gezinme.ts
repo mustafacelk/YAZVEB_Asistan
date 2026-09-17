@@ -10,7 +10,7 @@ import { createContext, useContext } from "react";
  */
 export type Sekme = "ana" | "etkinlik" | "odul" | "topluluk";
 export type Gorunum = Sekme | "asistan" | "sohbet";
-export type OdulBolumu = "sponsorlar" | "oduller" | "siralama" | "gecmis";
+export type OdulBolumu = "sponsorlar" | "oduller" | "siralama";
 
 /** Alt görünüm hangi sekmenin altında: gösterge o sekmede kalır. */
 export const UST_SEKME: Record<Gorunum, Sekme> = {

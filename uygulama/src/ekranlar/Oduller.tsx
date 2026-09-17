@@ -1,4 +1,5 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import Simge, { odulIkonu } from "../tasarim/Simge";
 import {
   odul,
@@ -20,15 +21,11 @@ import Tarayici, { type TaramaModu } from "../odul/Tarayici";
 import OdulGoster from "../odul/OdulGoster";
 import { SponsorDetay, SponsorKarti } from "../odul/SponsorKarti";
 
-// Yönetim paneli yalnızca yetkililer açtığında yüklenir.
-const Yonetim = lazy(() => import("../yonetim/Yonetim"));
-
 type Bolum = OdulBolumu;
 const BOLUMLER: { anahtar: Bolum; ad: string }[] = [
   { anahtar: "sponsorlar", ad: "Sponsorlar" },
   { anahtar: "oduller", ad: "Ödüllerim" },
   { anahtar: "siralama", ad: "Sıralama" },
-  { anahtar: "gecmis", ad: "Geçmiş" },
 ];
 
 const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
@@ -51,7 +48,7 @@ export default function Oduller({ bolum: istenenBolum }: { bolum?: OdulBolumu })
   const [tarama, setTarama] = useState<TaramaModu | null>(null);
   const [detay, setDetay] = useState<Sponsor | null>(null);
   const [gosterilen, setGosterilen] = useState<string | null>(null);
-  const [yonetim, setYonetim] = useState(false);
+  const [gecmisAcik, setGecmisAcik] = useState(false);
 
   const tazele = useCallback(async () => {
     try {
@@ -89,12 +86,8 @@ export default function Oduller({ bolum: istenenBolum }: { bolum?: OdulBolumu })
           <div>
             <span className="etiket gir">İlerleme</span>
             <h1 className="gir" style={kademe(1)}>Ödüller</h1>
+            <p className="sayfa-aciklama gir" style={kademe(2)}>Puanın, açtığın sponsorlar ve kazandığın ödüller.</p>
           </div>
-          {profil?.yetkili && (
-            <button className="dugme cizgili gir" style={kademe(2)} onClick={() => setYonetim(true)}>
-              <Simge ad="ayar" boyut={16} /> Yönetim
-            </button>
-          )}
         </header>
 
         {hata && <p className="bildirim" role="alert">{hata}</p>}
@@ -105,7 +98,7 @@ export default function Oduller({ bolum: istenenBolum }: { bolum?: OdulBolumu })
             <div className="iskelet" style={{ width: "100%" }} />
           </div>
         ) : (
-          <IlerlemeKarti profil={profil} />
+          <IlerlemeKarti profil={profil} onGecmis={() => setGecmisAcik(true)} />
         )}
 
         <div className="secici bolum-secici gir" role="tablist" aria-label="Ödül bölümleri"
@@ -148,7 +141,6 @@ export default function Oduller({ bolum: istenenBolum }: { bolum?: OdulBolumu })
             tazele();
           }} />
         )}
-        {bolum === "gecmis" && profil && <Gecmis profil={profil} />}
       </div>
 
       {detay && (
@@ -167,16 +159,24 @@ export default function Oduller({ bolum: istenenBolum }: { bolum?: OdulBolumu })
         />
       )}
       {gosterilen && <OdulGoster kazanimId={gosterilen} onKapat={() => setGosterilen(null)} onDegisti={tazele} />}
-      {yonetim && (
-        <Suspense fallback={null}>
-          <Yonetim onKapat={() => { setYonetim(false); tazele(); }} />
-        </Suspense>
+      {gecmisAcik && profil && createPortal(
+        <div className="katman" onClick={() => setGecmisAcik(false)}>
+          <div className="pencere" role="dialog" aria-modal="true" aria-labelledby="gecmis-baslik"
+               onClick={(e) => e.stopPropagation()}>
+            <div className="pencere-basi">
+              <h2 id="gecmis-baslik">Puan geçmişi</h2>
+              <button className="ikon-dugme" onClick={() => setGecmisAcik(false)} aria-label="Kapat"><Simge ad="kapat" /></button>
+            </div>
+            <Gecmis profil={profil} />
+          </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
 }
 
-function IlerlemeKarti({ profil }: { profil: Profil }) {
+function IlerlemeKarti({ profil, onGecmis }: { profil: Profil; onGecmis: () => void }) {
   const { seviye, xp } = profil;
   const oran = seviyeIlerlemesi(xp, seviye);
   const adim = sonrakiAdim(profil);
@@ -221,6 +221,11 @@ function IlerlemeKarti({ profil }: { profil: Profil }) {
         <div><b className="rakam">{profil.acik_sponsor}/{profil.toplam_sponsor}</b><span className="etiket">Kilit açık</span></div>
         <div><b className="rakam">{profil.aktif_odul}</b><span className="etiket">Bekleyen</span></div>
       </div>
+
+      {/* Her puanın nereden geldiği: sistemin adil olduğunun kanıtı. */}
+      <button className="metin-dugme gecmis-dugmesi" onClick={onGecmis}>
+        <Simge ad="liste" boyut={16} /> Puan geçmişi
+      </button>
     </section>
   );
 }

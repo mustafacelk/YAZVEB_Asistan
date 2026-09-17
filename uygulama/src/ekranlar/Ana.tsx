@@ -17,6 +17,12 @@ import Simge from "../tasarim/Simge";
 
 const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
 
+/** Rehber kartı bir kez kapatılınca bir daha kendiliğinden açılmaz. */
+const REHBER_ANAHTARI = "yazveb:rehber-kapandi";
+function rehberKapandiMi() {
+  try { return localStorage.getItem(REHBER_ANAHTARI) === "1"; } catch { return false; }
+}
+
 /**
  * Ana ekran — "Burada benim için ne var?"
  *
@@ -36,6 +42,7 @@ export default function Ana() {
   const [etkinlik, setEtkinlik] = useState<Etkinlik | null | undefined>(undefined);
   const [ozet, setOzet] = useState<EtkinlikOzeti | null>(null);
   const [cuzdan, setCuzdan] = useState<KazanimOzeti[]>([]);
+  const [rehber, setRehber] = useState(() => !rehberKapandiMi());
 
   const yukle = useCallback(async () => {
     const [p, liste, oz, cz] = await Promise.all([
@@ -66,7 +73,6 @@ export default function Ana() {
   }, [yukle]);
 
   const ad = selamAdi(profil?.ad_soyad, profil?.kullanici_adi);
-  const yeni = ilerleme !== null && ilerleme.xp === 0 && ilerleme.etkinlik_sayisi === 0;
   const aktif = cuzdan.filter((z) => z.durum === "aktif");
 
   return (
@@ -75,14 +81,18 @@ export default function Ana() {
         <header className="ana-basi gir">
           <img src="/logo-128.webp" alt="" width={28} height={28} />
           <span className="etiket">YAZVEB</span>
+          {!rehber && (
+            <button className="metin-dugme ana-rehber-ac" onClick={() => setRehber(true)}>Nasıl çalışır?</button>
+          )}
         </header>
 
         <h1 className="ana-selam gir" style={kademe(1)}>{ad ? `Merhaba, ${ad}.` : "Merhaba."}</h1>
-        {yeni && (
-          // Ürünün ne olduğu yalnızca henüz bilmeyene, tek cümleyle.
-          <p className="ana-tanitim gir" style={kademe(2)}>
-            Etkinliklere katıl, QR'yi okut, puan topla. Puanın sponsorlarda gerçek ayrıcalıklar açar.
-          </p>
+
+        {rehber && (
+          <Rehber onKapat={() => {
+            setRehber(false);
+            try { localStorage.setItem(REHBER_ANAHTARI, "1"); } catch { /* gizli sekme */ }
+          }} />
         )}
 
         <button className="asistana-sor gir" style={kademe(2)} onClick={() => git("asistan")}>
@@ -95,7 +105,9 @@ export default function Ana() {
         <section className="ana-bolum gir" style={kademe(3)} aria-labelledby="ana-etkinlik">
           <div className="bolum-basi">
             <span className="etiket" id="ana-etkinlik">
-              {etkinlik && suruyorMu(etkinlik) ? "Şu an" : "Sıradaki etkinlik"}
+              {etkinlik && suruyorMu(etkinlik)
+                ? <span className="canli-etiket"><i aria-hidden="true" />Şu an</span>
+                : "Sıradaki etkinlik"}
             </span>
             <button className="metin-dugme" onClick={() => git("etkinlik")}>Takvim</button>
           </div>
@@ -129,6 +141,32 @@ export default function Ana() {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * "YAZVEB nasıl çalışır?" — ilk açılışta, ana ekranın içinde.
+ *
+ * Kaydırmalı çok sayfalı tanıtım değil: kullanıcıyı bekletmez, atlanmaya
+ * mahkûm değildir. Döngünün dört adımı tek bakışta; kapatılınca bir daha
+ * çıkmaz, başlıktaki "Nasıl çalışır?" ile geri açılır.
+ */
+function Rehber({ onKapat }: { onKapat: () => void }) {
+  return (
+    <section className="rehber gir" style={kademe(2)} aria-labelledby="rehber-baslik">
+      <div className="rehber-basi">
+        <h2 id="rehber-baslik">YAZVEB nasıl çalışır?</h2>
+        <button className="ikon-dugme kucuk" onClick={onKapat} aria-label="Rehberi kapat"><Simge ad="kapat" boyut={16} /></button>
+      </div>
+      <ol className="rehber-adimlari">
+        <li><b>Etkinliğe katıl</b><span>Takvimde "+XP" yazan etkinlikler puan verir.</span></li>
+        <li><b>QR'yi okut</b><span>Alttaki ortadaki düğmeyle. Kamera istemezsen kısa kodu yaz.</span></li>
+        <li><b>Puan topla</b><span>Seviyen yükselir, sponsor kilitleri açılır.</span></li>
+        <li><b>Ödülünü kullan</b><span>İşletmedeki QR'yi okut, çıkan ödülü kasada göster.</span></li>
+      </ol>
+      <p className="rehber-not soluk">Takıldığın her şeyi aşağıdaki asistana sorabilirsin.</p>
+      <button className="dugme birincil" onClick={onKapat}>Anladım</button>
+    </section>
   );
 }
 
@@ -183,9 +221,10 @@ function Ilerleme({ profil, onAc }: { profil: Profil; onAc: () => void }) {
     <section className="ana-bolum gir" style={kademe(4)} aria-labelledby="ana-ilerleme">
       <div className="bolum-basi">
         <span className="etiket" id="ana-ilerleme">İlerlemen</span>
-        <span className="etiket rakam">{sayi(xp)} XP · {seviye.ad}</span>
+        <span className="etiket">{seviye.ad}</span>
       </div>
       <button className="ana-adim" onClick={onAc}>
+        <span className="ana-xp rakam">{sayi(xp)}<small>XP</small></span>
         <span className="ana-adim-metin">{adim.ana}</span>
         {adim.ikincil && <span className="soluk">{adim.ikincil}</span>}
         <span

@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { supabase, ROL_ADI, type Mesaj, type Profil, type Rol } from "../veri/supabase";
 import { useOturum } from "../veri/oturum";
 import { useGezinme } from "../veri/gezinme";
@@ -24,6 +25,7 @@ export default function Topluluk() {
   const { git } = useGezinme();
   const [sonMesaj, setSonMesaj] = useState<Mesaj | null | undefined>(undefined);
   const [yonetimAcik, setYonetimAcik] = useState(false);
+  const [hesapAcik, setHesapAcik] = useState(false);
   const [kisiler, setKisiler] = useState<Profil[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [hata, setHata] = useState<string | null>(null);
@@ -102,78 +104,44 @@ export default function Topluluk() {
           <div>
             <span className="etiket gir">YAZVEB</span>
             <h1 className="gir" style={kademe(1)}>Topluluk</h1>
+            <p className="sayfa-aciklama gir" style={kademe(2)}>Sohbet ve üyeler.</p>
           </div>
-          {yetkiliMi && (
-            <button className="dugme cizgili gir" style={kademe(2)} onClick={() => setYonetimAcik(true)}>
-              <Simge ad="ayar" boyut={16} /> Ödül yönetimi
-            </button>
-          )}
+          {/* Hesap ayarları sayfayı kalabalıklaştırmasın: tek dokunuşla açılan pencerede. */}
+          <button className="hesap-dugmesi gir" style={kademe(2)} onClick={() => setHesapAcik(true)}
+                  aria-label="Hesabım" data-ipucu="Hesabım">
+            <span className="monogram" aria-hidden="true">{bashar(profil?.ad_soyad || profil?.kullanici_adi)}</span>
+          </button>
         </header>
 
-        {hata && <p className="bildirim" role="alert">{hata}</p>}
+        {hata && !hesapAcik && <p className="bildirim" role="alert">{hata}</p>}
 
-        {/* Topluluğun ortak odası: sekme değil, topluluğun içinde. */}
-        <button className="ana-satir sohbet-girisi gir" style={kademe(2)} onClick={() => git("sohbet")}>
-          <span className="ana-satir-ikon"><Simge ad="sohbet" boyut={20} /></span>
-          <span className="ana-satir-govde">
-            <b>Genel sohbet</b>
-            <span className="soluk tek-satir">
-              {sonMesaj === undefined
-                ? "\u00a0"
-                : sonMesaj
-                  ? `${kisiAdi(kisiler, sonMesaj.yazar)}: ${sonMesaj.icerik}`
-                  : "Oda sessiz. İlk mesajı sen yaz."}
+        <div className="satir-yigini">
+          <button className="ana-satir gir" style={kademe(2)} onClick={() => git("sohbet")}>
+            <span className="ana-satir-ikon"><Simge ad="sohbet" boyut={20} /></span>
+            <span className="ana-satir-govde">
+              <b>Genel sohbet</b>
+              <span className="soluk tek-satir">
+                {sonMesaj === undefined
+                  ? "\u00a0"
+                  : sonMesaj
+                    ? `${kisiAdi(kisiler, sonMesaj.yazar)}: ${sonMesaj.icerik}`
+                    : "Oda sessiz. İlk mesajı sen yaz."}
+              </span>
             </span>
-          </span>
-          <Simge ad="ileri" boyut={16} />
-        </button>
+            <Simge ad="ileri" boyut={16} />
+          </button>
 
-        <section className="hesap gir" style={kademe(3)} aria-labelledby="hesap-baslik">
-          <div className="hesap-kimlik">
-            <span className="monogram buyuk" aria-hidden="true">
-              {bashar(profil?.ad_soyad || profil?.kullanici_adi)}
-            </span>
-            <div className="hesap-ad">
-              <h2 id="hesap-baslik">{profil?.ad_soyad || "@" + profil?.kullanici_adi}</h2>
-              <p>
-                @{profil?.kullanici_adi} ·{" "}
-                <span className={"rozet rol-" + (profil?.rol ?? "uye")}>
-                  {ROL_ADI[profil?.rol ?? "uye"]}
-                </span>
-              </p>
-            </div>
-            <button className="dugme tehlike" onClick={cikis}>
-              <Simge ad="cikis" boyut={16} />
-              Çıkış
+          {yetkiliMi && (
+            <button className="ana-satir gir" style={kademe(3)} onClick={() => setYonetimAcik(true)}>
+              <span className="ana-satir-ikon"><Simge ad="ayar" boyut={20} /></span>
+              <span className="ana-satir-govde">
+                <b>Ödül yönetimi</b>
+                <span className="soluk tek-satir">QR görevleri, sponsorlar, kampanyalar</span>
+              </span>
+              <Simge ad="ileri" boyut={16} />
             </button>
-          </div>
-
-          <form
-            className="hesap-form"
-            onSubmit={(e) => { e.preventDefault(); adiKaydet(); }}
-          >
-            <label className="alan">
-              <span className="etiket">Görünen ad</span>
-              <input
-                className="girdi"
-                value={adSoyad}
-                onChange={(e) => setAdSoyad(e.target.value)}
-                maxLength={60}
-                placeholder="Ad soyad"
-                autoComplete="name"
-              />
-            </label>
-            <button
-              type="submit"
-              className="dugme cizgili buyuk"
-              disabled={!degisti && !kaydedildi}
-            >
-              {kaydedildi ? "Kaydedildi" : "Kaydet"}
-            </button>
-          </form>
-
-          <VeriOzeti />
-        </section>
+          )}
+        </div>
 
         <div className="bolum-basi gir" style={kademe(4)}>
           <span className="etiket">Üyeler</span>
@@ -217,6 +185,56 @@ export default function Topluluk() {
           </ul>
         )}
       </div>
+      {hesapAcik && createPortal(
+        <div className="katman" onClick={() => setHesapAcik(false)}>
+          <div className="pencere hesap-penceresi" role="dialog" aria-modal="true" aria-labelledby="hesap-baslik"
+               onClick={(e) => e.stopPropagation()}>
+            <div className="pencere-basi">
+              <div className="hesap-kimlik">
+                <span className="monogram buyuk" aria-hidden="true">
+                  {bashar(profil?.ad_soyad || profil?.kullanici_adi)}
+                </span>
+                <div className="hesap-ad">
+                  <h2 id="hesap-baslik">{profil?.ad_soyad || "@" + profil?.kullanici_adi}</h2>
+                  <p>
+                    @{profil?.kullanici_adi} ·{" "}
+                    <span className={"rozet rol-" + (profil?.rol ?? "uye")}>{ROL_ADI[profil?.rol ?? "uye"]}</span>
+                  </p>
+                </div>
+              </div>
+              <button className="ikon-dugme" onClick={() => setHesapAcik(false)} aria-label="Kapat"><Simge ad="kapat" /></button>
+            </div>
+
+            {hata && <p className="bildirim" role="alert">{hata}</p>}
+
+            <form className="hesap-form" onSubmit={(e) => { e.preventDefault(); adiKaydet(); }}>
+              <label className="alan">
+                <span className="etiket">Görünen ad</span>
+                <input
+                  className="girdi"
+                  value={adSoyad}
+                  onChange={(e) => setAdSoyad(e.target.value)}
+                  maxLength={60}
+                  placeholder="Ad soyad"
+                  autoComplete="name"
+                />
+              </label>
+              <button type="submit" className="dugme cizgili buyuk" disabled={!degisti && !kaydedildi}>
+                {kaydedildi ? "Kaydedildi" : "Kaydet"}
+              </button>
+            </form>
+
+            <VeriOzeti />
+
+            <div className="pencere-dip">
+              <button className="dugme tehlike genis" onClick={cikis}>
+                <Simge ad="cikis" boyut={16} /> Çıkış yap
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
       {yonetimAcik && (
         <Suspense fallback={null}>
           <Yonetim onKapat={() => setYonetimAcik(false)} />

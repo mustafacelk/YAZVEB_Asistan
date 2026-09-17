@@ -156,6 +156,7 @@ export default function Etkinlikler() {
           <div>
             <span className="etiket gir">Takvim</span>
             <h1 className="gir" style={kademe(1)}>Etkinlikler</h1>
+            <p className="sayfa-aciklama gir" style={kademe(2)}>Katıldığın etkinlikte QR'yi okut, yanında yazan puanı kazan.</p>
           </div>
           <div className="sayfa-basi-eylem">
             {yetkiliMi && (

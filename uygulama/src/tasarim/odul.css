@@ -55,7 +55,10 @@
   transform-origin: left;
   transform: scaleX(var(--oran, 0));
   transition: transform var(--t-sinema) var(--e-giris);
+  /* Ekrana girerken sıfırdan dolar: ilerleme bir sayı değil, bir hareket. */
+  animation: ilerleme-dol var(--t-sinema) var(--e-giris) 120ms backwards;
 }
+@keyframes ilerleme-dol { from { transform: scaleX(0); } }
 .ilerleme-satiri { display: flex; justify-content: space-between; gap: var(--b-3); align-items: baseline; }
 
 .hedef-cumlesi { color: var(--m-2); }
@@ -763,3 +766,4 @@ section > .gizlilik-anahtari:last-child { margin: var(--b-5) 0 0; }
 .odul-yonerge { padding: 0 var(--b-5); color: var(--m-1); font-size: var(--y-okuma); text-align: center; }
 .odul-yer { display: inline-flex; align-items: center; gap: var(--b-1); color: var(--m-2); font-size: var(--y-kucuk); text-align: center; }
 .odul-kodu { white-space: nowrap; }
+.gecmis-dugmesi { display: inline-flex; align-items: center; gap: var(--b-2); justify-self: start; margin: 0; padding-left: 0; }
