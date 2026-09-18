@@ -14,7 +14,8 @@
     "test:transkript": "tsx testler/transkript.test.mts",
     "test:guvenlik": "tsx testler/guvenlik.test.mts",
     "test:yaris": "node veritabani/odul_yaris_testi.mjs",
-    "test:odul": "tsx testler/odul.test.mts"
+    "test:odul": "tsx testler/odul.test.mts",
+    "test:ses": "tsx testler/ses.test.mts"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.2",

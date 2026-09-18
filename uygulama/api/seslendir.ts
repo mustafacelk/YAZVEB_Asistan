@@ -19,6 +19,7 @@
 
 import { seslendir, type SesAyari } from "./_ses/edge_ses.js";
 import { seseHazirla } from "./_ses/metin.js";
+import { geminiAyari, geminiSeslendir } from "./_ses/gemini_ses.js";
 import {
   izinliKokenler,
   jwtBicimli,
@@ -37,6 +38,11 @@ const SESLER: Record<string, SesAyari> = {
 };
 const VARSAYILAN_SES = "ahmet";
 const SESLENDIRME_ZAMAN_ASIMI_MS = 15000;
+// Gemini geç kalırsa beklemek yerine Microsoft sesine düşülür. İkisinin
+// toplamı fonksiyonun 20 saniyelik süresini aşmamalı (vercel.json).
+const GEMINI_ZAMAN_ASIMI_MS = 6000;
+const YEDEK_ZAMAN_ASIMI_MS = 12000;
+const GEMINI = geminiAyari(process.env);
 
 const SUPABASE_URL = (process.env.VITE_SUPABASE_URL ?? "").replace(/\/+$/, "");
 const SUPABASE_ANAHTAR = process.env.VITE_SUPABASE_ANON_KEY ?? "";
@@ -135,8 +141,22 @@ export default async function handler(istek: Istek, yanit: Yanit) {
 
   const ayar = SESLER[dogrulama.deger.ses ?? VARSAYILAN_SES];
 
+  // İsteğe bağlı doğal ses: yalnızca açıkça etkinleştirildiyse.
+  if (GEMINI) {
+    try {
+      const { ses, tur } = await geminiSeslendir(hazir, GEMINI, GEMINI_ZAMAN_ASIMI_MS);
+      yanit.setHeader("Content-Type", tur);
+      yanit.setHeader("Cache-Control", "private, max-age=86400");
+      return yanit.status(200).send(ses);
+    } catch (h) {
+      // Kota dolmuş (429), model yanıt vermemiş ya da biçim değişmiş olabilir.
+      // Kullanıcı sessiz kalmasın: Microsoft sesine düş.
+      olay("gemini_ses_yedege_dustu", { neden: String(h).slice(0, 120) });
+    }
+  }
+
   try {
-    const ses = await seslendir(hazir, ayar, SESLENDIRME_ZAMAN_ASIMI_MS);
+    const ses = await seslendir(hazir, ayar, GEMINI ? YEDEK_ZAMAN_ASIMI_MS : SESLENDIRME_ZAMAN_ASIMI_MS);
     yanit.setHeader("Content-Type", "audio/mpeg");
     // Aynı cevap iki kez seslendirilmesin diye tarayıcı önbelleğine bırakılır.
     yanit.setHeader("Cache-Control", "private, max-age=86400");

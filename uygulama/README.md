@@ -325,6 +325,36 @@ update public.kota_ayarlari set dakika = 12, gun = 150, genel = 3000 where tur =
 
 ---
 
+## Asistanın sesi
+
+Seslendirme `api/seslendir.ts` (Vercel). Varsayılan ses Microsoft'un nöral
+Türkçe sesi: ücretsiz, anahtar istemez.
+
+**Okunuş:** `api/_ses/metin.ts` metni bir insanın okuyacağı biçime çevirir:
+CV → "si vi", QR → "kü ar", XP → "iks pi", 14.00'te → "on dörtte",
+1.050 → "bin elli", %20 → "yüzde yirmi", Doç. Dr. → "Doçent Doktor",
+Instagram hesabı ve selcuk.edu.tr okunur biçimde. Yeni bir kısaltma okunuşu
+bozuksa `INGILIZCE_KISALTMA` ya da `MARKA` listesine eklenir;
+`npm run test:ses` ile denenir.
+
+**İsteğe bağlı daha doğal ses (Gemini):** Vercel → Settings → Environment
+Variables (VITE_ öneki YOK, anahtar tarayıcıya inmesin):
+
+| Değişken | Değer |
+| --- | --- |
+| `SES_SAGLAYICI` | `gemini` |
+| `GOOGLE_API_KEY` | Google AI Studio anahtarı |
+| `GEMINI_SES` | isteğe bağlı, varsayılan `Achird` (samimi); `Sulafat` (sıcak, kadın), `Charon` (bilgilendirici) |
+
+Gemini'nin ücretsiz katmanında günlük sınır var; dolarsa, hata verirse ya da
+6 saniyede cevap gelmezse ses kendiliğinden Microsoft sesine döner (günlükte
+`gemini_ses_yedege_dustu`). Değişkenleri silmek eski davranışa döndürür.
+
+Piper'ın Türkçe `fettah` ve `fahrettin` sesleri Aralık 2025'te sahiplerinin
+isteğiyle resmî depodan kaldırıldı; bu yüzden kullanılmıyor.
+
+---
+
 ## Community Rewards (QR, puan, sponsor, ödül)
 
 ### Döngü

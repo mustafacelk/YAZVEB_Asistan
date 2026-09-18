@@ -69,6 +69,7 @@ jobs:
           npm run test:guvenlik
           npm run test:transkript
           npm run test:odul
+          npm run test:ses
 
       - name: Web derlemesi
         env:
