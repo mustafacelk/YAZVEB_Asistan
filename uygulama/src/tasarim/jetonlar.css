@@ -36,7 +36,7 @@
   /* ── Zemin katmanları (koyudan açığa) ── */
   --z-0: #050506;          /* boşluk */
   --z-1: #08090b;          /* sayfa */
-  --z-2: #0d0f12;          /* yükseltilmiş yüzey */
+  --z-2: #0f1115;          /* yükseltilmiş yüzey — kart zeminden seçilsin */
   --z-3: #14171b;          /* etkileşimli yüzey */
   --z-4: #1b1f24;          /* basılı / seçili yüzey */
 
@@ -143,7 +143,7 @@
 }
 
 @media (min-width: 900px) {
-  :root { --gezinme-pay: 0px; }
+  :root { --gezinme-pay: 0px; --kenar: 248px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

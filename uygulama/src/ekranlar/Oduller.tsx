@@ -209,6 +209,22 @@ function IlerlemeKarti({ profil, onGecmis }: { profil: Profil; onGecmis: () => v
         </span>
       </div>
 
+      {/* Uzun yol: nerede olduğun ve önünde ne var. Gelecek seviyeler
+          kilitli ama görünür; hedef soyut bir sayı olarak kalmasın. */}
+      <ol className="seviye-yolu" aria-label="Seviye yolu">
+        {profil.seviyeler.map((s) => {
+          const gecti = xp >= s.esik;
+          const simdiki = s.ad === seviye.ad;
+          const sonraki = s.ad === seviye.sonraki?.ad;
+          return (
+            <li key={s.ad} data-gecti={gecti} data-simdiki={simdiki} data-sonraki={sonraki}
+                aria-label={`${s.ad}, ${sayi(s.esik)} XP, ${simdiki ? "şu anki seviyen" : gecti ? "geçildi" : "kilitli"}`}>
+              <i aria-hidden="true">{gecti ? <Simge ad={simdiki ? "yildiz" : "tik"} boyut={12} /> : <Simge ad="kilit" boyut={11} />}</i>
+            </li>
+          );
+        })}
+      </ol>
+
       {/* XP bir sayı değil, bir yol: en yakın somut kazanç + bağlam. */}
       <div className="sonraki-adim">
         <span className="etiket">Bir sonraki adım</span>

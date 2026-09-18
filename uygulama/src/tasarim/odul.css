@@ -767,3 +767,35 @@ section > .gizlilik-anahtari:last-child { margin: var(--b-5) 0 0; }
 .odul-yer { display: inline-flex; align-items: center; gap: var(--b-1); color: var(--m-2); font-size: var(--y-kucuk); text-align: center; }
 .odul-kodu { white-space: nowrap; }
 .gecmis-dugmesi { display: inline-flex; align-items: center; gap: var(--b-2); justify-self: start; margin: 0; padding-left: 0; }
+
+/* Seviye yolu: geçilenler dolu, şu anki vurgulu, gelecekler kilitli ama görünür. */
+.seviye-yolu {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  grid-auto-flow: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.seviye-yolu::before {
+  content: "";
+  position: absolute;
+  top: 11px;
+  inset-inline: 8%;
+  height: 1px;
+  background: var(--c-orta);
+}
+.seviye-yolu li { position: relative; display: grid; justify-items: center; gap: var(--b-2); min-width: 0; }
+.seviye-yolu i {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--k-tam);
+  background: var(--z-3);
+  box-shadow: inset 0 0 0 1px var(--c-orta);
+  color: var(--m-4);
+}
+.seviye-yolu li[data-gecti="true"] i { background: var(--sinyal-soluk); box-shadow: inset 0 0 0 1px var(--sinyal-cizgi); color: var(--sinyal); }
+.seviye-yolu li[data-simdiki="true"] i { background: var(--sinyal); box-shadow: 0 0 0 3px var(--sinyal-soluk); color: var(--z-0); }

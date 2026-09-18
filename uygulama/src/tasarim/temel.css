@@ -166,6 +166,9 @@ input, textarea, select { font-size: var(--y-okuma); }
   transition: color var(--t-mikro) var(--e-dokunus);
 }
 .metin-dugme:hover { color: var(--m-1); }
+/* Bağlantı olduğu belli olsun: ok simgesi, hover'da vurgu rengi. */
+.metin-dugme.baglanti { display: inline-flex; align-items: center; gap: var(--b-1); }
+.metin-dugme.baglanti:hover { color: var(--sinyal); }
 
 .tek-satir { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ikon-dugme[aria-pressed="true"] { color: var(--sinyal); }
@@ -217,8 +220,9 @@ select.girdi { height: var(--d-kucuk); padding: 0 var(--b-2); font-size: var(--y
 /* ── Rozet ──────────────────────────────────────────────────────── */
 .rozet {
   display: inline-block;
+  vertical-align: middle;
   padding: 0 var(--b-2);
-  line-height: 20px;
+  line-height: 18px;
   border-radius: var(--k-1);
   font-size: 10px;
   font-weight: var(--a-orta);
@@ -387,31 +391,81 @@ select.girdi { height: var(--d-kucuk); padding: 0 var(--b-2); font-size: var(--y
 .gezinme-tara:focus-visible { outline: none; }
 .gezinme-tara:focus-visible .gezinme-tara-yuz { outline: 2px solid var(--sinyal); outline-offset: 2px; }
 
+.gezinme-marka, .gezinme-dip, .gezinme-tara-etiket { display: none; }
+/* Seçili sekmenin simgesi vurgu renginde: nerede olduğun ilk bakışta. */
+.gezinme-oge[aria-current="page"] .simge { color: var(--sinyal); }
+
+/* Masaüstü: yüzen hap değil, tam boy kenar çubuğu. Simge + ad, marka üstte,
+   tarama birincil eylem olarak en üstte. İçerik çubuğun yanından başlar. */
 @media (min-width: 900px) {
-  .gezinme {
-    left: var(--b-5);
-    top: 50%;
-    bottom: auto;
-    transform: translateY(-50%);
-    grid-template-columns: none;
-    grid-template-rows: repeat(var(--adet, 4), var(--d-buyuk));
-    width: auto;
+  .kabuk { padding-left: var(--kenar); }
+  .gezinme.cam {
+    left: 0;
+    top: 0;
+    bottom: 0;
+    transform: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--b-1);
+    width: var(--kenar);
+    padding: var(--b-6) var(--b-4) var(--b-5);
+    border-radius: 0;
+    background: var(--z-0);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: inset -1px 0 0 var(--c-ince);
   }
-  .gezinme-gosterge {
-    top: var(--b-1);
-    left: var(--b-1);
-    right: var(--b-1);
-    bottom: auto;
-    width: auto;
-    height: var(--d-buyuk);
-    transform: translateY(calc(var(--i) * 100%));
+  .gezinme-gosterge { display: none; }
+  .gezinme-marka {
+    order: -2;
+    display: flex;
+    align-items: center;
+    gap: var(--b-3);
+    margin: 0 var(--b-2) var(--b-6);
   }
-  .gezinme-gosterge::after { left: auto; right: 5px; bottom: 50%; margin: 0 0 -1.5px; }
-  .gezinme-oge { width: var(--d-buyuk); height: var(--d-buyuk); }
-  .gezinme-tara { width: var(--d-buyuk); height: var(--d-buyuk); }
-  .gezinme-tara-yuz { width: var(--d-orta); height: var(--d-orta); }
-  .gezinme-etiket { display: none; }
-  .gezinme-gosterge::after { display: block; }
+  .gezinme-marka img { width: var(--d-kucuk); height: var(--d-kucuk); display: block; }
+  .gezinme-marka span { display: grid; gap: 2px; }
+  .gezinme-marka b { color: var(--m-1); font-size: var(--y-govde); font-weight: var(--a-kalin); letter-spacing: var(--h-etiket); }
+  .gezinme-marka small { color: var(--m-3); font-size: var(--y-etiket); }
+
+  .gezinme-tara { order: -1; display: block; width: 100%; height: auto; margin-bottom: var(--b-4); }
+  .gezinme-tara-yuz {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--b-2);
+    width: 100%;
+    height: var(--d-orta);
+    border-radius: var(--k-2);
+    font-size: var(--y-kucuk);
+    font-weight: var(--a-orta);
+  }
+  .gezinme-tara-etiket { display: inline; }
+
+  .gezinme-oge,
+  .gezinme-oge:active {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--b-3);
+    width: 100%;
+    height: var(--d-orta);
+    padding: 0 var(--b-3);
+    border-radius: var(--k-2);
+    transform: none;
+  }
+  .gezinme-oge:hover { background: var(--z-2); }
+  .gezinme-oge[aria-current="page"] { background: var(--z-3); box-shadow: var(--isik-ic); }
+  .gezinme-etiket { display: inline; font-size: var(--y-govde); letter-spacing: 0; line-height: 1; }
+
+  .gezinme-dip {
+    display: block;
+    margin: auto var(--b-2) 0;
+    color: var(--m-4);
+    font-size: var(--y-etiket);
+    line-height: var(--s-govde);
+  }
+  .gezinme-oge[data-ipucu]::after, .gezinme-tara[data-ipucu]::after { display: none; }
 }
 
 /* ── İpucu ──────────────────────────────────────────────────────

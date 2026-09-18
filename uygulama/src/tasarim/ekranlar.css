@@ -744,26 +744,43 @@ code { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace; 
 
 .asistana-sor {
   display: grid;
-  grid-template-columns: auto auto 1fr auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: var(--b-3);
   width: 100%;
   height: var(--d-yazici);
   margin-top: var(--b-5);
-  padding: 0 var(--b-4);
+  padding: 0 var(--b-2) 0 var(--b-4);
   border-radius: var(--k-tam);
   background: var(--z-2);
-  box-shadow: var(--isik-ic), inset 0 0 0 1px var(--c-ince);
-  color: var(--m-1);
-  font-size: var(--y-govde);
-  text-align: left;
-  transition: box-shadow var(--t-mikro) var(--e-dokunus), transform var(--t-mikro) var(--e-dokunus);
+  box-shadow: var(--isik-ic), inset 0 0 0 1px var(--c-orta);
+  transition: box-shadow var(--t-mikro) var(--e-dokunus);
 }
-.asistana-sor > .simge:first-child { color: var(--sinyal); }
-.asistana-sor > .simge:last-child { color: var(--m-3); }
-.asistana-sor-ipucu { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--m-3); font-size: var(--y-kucuk); }
-.asistana-sor:hover { box-shadow: var(--isik-ic), inset 0 0 0 1px var(--c-guclu); }
-.asistana-sor:active { transform: scale(0.99); }
+.asistana-sor:focus-within { box-shadow: var(--isik-ic), inset 0 0 0 1px var(--sinyal-cizgi); }
+.asistana-sor > .simge { color: var(--sinyal); }
+.asistana-sor input {
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--m-1);
+  font: inherit;
+  font-size: var(--y-govde);
+}
+.asistana-sor input::placeholder { color: var(--m-3); }
+.asistana-sor .gonder-dugme {
+  display: grid;
+  place-items: center;
+  width: var(--d-orta);
+  height: var(--d-orta);
+  border-radius: var(--k-tam);
+  background: var(--z-3);
+  color: var(--m-1);
+  transition: background-color var(--t-mikro) var(--e-dokunus), transform var(--t-mikro) var(--e-dokunus);
+}
+.asistana-sor .gonder-dugme:hover { background: var(--z-4); }
+.asistana-sor .gonder-dugme:active { transform: scale(0.92); }
 
 .ana-bolum .bolum-basi { margin: var(--b-6) 0 var(--b-2); }
 .ana-bos { padding: var(--b-4) 0; border-top: 1px solid var(--c-ince); color: var(--m-3); }
@@ -947,3 +964,19 @@ code { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace; 
 .hesap-penceresi .pencere-basi { margin-bottom: 0; }
 .hesap-penceresi .veri-ozeti { margin-top: 0; }
 .hesap-penceresi .pencere-dip { margin-top: 0; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   İNCE AYAR — dış değerlendirme sonrası
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Bölüm başlığı ve bağlantısı yan yana: göz iki uç arasında köprü kurmasın. */
+.bolum-basi.yakin { justify-content: flex-start; align-items: center; gap: var(--b-3); }
+.bolum-basi.yakin .metin-dugme { margin-block: calc(var(--b-3) * -1); padding-left: 0; }
+
+.ana-xp-satiri { display: flex; align-items: center; gap: var(--b-3); }
+
+/* Masaüstünde marka zaten kenar çubuğunda. */
+@media (min-width: 900px) {
+  .ana-basi img, .ana-basi > .etiket { display: none; }
+  .ana-basi { min-height: var(--d-kucuk); }
+}

@@ -79,6 +79,7 @@ function Ekranlar() {
   const [gorunen, setGorunen] = useState<Gorunum>("ana");
   const [asama, setAsama] = useState<"gir" | "cik">("gir");
   const [odulBolumu, setOdulBolumu] = useState<OdulBolumu | undefined>(undefined);
+  const [asistanSorusu, setAsistanSorusu] = useState<string | undefined>(undefined);
   const [tarama, setTarama] = useState(false);
   const zamanlayici = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -89,6 +90,7 @@ function Ekranlar() {
   const git = useCallback<Gezinme["git"]>((g, secenek) => {
     setHedef(g);
     if (g === "odul") setOdulBolumu(secenek?.bolum);
+    if (g === "asistan") setAsistanSorusu(secenek?.soru);
     if (zamanlayici.current) clearTimeout(zamanlayici.current);
     if (gorunenRef.current === g) {
       // Aynı ekran (belki yalnızca bölüm değişti) ya da çıkış yarıda kesildi.
@@ -120,7 +122,7 @@ function Ekranlar() {
       <div className="kabuk">
         <main className="sahne" data-asama={asama} key={gorunen}>
           {gorunen === "ana" && <Ana />}
-          {gorunen === "asistan" && <Asistan onGeri={() => git("ana")} />}
+          {gorunen === "asistan" && <Asistan ilkSoru={asistanSorusu} onGeri={() => git("ana")} />}
           {gorunen === "etkinlik" && <Etkinlikler />}
           {gorunen === "odul" && <Oduller bolum={odulBolumu} />}
           {gorunen === "topluluk" && <Topluluk />}
@@ -133,6 +135,11 @@ function Ekranlar() {
           style={{ "--i": SUTUN[secili], "--adet": 5 } as CSSProperties}
         >
           <span className="gezinme-gosterge" aria-hidden="true" />
+          {/* Yalnızca masaüstü kenar çubuğunda görünür. */}
+          <div className="gezinme-marka" aria-hidden="true">
+            <img src="/logo-128.webp" alt="" width={32} height={32} />
+            <span><b>YAZVEB</b><small>Yapay Zekâ ve Veri Bilimi</small></span>
+          </div>
           {SEKMELER.slice(0, 2).map((s) => <SekmeDugmesi key={s.anahtar} s={s} secili={secili} git={git} />)}
           <button
             className="gezinme-tara"
@@ -141,9 +148,13 @@ function Ekranlar() {
             data-ipucu="QR tara"
             data-ipucu-yon="sag"
           >
-            <span className="gezinme-tara-yuz"><Simge ad="tara" boyut={22} /></span>
+            <span className="gezinme-tara-yuz">
+              <Simge ad="tara" boyut={22} />
+              <span className="gezinme-tara-etiket">QR tara</span>
+            </span>
           </button>
           {SEKMELER.slice(2).map((s) => <SekmeDugmesi key={s.anahtar} s={s} secili={secili} git={git} />)}
+          <p className="gezinme-dip" aria-hidden="true">Selçuk Üniversitesi<br />Yapay Zekâ ve Veri Bilimi Topluluğu</p>
         </nav>
 
         {tarama && (

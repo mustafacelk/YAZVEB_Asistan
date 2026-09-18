@@ -66,7 +66,7 @@ const DURUM_ADI: Record<Durum, string> = {
  * Ekranın durumu (dinliyor / düşünüyor / konuşuyor) kürenin hareketiyle
  * gösterilir. Genlik gerçek sesten ölçülür (bkz. canli/olcer.ts).
  */
-export default function Asistan({ onGeri }: { onGeri?: () => void }) {
+export default function Asistan({ onGeri, ilkSoru }: { onGeri?: () => void; ilkSoru?: string }) {
   const { profil } = useOturum();
   const [turlar, setTurlar] = useState<Tur[]>([]);
   const [taslak, setTaslak] = useState("");
@@ -185,6 +185,10 @@ export default function Asistan({ onGeri }: { onGeri?: () => void }) {
     }
   }, [sesiKes]);
 
+  // Ana ekrandaki kutuya yazılan soru: ekran açılır açılmaz bir kez sorulur.
+  // Zamanlayıcı, StrictMode'un çift efekt çalıştırmasında ikinci kez sormasın diye.
+  const ilkSoruRef = useRef(ilkSoru);
+
   const sor = useCallback(async (metin: string, sesle = false) => {
     const soru = metin.trim();
     if (!soru || bekliyor) return;
@@ -237,6 +241,13 @@ export default function Asistan({ onGeri }: { onGeri?: () => void }) {
       if (istek === istekRef.current) setBekliyor(false);
     }
   }, [bekliyor, turlar, sesliCevap, seslendir, hataGoster]);
+
+  useEffect(() => {
+    const soru = ilkSoruRef.current;
+    if (!soru) return;
+    const z = setTimeout(() => { ilkSoruRef.current = undefined; sor(soru); }, 0);
+    return () => clearTimeout(z);
+  }, [sor]);
 
   // Tanıyıcının olayları dinleme başladığı andaki `sor`u yakalar; her zaman
   // en güncelini çağırsın diye bir referanstan okunur.
@@ -385,7 +396,7 @@ export default function Asistan({ onGeri }: { onGeri?: () => void }) {
             aria-hidden={kip === "ev"}
             aria-label="Yeni konuşma"
           >
-            <Simge ad="geri" boyut={18} />
+            <Simge ad="yeni" boyut={18} />
             <span className="dar-gizle">Yeni konuşma</span>
           </button>
         </div>

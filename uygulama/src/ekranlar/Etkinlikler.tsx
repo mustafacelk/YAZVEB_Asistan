@@ -160,7 +160,8 @@ export default function Etkinlikler() {
           </div>
           <div className="sayfa-basi-eylem">
             {yetkiliMi && (
-              <button className="dugme birincil gir" style={kademe(3)} onClick={() => { setHata(null); setTaslak({ ...BOS }); }}>
+              // Yalnızca yetkiliye görünür ve ikincil: ekranın asıl işi takvimi görmek.
+              <button className="dugme cizgili gir" style={kademe(3)} onClick={() => { setHata(null); setTaslak({ ...BOS }); }}>
                 <Simge ad="arti" boyut={16} />
                 Yeni etkinlik
               </button>

@@ -23,7 +23,8 @@ export const UST_SEKME: Record<Gorunum, Sekme> = {
 };
 
 export type Gezinme = {
-  git: (hedef: Gorunum, secenek?: { bolum?: OdulBolumu }) => void;
+  /** `soru`: Ana'daki kutuya yazılan soru; Asistan açılınca kendiliğinden sorulur. */
+  git: (hedef: Gorunum, secenek?: { bolum?: OdulBolumu; soru?: string }) => void;
   /** Etkinlik QR'si / kısa kod tarayıcısını açar. */
   tara: () => void;
 };

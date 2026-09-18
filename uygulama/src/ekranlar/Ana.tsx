@@ -43,6 +43,7 @@ export default function Ana() {
   const [ozet, setOzet] = useState<EtkinlikOzeti | null>(null);
   const [cuzdan, setCuzdan] = useState<KazanimOzeti[]>([]);
   const [rehber, setRehber] = useState(() => !rehberKapandiMi());
+  const [soru, setSoru] = useState("");
 
   const yukle = useCallback(async () => {
     const [p, liste, oz, cz] = await Promise.all([
@@ -95,21 +96,40 @@ export default function Ana() {
           }} />
         )}
 
-        <button className="asistana-sor gir" style={kademe(2)} onClick={() => git("asistan")}>
+        {/* Gerçek bir yazı alanı: yazıp gönderince Asistan açılır ve soru
+            doğrudan sorulur. Boşken sağdaki mikrofon Asistan'ı açar. */}
+        <form
+          className="asistana-sor gir"
+          style={kademe(2)}
+          onSubmit={(e) => {
+            e.preventDefault();
+            git("asistan", { soru: soru.trim() || undefined });
+          }}
+        >
           <Simge ad="asistan" boyut={18} />
-          <span>Asistana sor</span>
-          <span className="asistana-sor-ipucu">Etkinlik, üyelik, topluluk</span>
-          <Simge ad="ileri" boyut={16} />
-        </button>
+          <input
+            value={soru}
+            onChange={(e) => setSoru(e.target.value)}
+            placeholder="Asistana sor: etkinlik, üyelik, topluluk"
+            aria-label="Asistana soru"
+            enterKeyHint="send"
+            maxLength={500}
+          />
+          <button type="submit" className="gonder-dugme" aria-label={soru.trim() ? "Gönder" : "Asistanı aç"}>
+            <Simge ad={soru.trim() ? "gonder" : "mikrofon"} boyut={16} />
+          </button>
+        </form>
 
         <section className="ana-bolum gir" style={kademe(3)} aria-labelledby="ana-etkinlik">
-          <div className="bolum-basi">
+          <div className="bolum-basi yakin">
             <span className="etiket" id="ana-etkinlik">
               {etkinlik && suruyorMu(etkinlik)
                 ? <span className="canli-etiket"><i aria-hidden="true" />Şu an</span>
                 : "Sıradaki etkinlik"}
             </span>
-            <button className="metin-dugme" onClick={() => git("etkinlik")}>Takvim</button>
+            <button className="metin-dugme baglanti" onClick={() => git("etkinlik")}>
+              Tüm takvim <Simge ad="ileri" boyut={14} />
+            </button>
           </div>
           {etkinlik === undefined ? (
             <div className="yigin" aria-label="Yükleniyor">
@@ -160,7 +180,7 @@ function Rehber({ onKapat }: { onKapat: () => void }) {
       </div>
       <ol className="rehber-adimlari">
         <li><b>Etkinliğe katıl</b><span>Takvimde "+XP" yazan etkinlikler puan verir.</span></li>
-        <li><b>QR'yi okut</b><span>Alttaki ortadaki düğmeyle. Kamera istemezsen kısa kodu yaz.</span></li>
+        <li><b>QR'yi okut</b><span>"QR tara" düğmesiyle. Kamera istemezsen kısa kodu yaz.</span></li>
         <li><b>Puan topla</b><span>Seviyen yükselir, sponsor kilitleri açılır.</span></li>
         <li><b>Ödülünü kullan</b><span>İşletmedeki QR'yi okut, çıkan ödülü kasada göster.</span></li>
       </ol>
@@ -219,12 +239,14 @@ function Ilerleme({ profil, onAc }: { profil: Profil; onAc: () => void }) {
   const { seviye, xp } = profil;
   return (
     <section className="ana-bolum gir" style={kademe(4)} aria-labelledby="ana-ilerleme">
-      <div className="bolum-basi">
+      <div className="bolum-basi yakin">
         <span className="etiket" id="ana-ilerleme">İlerlemen</span>
-        <span className="etiket">{seviye.ad}</span>
       </div>
       <button className="ana-adim" onClick={onAc}>
-        <span className="ana-xp rakam">{sayi(xp)}<small>XP</small></span>
+        <span className="ana-xp-satiri">
+          <span className="ana-xp rakam">{sayi(xp)}<small>XP</small></span>
+          <span className="rozet">{seviye.ad}</span>
+        </span>
         <span className="ana-adim-metin">{adim.ana}</span>
         {adim.ikincil && <span className="soluk">{adim.ikincil}</span>}
         <span
