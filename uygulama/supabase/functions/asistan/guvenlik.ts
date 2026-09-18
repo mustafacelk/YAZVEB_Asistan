@@ -166,3 +166,61 @@ export const VARSAYILAN_KOKENLER = [
 export function kokenIzinli(koken: string | null, izinli: string[]): boolean {
   return !!koken && izinli.includes(koken);
 }
+
+
+// ═══════════════════════════════════════════════════════════════════
+// UYGULAMA İÇİ YÖNLENDİRME
+// ═══════════════════════════════════════════════════════════════════
+// Asistan bir cevabın sonunda kullanıcıyı uygulamanın bir bölümüne
+// yönlendirebilir: "[[git:etkinlik]]". Etiket modelden gelir, yani
+// GÜVENİLMEYEN VERİDİR. Yalnızca aşağıdaki listeden bir değer kabul edilir;
+// geri kalan her şey (adres, betik, bilinmeyen bölüm) atılır. Kabul edilen
+// değer bile yalnızca bir düğme gösterir; kullanıcı dokunmadan hiçbir yere
+// gidilmez.
+
+export const YONLENDIRME_HEDEFLERI = [
+  "etkinlik", "tara", "odul", "oduller", "sponsorlar", "siralama", "topluluk", "sohbet",
+] as const;
+export type Yonlendirme = (typeof YONLENDIRME_HEDEFLERI)[number];
+
+const ETIKET = /\[\[\s*git\s*:\s*([^\]\s]{1,40})\s*\]\]/gi;
+
+/** Etiketi metinden ayıklar. İlk GEÇERLİ hedef alınır; bütün etiketler silinir. */
+export function yonlendirmeAyikla(metin: string): { metin: string; yonlendirme: Yonlendirme | null } {
+  let yonlendirme: Yonlendirme | null = null;
+  for (const m of metin.matchAll(ETIKET)) {
+    const aday = m[1].toLocaleLowerCase("tr");
+    if (!yonlendirme && (YONLENDIRME_HEDEFLERI as readonly string[]).includes(aday)) {
+      yonlendirme = aday as Yonlendirme;
+    }
+  }
+  // Yarım kalmış etiket (jeton sınırında kesilmiş "[[git:etk") da görünmesin.
+  const temiz = metin.replace(ETIKET, "").replace(/\[\[[^\]]*$/, "").replace(/[ \t]+\n/g, "\n").trim();
+  return { metin: temiz, yonlendirme };
+}
+
+// Hangi canlı verinin gerektiğine sorudan karar verilir. Veri en aza iner:
+// puan sorulmadıysa kişinin puanı modele hiç gitmez.
+const ETKINLIK_SORUSU = /etkinli|takvim|seminer|atölye|atolye|workshop|konferans|buluşma|bulusma|söyleşi|soylesi|toplantı|ne zaman|bugün|yarın|bu hafta|haftaya|program/i;
+const PROFIL_SORUSU = /puan|xp|seviye|level|kilit|ödül|odul|sıram|sıralama|siralama|kaçıncı|ilerleme|seri\b|sponsor/i;
+
+export function baglamIhtiyaci(metin: string): { etkinlik: boolean; profil: boolean } {
+  return { etkinlik: ETKINLIK_SORUSU.test(metin), profil: PROFIL_SORUSU.test(metin) };
+}
+
+// Yönlendirme için daha dar: "YAZVEB ne zaman kuruldu?" takvime götürmemeli.
+const KESIN_ETKINLIK = /etkinli|takvim|seminer|atölye|atolye|workshop|konferans|söyleşi|soylesi/i;
+export function etkinlikSorusuMu(metin: string): boolean {
+  return KESIN_ETKINLIK.test(metin);
+}
+
+export const YONLENDIRME_TALIMATI = `
+UYGULAMA İÇİ YÖNLENDİRME
+- Bu konuşma YAZVEB uygulamasının içinde geçiyor. Cevap kullanıcıyı uygulamadaki bir bölüme götürmeyi gerektiriyorsa cevabın EN SONUNA, ayrı bir satırda, tam olarak şu biçimde TEK bir etiket ekle: [[git:HEDEF]]
+- HEDEF yalnızca şunlardan biri olabilir: etkinlik (etkinlikler ve takvim), tara (QR okutma), odul (puan, seviye, ilerleme), oduller (kazanılmış ödülü kullanma), sponsorlar (sponsorlar ve kilitler), siralama (sıralama), topluluk (üyeler ve hesap), sohbet (genel sohbet).
+- Etkinlik, takvim veya "ne zaman" sorularında cevabın sonuna her zaman [[git:etkinlik]] ekle. Gerek yoksa etiket ekleme. Etiketi cümle içinde kullanma ve açıklama.
+
+CANLI UYGULAMA VERİSİ
+- ARAÇ NOTLARI'nda "uygulamadaki etkinlikler" listesi varsa etkinlik adı, tarih, saat ve yeri oradan AYNEN söyle; kurumsal hafızadaki "etkinlik tarihi bilinmez" kuralı yalnızca bu liste yoksa geçerlidir. Liste boşsa uygulamada planlanmış etkinlik görünmediğini söyle.
+- ARAÇ NOTLARI'nda kullanıcının puan durumu varsa sayıları aynen kullan, kendin hesaplama.
+`.trim();

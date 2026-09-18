@@ -29,13 +29,18 @@
 
 import { HATA_CEVABI, KURUMSAL_HAFIZA, SISTEM_TALIMATI } from "./bilgi.ts";
 import {
+  baglamIhtiyaci,
   ciktiyiSuz,
+  etkinlikSorusuMu,
   GUVENLIK_TALIMATI,
   istegiDogrula,
   kokenIzinli,
+  metniTemizle,
   modelGovdesi,
   SINIR,
   VARSAYILAN_KOKENLER,
+  YONLENDIRME_TALIMATI,
+  yonlendirmeAyikla,
 } from "./guvenlik.ts";
 
 const MODEL = Deno.env.get("YAZVEB_MODEL") ?? "gemini-3.5-flash-lite";
@@ -55,10 +60,14 @@ const DENEME = 3;
 const MODEL_ZAMAN_ASIMI_MS = 20000;   // tek model çağrısı
 const KOTA_ZAMAN_ASIMI_MS = 5000;
 
-const EN_FAZLA_JETON = 170;
+// Canlı etkinlik listesi okunacak kadar pay; sesli okunduğu için yine kısa.
+const EN_FAZLA_JETON = 220;
+const BAGLAM_ZAMAN_ASIMI_MS = 2500;
 
 // Talimat bir kez kurulur. Tarih istek anında eklenir.
-const SABIT_TALIMAT = `${SISTEM_TALIMATI}\n\n${GUVENLIK_TALIMATI}`;
+// Yönlendirme talimatı yalnızca burada: masaüstü sesli asistan da aynı
+// SISTEM_TALIMATI'nı kullanıyor ve orada "[[git:...]]" etiketi yüksek sesle okunurdu.
+const SABIT_TALIMAT = `${SISTEM_TALIMATI}\n\n${YONLENDIRME_TALIMATI}\n\n${GUVENLIK_TALIMATI}`;
 
 type Olay = "yetkisiz" | "kota" | "kota_denetimi_yok" | "gecersiz_girdi" | "govde_buyuk" | "koken_red" | "cikti_suzuldu" | "model_hatasi";
 
@@ -121,6 +130,68 @@ async function kotaHarca(jeton: string, apikey: string): Promise<string> {
   } catch {
     return "hata";
   }
+}
+
+/**
+ * Uygulamanın canlı verisi — yalnızca soru gerektiriyorsa.
+ *
+ * İstekler KULLANICININ jetonuyla gider: satır kuralları ve odul_* fonksiyon
+ * yetkileri aynen geçerli, bu fonksiyon kullanıcının göremeyeceği hiçbir şeyi
+ * göremez. Hata ya da zaman aşımında sessizce boş döner; asistan yine cevap
+ * verir, yalnızca canlı veri olmadan.
+ */
+async function uygulamaBaglami(jeton: string, apikey: string, metin: string): Promise<string> {
+  const { etkinlik, profil } = baglamIhtiyaci(metin);
+  if (!etkinlik && !profil) return "";
+  const basliklar = { Authorization: `Bearer ${jeton}`, apikey, "Content-Type": "application/json" };
+  const tarihBicimi = new Intl.DateTimeFormat("tr-TR", {
+    weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit",
+    timeZone: "Europe/Istanbul",
+  });
+  const kisalt = (m: unknown, n: number) => metniTemizle(String(m ?? "")).replace(/\s+/g, " ").slice(0, n);
+
+  const [etkinlikNotu, profilNotu] = await Promise.all([
+    etkinlik
+      ? sureli(
+          `${SUPABASE_URL}/rest/v1/etkinlikler?select=baslik,yer,baslangic` +
+            `&baslangic=gte.${encodeURIComponent(new Date(Date.now() - 3 * 3_600_000).toISOString())}` +
+            `&order=baslangic.asc&limit=5`,
+          { headers: basliklar },
+          BAGLAM_ZAMAN_ASIMI_MS,
+        )
+          .then((y) => (y.ok ? y.json() : null))
+          .then((liste) => {
+            if (!Array.isArray(liste)) return "";
+            if (liste.length === 0) return "Uygulamadaki etkinlikler (canlı veri): planlanmış etkinlik yok.";
+            const satirlar = liste.map((e: Record<string, unknown>, i: number) =>
+              `${i + 1}) ${tarihBicimi.format(new Date(String(e.baslangic)))} · ${kisalt(e.baslik, 120)}` +
+              (e.yer ? ` · ${kisalt(e.yer, 80)}` : ""));
+            return `Uygulamadaki etkinlikler (canlı veri, en yakın ${liste.length}):\n${satirlar.join("\n")}`;
+          })
+          .catch(() => "")
+      : Promise.resolve(""),
+    profil
+      ? sureli(`${SUPABASE_URL}/rest/v1/rpc/odul_profil`, { method: "POST", headers: basliklar, body: "{}" },
+          BAGLAM_ZAMAN_ASIMI_MS)
+          .then((y) => (y.ok ? y.json() : null))
+          .then((p) => {
+            if (!p || typeof p !== "object") return "";
+            const sv = p.seviye ?? {};
+            const k = p.sonraki_kilit;
+            const parca = [
+              `${Number(p.xp) || 0} XP`,
+              `seviye ${kisalt(sv.ad, 20)}`,
+              sv.sonraki ? `sonraki seviye ${kisalt(sv.sonraki.ad, 20)} (${Number(sv.sonraki.esik) || 0} XP)` : "en üst seviye",
+              k ? `en yakın kilit ${kisalt(k.sponsor, 60)}: ${Number(k.eksik_xp) || 0} XP ve ${Number(k.eksik_etkinlik) || 0} etkinlik kaldı` : "kilitli sponsor yok",
+              `katıldığı puanlı etkinlik ${Number(p.etkinlik_sayisi) || 0}`,
+              `kullanılmayı bekleyen ödül ${Number(p.aktif_odul) || 0}`,
+            ];
+            return `Kullanıcının uygulamadaki durumu (canlı veri): ${parca.join("; ")}.`;
+          })
+          .catch(() => "")
+      : Promise.resolve(""),
+  ]);
+  return [etkinlikNotu, profilNotu].filter(Boolean).join("\n");
 }
 
 /** Gövdeyi okur ama sınırı aşan baytta keser: 1 GB'lık gövde belleğe alınmaz. */
@@ -275,17 +346,27 @@ Deno.serve(async (istek) => {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
     timeZone: "Europe/Istanbul",
   });
+  // "Peki ne zaman?" gibi eksiltili sorularda konu önceki turdadır.
+  const sonKullaniciTuru = [...dogrulama.deger.gecmis].reverse().find((t) => t.rol === "user")?.icerik ?? "";
+  const baglam = await uygulamaBaglami(jeton, apikey, `${dogrulama.deger.soru}\n${sonKullaniciTuru}`);
+
   const talimat =
     `${SABIT_TALIMAT}\n\n════════ KURUMSAL HAFIZA ════════\n${KURUMSAL_HAFIZA}\n\n` +
-    `════════ ARAÇ NOTLARI ════════\nBugünün tarihi: ${bugun}`;
+    `════════ ARAÇ NOTLARI ════════\nBugünün tarihi: ${bugun}` +
+    (baglam ? `\n${baglam}` : "");
 
   try {
     const modelCevabi = await modeliSor(modelGovdesi(talimat, dogrulama.deger, EN_FAZLA_JETON));
+    const { metin, yonlendirme } = yonlendirmeAyikla(modelCevabi);
     // Sızıntı süzgeci yalnızca davranış talimatına bakar. Kurumsal hafızadaki
     // bilgiyi aynen aktarmak meşru bir cevaptır.
-    const suzulmus = ciktiyiSuz(modelCevabi, SABIT_TALIMAT);
+    const suzulmus = ciktiyiSuz(metin, SABIT_TALIMAT);
     if (!suzulmus.guvenli) olay("cikti_suzuldu");
-    return yanit({ cevap: suzulmus.metin }, 200, koken);
+    // Model etiketi unutsa bile etkinlik sorusu takvime götürür.
+    const hedef = suzulmus.guvenli
+      ? yonlendirme ?? (etkinlikSorusuMu(dogrulama.deger.soru) ? "etkinlik" : null)
+      : null;
+    return yanit(hedef ? { cevap: suzulmus.metin, yonlendirme: hedef } : { cevap: suzulmus.metin }, 200, koken);
   } catch (hata) {
     // Ayrıntı yalnızca sunucu günlüğüne; istemciye genel cümle.
     olay("model_hatasi", { neden: String(hata).slice(0, 120) });

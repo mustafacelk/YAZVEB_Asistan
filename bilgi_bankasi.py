@@ -10,6 +10,7 @@ Kategoriler
 -----------
 kurumsal     : YAZVEB'in doğrulanmış kurumsal bilgisi
 universite   : Selçuk Üniversitesi ve Fen Fakültesi
+uygulama     : YAZVEB mobil uygulaması — bölümler, puan, ödül, sorun giderme
 taslak       : onay bekleyen, kesinleşmemiş kurallar
 bosluk       : bilinçli olarak "bilgim yok" dedirtmek için konulan kayıtlar
 veri_bilimi  : topluluğun alanına ait kalıcı teknik bilgi
@@ -23,7 +24,7 @@ asistan güncel arama katmanına yönlendirilir.
 
 from __future__ import annotations
 
-BANKA_SURUMU = "2026.08"
+BANKA_SURUMU = "2026.09"
 
 KAYITLAR: list[dict] = [
     # ══════════════════════════ KURUMSAL ══════════════════════════
@@ -162,6 +163,19 @@ KAYITLAR: list[dict] = [
         ),
     },
 
+    {
+        "baslik": "Topluluğa katılım ve üyenin yolu",
+        "kategori": "kurumsal",
+        "anahtar": ["nasıl üye olurum", "topluluğa nasıl katılırım", "üyelik", "katılmak istiyorum",
+                    "görev almak", "birime katılmak", "gönüllü", "aranıza nasıl katılırım"],
+        "icerik": (
+            "Uygulamaya kaydolan herkes etkinlikleri takip edebilir, etkinliklerde puan kazanabilir "
+            "ve topluluk sohbetine katılabilir. Resmî üyelik adımları ve Organizasyon, Sosyal Medya "
+            "ya da Ar-Ge birimlerinde görev almak için yönetime veya resmî Instagram hesabı "
+            "@yapayzekaveribilimitop.su üzerinden ulaşılır."
+        ),
+    },
+
     # ══════════════════════════ ÜNİVERSİTE ══════════════════════════
     {
         "baslik": "Selçuk Üniversitesi Fen Fakültesi",
@@ -186,6 +200,148 @@ KAYITLAR: list[dict] = [
             "ev sahipliği, Sevgi Evleri çocukları için kampüs ve laboratuvar tanıtımlarını içeren "
             "sosyal sorumluluk projeleri, SÜMEDER ve Diyanet Vakfı ortaklığında iftar "
             "organizasyonları, birinci sınıflar için geleneksel Beyaz Önlük törenleri."
+        ),
+    },
+
+    {
+        "baslik": "Selçuk Üniversitesi — öğrenci gözüyle",
+        "kategori": "universite",
+        "anahtar": ["selçuk üniversitesi nerede", "kampüs", "alaeddin keykubat", "yerleşke",
+                    "kampüse nasıl gidilir", "tramvay", "konya", "öğrenci hayatı", "üniversite hakkında",
+                    "sks", "öğrenci toplulukları", "ders kaydı", "yurt", "yemekhane", "burs"],
+        "icerik": (
+            "Selçuk Üniversitesi 1975'te kurulmuş, Konya'nın köklü ve büyük devlet "
+            "üniversitelerindendir. Ana yerleşkesi Selçuklu ilçesindeki Alaeddin Keykubat "
+            "Yerleşkesi'dir; şehir merkezinden kampüse tramvayla ulaşılabilir. Yerleşke geniştir, "
+            "fakülteler arası yol yürüyerek zaman alabilir. Öğrenci toplulukları üniversitenin "
+            "Sağlık, Kültür ve Spor Daire Başkanlığına bağlı çalışır. Ders kaydı, not, burs, yurt, "
+            "yemekhane menüsü ve ulaşım saatleri gibi değişen konularda tahmin yürütülmez; "
+            "üniversitenin resmî sitesi selcuk.edu.tr ve ilgili birimlere yönlendirilir."
+        ),
+    },
+
+    # ══════════════════════════ UYGULAMA ══════════════════════════
+    {
+        "baslik": "YAZVEB uygulaması nedir",
+        "kategori": "uygulama",
+        "anahtar": ["bu uygulama nedir", "uygulama ne işe yarar", "bu ne", "yazveb uygulaması",
+                    "uygulamayı anlat", "uygulamada neler var", "burada ne yapabilirim", "uygulama"],
+        "icerik": (
+            "YAZVEB uygulaması, Selçuk Üniversitesi Yapay Zeka ve Veri Bilimi Topluluğu'nun resmî "
+            "uygulamasıdır. Topluluğun etkinliklerini takip etmeyi, etkinliğe katılınca QR kodu "
+            "okutarak puan (XP) kazanmayı, seviye atlamayı ve puanla sponsor işletmelerde ödül "
+            "açmayı sağlar. İçinde topluluk sohbeti, üye listesi ve topluluk hakkında her şeyi "
+            "sorabileceğin bu asistan da var. Amaç ekranda vakit geçirtmek değil: katıldıkça "
+            "ilerlemek, ilerledikçe gerçek ayrıcalık kazanmak."
+        ),
+    },
+    {
+        "baslik": "Uygulamanın bölümleri",
+        "kategori": "uygulama",
+        "anahtar": ["menü", "sekme", "bölüm", "nerede", "nereden bakarım", "ana sayfa",
+                    "etkinlikler bölümü", "ödüller bölümü", "topluluk bölümü", "qr tara nerede"],
+        "icerik": (
+            "Telefonda alt çubukta, bilgisayarda soldaki menüde beş öğe vardır. Ana: sıradaki "
+            "etkinlik, bir sonraki adımın ve bekleyen ödüllerin; asistana da buradan yazılır. "
+            "Etkinlikler: yaklaşan ve geçmiş etkinliklerin takvimi, her etkinlikte kazanılacak XP "
+            "ve katıldıklarında 'Katıldın' işareti. QR tara (telefonda ortadaki düğme): etkinlikte "
+            "ya da sponsor işletmede QR okutmak için. Ödüller: puanın, seviyen, sponsorlar, "
+            "kazandığın ödüller (Ödüllerim), sıralama ve puan geçmişi. Topluluk: genel sohbet, "
+            "üyeler ve sağ üstteki baş harflerinden açılan hesap ayarları."
+        ),
+    },
+    {
+        "baslik": "Etkinliklere katılım ve puan kazanma",
+        "kategori": "uygulama",
+        "anahtar": ["puan nasıl kazanılır", "xp", "qr okutma", "qr nasıl okutulur", "kısa kod",
+                    "yoklama", "katılım", "etkinliğe katıldım", "puanım gelmedi", "puan"],
+        "icerik": (
+            "Puan etkinliklere katılarak kazanılır. Etkinlikte gösterilen YAZVEB QR kodunu QR tara "
+            "düğmesiyle okutursun; kamera kullanmak istemezsen QR'nin altındaki kısa kodu "
+            "yazabilirsin. Kazanılacak puan Etkinlikler bölümünde etkinliğin yanında '+XP' olarak "
+            "yazar. Aynı görevin puanı bir kez alınır. Bazı görevler yalnızca etkinlik alanında "
+            "tamamlanır; o zaman konum izni istenir, konum yalnızca kontrol edilir ve kaydedilmez. "
+            "Puanın görünmüyorsa Ödüller bölümündeki puan geçmişine bak; orada da yoksa etkinlikteki "
+            "görevliye veya yönetime söyle."
+        ),
+    },
+    {
+        "baslik": "Seviyeler ve bir sonraki adım",
+        "kategori": "uygulama",
+        "anahtar": ["seviye", "level", "seviye atlama", "starter", "explorer", "builder", "creator",
+                    "core", "elite", "sonraki seviye", "kaç puan lazım"],
+        "icerik": (
+            "Puan biriktikçe seviye atlanır. Seviyeler sırasıyla STARTER, EXPLORER, BUILDER, "
+            "CREATOR, CORE ve ELITE'tir; eşikleri yönetim belirler ve Ödüller bölümündeki seviye "
+            "yolunda görünür. Seviyeler ve puan sponsor kilitlerini açar. Ana ekrandaki 'bir "
+            "sonraki adım' cümlesi en yakın kazancın için kaç puan kaldığını söyler."
+        ),
+    },
+    {
+        "baslik": "Sponsor ödülleri nasıl alınır ve kullanılır",
+        "kategori": "uygulama",
+        "anahtar": ["sponsor", "ödül", "kahve", "indirim", "kilit", "kilidi açmak", "sürpriz ödül",
+                    "ödül nasıl alınır", "ödülümü nasıl kullanırım", "işletme", "pin", "ödüllerim"],
+        "icerik": (
+            "Sponsorlar üyelere ayrıcalık sunan işletmelerdir. Her sponsorun bir kilidi vardır; "
+            "belirli bir puana, seviyeye veya etkinlik sayısına ulaşınca açılır. Kilidi açılan "
+            "sponsorun işletmesinde kasadaki YAZVEB QR'sini okutursun ve ödülün o an açılır. Sürpriz "
+            "kampanyada olası ödüller ve gerçek kalan adetleri görünür; hangisinin çıkacağı "
+            "okuttuğunda belli olur. Kazandığın ödül Ödüller bölümündeki Ödüllerim'e düşer. "
+            "Kullanırken 'Ödülü göster' ekranını kasadaki çalışana gösterirsin, çalışan kendi "
+            "PIN'iyle onaylar ve ödül bir kez kullanılmış olur. Her ödülün son kullanım tarihi "
+            "vardır. 'Son 3 ödül' gibi uyarılar gerçek stoktan gelir."
+        ),
+    },
+    {
+        "baslik": "Seri ve sıralama",
+        "kategori": "uygulama",
+        "anahtar": ["seri", "üst üste", "bonus", "sıralama", "liderlik tablosu", "kaçıncıyım",
+                    "sıram", "haftalık", "gizli profil"],
+        "icerik": (
+            "Puan görevi olan etkinliklere üst üste katıldıkça serin artar; yönetim bazı serilere "
+            "bonus puan tanımlayabilir. Sıralama varsayılan olarak haftalıktır ve her pazartesi "
+            "sıfırlanır, böylece yeni katılan da üst sıralara çıkabilir; tüm zamanlar sıralamasına "
+            "da bakılabilir. Sıralamada yalnızca kullanıcı adı görünür; gizli profil açılınca "
+            "listeden tamamen çıkılır, puan etkilenmez."
+        ),
+    },
+    {
+        "baslik": "Uygulamada sorun yaşarsan",
+        "kategori": "uygulama",
+        "anahtar": ["kamera açılmıyor", "qr okumuyor", "kod geçersiz", "süresi doldu", "zaten alındı",
+                    "bağlantı hatası", "uygulama çalışmıyor", "sorun", "hata", "okutamadım"],
+        "icerik": (
+            "Kamera açılmıyorsa telefon ayarlarından YAZVEB'e kamera izni verilebilir ya da kısa "
+            "kodla devam edilir. 'Zaten alındı' diyorsa o görevin puanı hesaptadır. 'Süresi doldu' "
+            "diyorsa görevin zamanı geçmiştir; etkinlik sürüyorsa görevliden güncel kod istenir. "
+            "Bağlantı koparsa okutulan kod kaybolmaz, 'Tekrar gönder' ile yeniden gider. "
+            "Çözülmeyen sorunlar için yönetime veya Instagram hesabına yazılır."
+        ),
+    },
+    {
+        "baslik": "Hesap ve veriler",
+        "kategori": "uygulama",
+        "anahtar": ["hesap", "görünen ad", "isim değiştirme", "çıkış", "verilerim", "gizlilik",
+                    "kamera kaydediliyor mu", "konum kaydediliyor mu", "hesabımı sil"],
+        "icerik": (
+            "Görünen ad, Topluluk bölümünde sağ üstteki baş harflere dokunarak değiştirilir; çıkış "
+            "da oradadır. Aynı pencerede 'Verilerin nasıl kullanılıyor?' özeti bulunur: kamera "
+            "görüntüsü telefonda işlenir ve kaydedilmez, konum yalnızca konum şartlı görevde "
+            "kontrol edilir ve kaydedilmez, veriler satılmaz. Hesabın silinmesi için YAZVEB "
+            "yönetimine yazılır."
+        ),
+    },
+    {
+        "baslik": "Uygulamanın felsefesi",
+        "kategori": "uygulama",
+        "anahtar": ["uygulamanın amacı", "neden bu uygulama", "oyunlaştırma", "neden puan",
+                    "bildirim", "reklam"],
+        "icerik": (
+            "Uygulama topluluğun akademik vizyonuna hizmet eder: amaç ekranda vakit geçirtmek değil, "
+            "üyeyi etkinliklere, öğrenmeye ve topluluğa bağlamaktır. Bu yüzden sahte kıtlık, "
+            "suçlayıcı uyarı veya bildirim yağmuru yoktur; puan yalnızca gerçek katılımla kazanılır, "
+            "ödüller gerçek stoktan verilir."
         ),
     },
 

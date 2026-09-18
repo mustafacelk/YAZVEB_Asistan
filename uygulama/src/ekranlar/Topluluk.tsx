@@ -271,7 +271,7 @@ function VeriOzeti() {
         <li><b>Konum:</b> yalnızca konum şartlı bir görevde, o an etkinlik alanında olup olmadığını kontrol etmek için kullanılır. Kaydedilmez.</li>
         <li><b>Puan ve ödüller:</b> kazandığın her puan ve ödül hesabında kayıtlı; Ödüller → Geçmiş'te hepsini görebilirsin.</li>
         <li><b>Sıralama:</b> yalnızca kullanıcı adın görünür. Gizli profili açarak tamamen çıkabilirsin.</li>
-        <li><b>Asistan:</b> sorun, yanıt üretmek için yapay zekâ servisine gönderilir; YAZVEB soruları saklamaz. Sesli yanıt açıksa yanıt metni seslendirme servisine gider.</li>
+        <li><b>Asistan:</b> sorun, yanıt üretmek için yapay zekâ servisine gönderilir; YAZVEB soruları saklamaz. Etkinlik sorarsan uygulamadaki yaklaşan etkinlikler, puanını sorarsan yalnızca puanın ve seviyen yanıta eklenir; adın ve e-postan gönderilmez. Sesli yanıt açıksa yanıt metni seslendirme servisine gider.</li>
         <li><b>Sohbet:</b> genel sohbetteki mesajlar topluluk üyelerine görünür ve saklanır. Kendi mesajını silebilirsin.</li>
         <li><b>Güvenlik:</b> kötüye kullanımı sınırlamak için IP adresinin geri çevrilemeyen kısa bir özeti en fazla 30 gün tutulur.</li>
       </ul>

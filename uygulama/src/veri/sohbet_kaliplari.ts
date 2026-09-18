@@ -2,7 +2,7 @@
 // ÜRETİLMİŞ DOSYA — ELLE DÜZENLEME
 // ═══════════════════════════════════════════════════════════════════
 // Kaynak: bilgi_bankasi.py  ·  Üretici: bilgi_disa_aktar.py
-// Banka sürümü: 2026.08  ·  33 kayıt
+// Banka sürümü: 2026.09  ·  44 kayıt
 //
 // Güncellemek için:  python bilgi_disa_aktar.py
 // ═══════════════════════════════════════════════════════════════════

@@ -6,6 +6,7 @@ import { HATA_CEVABI } from "../veri/sohbet_kaliplari";
 import { apiAdresi } from "../veri/api";
 import { birlestir, oturumMetni } from "../veri/transkript";
 import { selamAdi } from "../veri/bicim";
+import { useGezinme, type Gezinme } from "../veri/gezinme";
 import Kure from "../canli/Kure";
 import type { Durum } from "../canli/sahne";
 import {
@@ -23,7 +24,29 @@ type Tur = {
   icerik: string;
   zaman: number;
   hata?: boolean;
+  /** Cevabın götürdüğü uygulama bölümü (sunucu ve burada izin listesiyle süzülür). */
+  git?: string;
 };
+
+/**
+ * Asistanın uygulama içinde gösterebileceği yönlendirmeler.
+ *
+ * Değer sunucudan gelir ama bu liste dışındaki hiçbir şey düğmeye dönüşmez.
+ * Düğme yalnızca uygulamanın kendi bölümlerini açar; dış adres, betik yok.
+ * Kullanıcı dokunmadıkça hiçbir yere gidilmez.
+ */
+const YONLENDIRMELER: Record<string, { etiket: string; ac: (g: Gezinme) => void }> = {
+  etkinlik: { etiket: "Etkinlikler'i aç", ac: (g) => g.git("etkinlik") },
+  tara: { etiket: "QR tara", ac: (g) => g.tara() },
+  odul: { etiket: "Ödüller'i aç", ac: (g) => g.git("odul") },
+  oduller: { etiket: "Ödüllerim'i aç", ac: (g) => g.git("odul", { bolum: "oduller" }) },
+  sponsorlar: { etiket: "Sponsorları aç", ac: (g) => g.git("odul", { bolum: "sponsorlar" }) },
+  siralama: { etiket: "Sıralamayı aç", ac: (g) => g.git("odul", { bolum: "siralama" }) },
+  topluluk: { etiket: "Topluluğu aç", ac: (g) => g.git("topluluk") },
+  sohbet: { etiket: "Genel sohbeti aç", ac: (g) => g.git("sohbet") },
+};
+const yonlendirmeMi = (h: unknown): h is string =>
+  typeof h === "string" && Object.prototype.hasOwnProperty.call(YONLENDIRMELER, h);
 
 // Son kesin sonuçtan sonra beklenen sessizlik. Kısa olursa cümle ortasındaki
 // nefeste gönderir, uzun olursa kullanıcı bekler.
@@ -33,6 +56,7 @@ const SESSIZLIK_MS = 900;
 const HATA_ANI_MS = 1100;
 
 const ONERILER = [
+  "Bu uygulama ne işe yarar?",
   "Topluluğa nasıl katılırım?",
   "YAZVEB neler yapıyor?",
   "Yaklaşan etkinlikler neler?",
@@ -68,6 +92,7 @@ const DURUM_ADI: Record<Durum, string> = {
  */
 export default function Asistan({ onGeri, ilkSoru }: { onGeri?: () => void; ilkSoru?: string }) {
   const { profil } = useOturum();
+  const gezinme = useGezinme();
   const [turlar, setTurlar] = useState<Tur[]>([]);
   const [taslak, setTaslak] = useState("");
   const [bekliyor, setBekliyor] = useState(false);
@@ -230,7 +255,8 @@ export default function Asistan({ onGeri, ilkSoru }: { onGeri?: () => void; ilkS
             ? "Oturumun sona ermiş görünüyor. Çıkış yapıp tekrar giriş yap."
             : HATA_CEVABI;
       const sira = oncekiler.length + 1;
-      setTurlar((t) => [...t, { rol: "assistant", icerik: cevap, zaman: Date.now(), hata: !basarili }]);
+      const git = basarili && yonlendirmeMi(data?.yonlendirme) ? data.yonlendirme : undefined;
+      setTurlar((t) => [...t, { rol: "assistant", icerik: cevap, zaman: Date.now(), hata: !basarili, git }]);
       if (!basarili) hataGoster();
       if (sesliYanit) seslendir(cevap, sira);
     } catch {
@@ -462,6 +488,11 @@ export default function Asistan({ onGeri, ilkSoru }: { onGeri?: () => void; ilkS
               <time dateTime={new Date(t.zaman).toISOString()}>{saat(t.zaman)}</time>
             </div>
             <p>{t.icerik}</p>
+            {t.git && yonlendirmeMi(t.git) && (
+              <button className="yz-yonlendirme" onClick={() => YONLENDIRMELER[t.git!].ac(gezinme)}>
+                {YONLENDIRMELER[t.git].etiket} <Simge ad="ileri" boyut={14} />
+              </button>
+            )}
           </article>
         ))}
       </div>
@@ -538,7 +569,6 @@ function duzenle(metin: string) {
     .trim();
 }
 
-/** "mustafa çelik" → "Mustafa". Ad yoksa kullanıcı adı, o da yoksa boş. */
 function saat(zaman: number) {
   return new Date(zaman).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
 }

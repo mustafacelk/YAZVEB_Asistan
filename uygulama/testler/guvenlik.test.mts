@@ -6,7 +6,9 @@
 // süzgeci ve köken listesi kötü niyetli girdilerle sınanır.
 
 import {
+  baglamIhtiyaci,
   ciktiyiSuz,
+  etkinlikSorusuMu,
   GUVENLIK_TALIMATI,
   istegiDogrula,
   kokenIzinli,
@@ -14,8 +16,10 @@ import {
   modelGovdesi,
   SINIR,
   VARSAYILAN_KOKENLER,
+  YONLENDIRME_TALIMATI,
+  yonlendirmeAyikla,
 } from "../supabase/functions/asistan/guvenlik.ts";
-import { SISTEM_TALIMATI } from "../supabase/functions/asistan/bilgi.ts";
+import { KURUMSAL_HAFIZA, SISTEM_TALIMATI } from "../supabase/functions/asistan/bilgi.ts";
 import { jwtBicimli, SES_SINIR, sesIstegiDogrula } from "../api/_guvenlik/ortak.ts";
 
 let hata = 0;
@@ -113,6 +117,49 @@ bekle("publishable anahtar JWT sayılmaz", !jwtBicimli("sb_publishable_abcdefghi
 bekle("boş jeton reddedilir", !jwtBicimli(""));
 bekle("başlık enjeksiyonu reddedilir", !jwtBicimli("a.b.c\r\nX-Evil: 1"));
 bekle("JWT biçimi tanınır", jwtBicimli("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.c2ln"));
+
+// ── Uygulama içi yönlendirme (model çıktısı güvenilmez) ─────────────
+{
+  const a = yonlendirmeAyikla("Yarın 14.00'te seminer var.\n[[git:etkinlik]]");
+  bekle("geçerli etiket ayıklanır ve metinden silinir",
+    a.yonlendirme === "etkinlik" && a.metin === "Yarın 14.00'te seminer var.", JSON.stringify(a));
+}
+{
+  const a = yonlendirmeAyikla("Buyur. [[git:https://kotu.example]] [[git:javascript:alert(1)]]");
+  bekle("dış adres / betik hedefi reddedilir ve silinir",
+    a.yonlendirme === null && !a.metin.includes("[[") && !a.metin.includes("kotu"), JSON.stringify(a));
+}
+{
+  const a = yonlendirmeAyikla("x [[git:constructor]] [[git:__proto__]]");
+  bekle("nesne özellik adları hedef sayılmaz", a.yonlendirme === null, JSON.stringify(a));
+}
+{
+  const a = yonlendirmeAyikla("Ödüllerine bak. [[git:bilinmeyen]] [[git:ODULLER]] [[git:tara]]");
+  bekle("ilk GEÇERLİ hedef alınır, büyük harf tolere edilir", a.yonlendirme === "oduller", JSON.stringify(a));
+}
+{
+  const a = yonlendirmeAyikla("Takvime göz at. [[git:etk");
+  bekle("jeton sınırında yarım kalmış etiket görünmez", a.metin === "Takvime göz at." && a.yonlendirme === null, JSON.stringify(a));
+}
+bekle("etiketsiz cevap aynen kalır", yonlendirmeAyikla("Merhaba!").metin === "Merhaba!");
+
+// ── Canlı veri yalnızca gerektiğinde (veri en aza) ─────────────────
+bekle("etkinlik sorusu takvimi ister", baglamIhtiyaci("Yaklaşan etkinlikler neler?").etkinlik);
+bekle("etkinlik sorusu puan istemez", !baglamIhtiyaci("Yaklaşan etkinlikler neler?").profil);
+bekle("puan sorusu profil ister", baglamIhtiyaci("Kaç puanım var?").profil);
+bekle("genel soru hiçbir kişisel veri istemez",
+  !baglamIhtiyaci("YAZVEB'in misyonu nedir?").etkinlik && !baglamIhtiyaci("YAZVEB'in misyonu nedir?").profil);
+bekle("'ne zaman kuruldu' takvime YÖNLENDİRMEZ", !etkinlikSorusuMu("YAZVEB ne zaman kuruldu?"));
+bekle("seminer sorusu takvime yönlendirir", etkinlikSorusuMu("Bir sonraki seminer ne zaman?"));
+
+// ── Bilgi ────────────────────────────────────────────────────────────
+bekle("asistan uygulamayı biliyor", KURUMSAL_HAFIZA.includes("YAZVEB uygulaması nedir"));
+bekle("asistan öğrenci gözüyle üniversiteyi biliyor", KURUMSAL_HAFIZA.includes("Alaeddin Keykubat"));
+bekle("eski kurumsal bilgi korunuyor (danışman)", KURUMSAL_HAFIZA.includes("Aynur Yonar"));
+bekle("eski kurumsal bilgi korunuyor (Genç 2030)", KURUMSAL_HAFIZA.includes("Genç 2030"));
+bekle("yönlendirme talimatı yalnız izinli hedefleri sayar",
+  !/https?:|javascript/i.test(YONLENDIRME_TALIMATI) && YONLENDIRME_TALIMATI.includes("[[git:"));
+bekle("ortak sistem talimatında etiket YOK (masaüstü sesli asistan okumasın)", !SISTEM_TALIMATI.includes("[[git"));
 
 console.log(`\n${adet - hata}/${adet} geçti`);
 process.exit(hata ? 1 : 0);
