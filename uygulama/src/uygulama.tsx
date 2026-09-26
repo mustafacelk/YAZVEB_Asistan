@@ -21,6 +21,8 @@ import Asistan from "./ekranlar/Asistan";
 import Oduller from "./ekranlar/Oduller";
 import Tarayici from "./odul/Tarayici";
 import Simge, { type SimgeAdi } from "./tasarim/Simge";
+import { hubTercihi, hubTercihiYaz } from "./hub/veri";
+import HubSiniri from "./hub/HubSiniri";
 
 // Çalışanın doğrulama sayfası: üyelerin uygulamasıyla ortak kod az, ayrı yüklenir.
 const Isletme = lazy(() => import("./isletme/Isletme"));
@@ -28,6 +30,8 @@ const Isletme = lazy(() => import("./isletme/Isletme"));
 const Panel = lazy(() => import("./yonetim/Panel"));
 const YonetimSayfasi = lazy(() => import("./yonetim/Yonetim"));
 const Perde = lazy(() => import("./yonetim/Perde"));
+// 3B HUB: Three.js yalnızca bu görünüm açılınca iner.
+const HubGorunumu = lazy(() => import("./hub/Hub"));
 
 /** <site>/isletme — giriş istemez; kasadaki çalışan kendi telefonunda açar. */
 const ISLETME_SAYFASI =
@@ -122,6 +126,8 @@ function Ekranlar() {
   const [asistanSorusu, setAsistanSorusu] = useState<string | undefined>(undefined);
   const [tarama, setTarama] = useState(false);
   const [perde, setPerde] = useState(false);
+  // HUB bir görünüm: açık bırakılırsa uygulama bir dahaki açılışta HUB'da açılır.
+  const [hubAcik, setHubAcik] = useState(hubTercihi);
   const [yonetimBolumu, setYonetimBolumu] = useState<YonetimBolumu>("ozet");
   const zamanlayici = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -154,6 +160,7 @@ function Ekranlar() {
   }, []);
 
   const tara = useCallback(() => setTarama(true), []);
+  const hubAc = useCallback(() => { hubTercihiYaz(true); setHubAcik(true); }, []);
 
   // Görünüm değişince (üye ↔ yönetim) başa dön: aynı sekme artık başka bir ekran.
   const ilkGorunum = useRef(gorunum);
@@ -162,7 +169,7 @@ function Ekranlar() {
     ilkGorunum.current = gorunum;
     git("ana");
   }, [gorunum, git]);
-  const gezinme = useMemo(() => ({ git, tara }), [git, tara]);
+  const gezinme = useMemo(() => ({ git, tara, hubAc }), [git, tara, hubAc]);
 
   useEffect(() => () => {
     if (zamanlayici.current) clearTimeout(zamanlayici.current);
@@ -221,6 +228,13 @@ function Ekranlar() {
             onKapat={() => setTarama(false)}
             onDegisti={odulDegisti}
           />
+        )}
+        {hubAcik && !yonetimde && (
+          <HubSiniri onHata={() => { hubTercihiYaz(false); setHubAcik(false); }}>
+            <Suspense fallback={<Acilis not="YAZVEB HUB hazırlanıyor" />}>
+              <HubGorunumu onKapat={() => { hubTercihiYaz(false); setHubAcik(false); }} />
+            </Suspense>
+          </HubSiniri>
         )}
         {perde && (
           <Suspense fallback={null}>

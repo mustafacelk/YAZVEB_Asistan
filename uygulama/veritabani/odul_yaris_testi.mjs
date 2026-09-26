@@ -11,6 +11,8 @@
 //   Y3  stok 1, 10 kullanıcı               → tam 1 kazanan
 //   Y4  toplam limit 3 görev, 15 kullanıcı → tam 3 kazanan
 //   Y5  aynı ödül 5 kasada aynı anda onaylanır → tam 1 "kullanildi"
+//   Y6  HUB'a ilk giriş aynı anda 5 kez → tek karşılama Coin'i
+//   Y7  aynı bakiyeyle aynı anda 5 satın alma → bakiye bir kez harcanır
 //
 // Boş bir PostgreSQL veritabanına karşı çalışır (şemayı kendisi kurar):
 //   PG_URL=postgres://postgres:test@127.0.0.1:5432/yazveb node veritabani/odul_yaris_testi.mjs
@@ -31,7 +33,7 @@ await yonetici.connect();
 const q = async (sql, p) => (await yonetici.query(sql, p)).rows;
 
 for (const f of ["00_test_altyapisi.sql", "01_sema.sql", "02_yetkiler.sql", "04_guvenlik.sql", "05_oduller.sql",
-                 "06_isletme.sql"]) {
+                 "06_isletme.sql", "07_hub.sql"]) {
   await yonetici.query(oku(f));
 }
 
@@ -150,6 +152,20 @@ kontrol("tam 1 kasa onayladı", say(r, "kullanildi"), 1);
 kontrol("4 kasa 'daha önce kullanılmış' gördü", say(r, "zaten_kullanildi"), 4);
 kontrol("tek kullanım kaydı",
   (await q("select count(*)::int n from odul.denetim where islem = 'odul_isletmede_kullanildi'"))[0].n, 1);
+
+console.log("\n═══ Y6. HUB'a ilk giriş, aynı anda 5 istek ═══");
+r = await esZamanli([12, 12, 12, 12, 12], "jsonb_build_object('durum', 'tamam', 'p', public.hub_profil())");
+kontrol("hatasız", hatalar(r).join(" | ") || "yok", "yok");
+kontrol("tek karşılama satırı",
+  (await q("select count(*)::int n from hub.coin_islemleri where kullanici = $1 and tur = 'hosgeldin'", [kimlik(12)]))[0].n, 1);
+kontrol("bakiye 150", (await q("select coin from hub.oyuncular where kullanici = $1", [kimlik(12)]))[0].coin, 150);
+
+console.log("\n═══ Y7. 150 Coin ile aynı anda 5 kez 120'lik eşya ═══");
+r = await esZamanli([12, 12, 12, 12, 12], "public.hub_satin_al('puf')");
+kontrol("hatasız", hatalar(r).join(" | ") || "yok", "yok");
+kontrol("tam 1 satın alma", say(r, "tamam"), 1);
+kontrol("4 yetersiz", say(r, "yetersiz"), 4);
+kontrol("bakiye 30, eksiye düşmedi", (await q("select coin from hub.oyuncular where kullanici = $1", [kimlik(12)]))[0].coin, 30);
 
 await yonetici.end();
 console.log(hata ? "\n═══ YARIŞ TESTLERİ BAŞARISIZ ═══" : "\n═══ YARIŞ TESTLERİ GEÇTİ ═══");

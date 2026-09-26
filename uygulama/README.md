@@ -239,6 +239,13 @@ src/
     temel.css          zemin, kontroller, gezinme, sahne geçişi
     ekranlar.css       ekran düzenleri
     Simge.tsx          ikon seti (24 ızgara, 1.5 çizgi)
+  hub/                 YAZVEB HUB — 3B görünüm (lazy; Three.js yalnızca açılınca iner)
+    Hub.tsx            ekran, paneller (karakter, mağaza, görevler, çark, hediye)
+    sahne.ts           Three.js sahnesi: bina, oda, çarşı, kamera, dokunma
+    modeller.ts        low-poly karakter, eşyalar, oda kabuğu, dükkân
+    katalog.ts         renkler, adlar, hediye emojileri (sunucu kataloğuyla aynı kimlikler)
+    veri.ts            hub_* çağrıları, tipler, "HUB açık kalsın" tercihi
+    HubSiniri.tsx      HUB çökerse uygulama değil yalnızca HUB kapanır
 veritabani/
   01_sema.sql        tablolar, tetikleyiciler
   02_yetkiler.sql    satır düzeyi güvenlik
@@ -246,7 +253,8 @@ veritabani/
   04_guvenlik.sql    kota, giriş sınırı, sohbet seli, görünen ad
   05_oduller.sql     puan, görev (canlı kod), sponsor, kampanya, ödül
   06_isletme.sql     çalışanın cihazında ödül doğrulama (anonim, sınırlı)
-  99_*.sql           yetki, güvenlik, ödül ve işletme testleri
+  07_hub.sql         YAZVEB HUB: Coin defteri, envanter, oda, ziyaret, hediye, çark
+  99_*.sql           yetki, güvenlik, ödül, işletme ve HUB testleri
 ```
 
 ### Testleri çalıştırma
@@ -258,9 +266,9 @@ npm run lint               # CI'da da çalışır; hata varsa APK derlenmez
 npm run yayina-hazir       # derleme + paket taraması (sır, kaynak haritası, CSP)
 ```
 
-Veritabanı testleri (254) — Docker gerekir. Yetki ve güvenlik (86) + ödül iş
+Veritabanı testleri (328) — Docker gerekir. Yetki ve güvenlik (86) + ödül iş
 mantığı, canlı kod, sıralama ve saldırı senaryoları (141) + işletme
-doğrulaması (27) tek paket hâlinde çalışır:
+doğrulaması (27) + YAZVEB HUB ekonomisi (74) tek paket hâlinde çalışır:
 
 ```bash
 docker run -d --name yz-test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=yazveb \
@@ -271,7 +279,7 @@ docker exec yz-test psql -U postgres -d yazveb -v ON_ERROR_STOP=1 -q \
   -f /tmp/00_test_altyapisi.sql -f /tmp/01_sema.sql -f /tmp/02_yetkiler.sql \
   -f /tmp/99_testler.sql -f /tmp/03_kurulum.sql -f /tmp/04_guvenlik.sql \
   -f /tmp/99_guvenlik_testleri.sql -f /tmp/05_oduller.sql -f /tmp/99_odul_testleri.sql \
-  -f /tmp/06_isletme.sql -f /tmp/99_isletme_testleri.sql
+  -f /tmp/06_isletme.sql -f /tmp/99_isletme_testleri.sql   -f /tmp/07_hub.sql -f /tmp/99_hub_testleri.sql
 ```
 
 Bir kural bozulursa betik hata ile durur.
@@ -318,8 +326,8 @@ update public.kota_ayarlari set dakika = 12, gun = 150, genel = 3000 where tur =
 ### Güncelleme sırası (mevcut kurulum için)
 
 1. Supabase SQL editöründe sırayla **`veritabani/04_guvenlik.sql`**,
-   **`05_oduller.sql`**, **`06_isletme.sql`**'i çalıştır (hepsi tekrar
-   çalıştırılabilir; mevcut veri korunur).
+   **`05_oduller.sql`**, **`06_isletme.sql`**, **`07_hub.sql`**'i çalıştır
+   (hepsi tekrar çalıştırılabilir; mevcut veri korunur).
 2. `git push` — site yeni istemciyle ve `/isletme` sayfasıyla yayına çıkar.
    Önce 1. adım: yeni istemci ödül onayını `06_isletme.sql`'deki fonksiyonla
    yapar, o yoksa ödüller onaylanamaz.
@@ -505,13 +513,71 @@ etkinlik özeti, sponsor kilidinin kampanyaları kapsaması, işletme onayı
 (yanlış PIN, olmayan kod, başka sponsorun PIN'i, ikinci onay, kaba kuvvet) —
 yukarıdaki "Testleri çalıştırma" paketinin içinde çalışır.
 
-Gerçek eşzamanlılık (20 kişi aynı anda son ödüle) ayrı ve **boş** bir
-veritabanına karşı, yukarıdaki kabı kullanarak:
+Gerçek eşzamanlılık (20 kişi aynı anda son ödüle; HUB'a aynı anda ilk giriş;
+aynı Coin'le aynı anda beş satın alma) ayrı ve **boş** bir veritabanına karşı,
+yukarıdaki kabı kullanarak:
 
 ```bash
-docker exec yz-test psql -U postgres -d postgres -q -c "create database yaris"
+docker exec yz-test psql -U postgres -d postgres -q -c "drop database if exists yaris" -c "create database yaris"
 PG_URL=postgres://postgres:test@127.0.0.1:5433/yaris npm run test:yaris
 ```
+
+---
+
+## YAZVEB HUB (3B görünüm)
+
+Topluluğun dijital kampüsü: her üyenin bir odası, bir karakteri var; sponsorlar
+bir çarşıda dükkân. **Görünüm değiştirmedir**, ayrı bir uygulama değil: Ana
+ekrandaki **3D HUB** düğmesiyle açılır, sol üstteki düğmeyle klasik görünüme
+dönülür. Seçim cihazda hatırlanır. Günde ~10 dakikalık bir döngü için
+tasarlandı; asıl uygulamanın (etkinlik, QR, ödül) önüne geçmez.
+
+### Ne var
+
+| Yer | Ne yapılır |
+| --- | --- |
+| **Bina** | 3/4 izometrik kule; her katta iki oda. Kendi odan en başta, sonra en son düzenlenen odalar (sayfa başına 27). Topluluk büyüdükçe çatıda yeni bölümler açılır (HUB’a katılan üye sayısı: Lounge 50, Oyun odası 150, Çatı kafe 300). |
+| **Odam** | Karakteri giydir (ten, saç, yüz, tişört, sweatshirt, ceket, pantolon, ayakkabı, şapka, gözlük, çanta, YAZVEB eşyaları). Odayı düzenle (6×6 ızgara: yerleştir, döndür, kaldır, kaydet). |
+| **Ziyaret** | Binadan bir odaya dokun: sahibinin **son kaydettiği** hâli görünür. Emoji, mesaj ya da kendi eşyanı hediye bırak (günde 10). |
+| **Çarşı** | Sponsorlar XP eşiklerine göre basamaklı teraslarda. Kapıyı çal: açıksa sponsorun ödülleri açılır, kilitliyse kaç XP kaldığını söyler. |
+| **Görevler** | Günlük: 1 ziyaret +20, 3 ziyaret +75, hediye +25, oda düzeni +30 Coin. Okutulan her etkinlik QR'si bir kez Coin'e çevrilir (XP×5, en az 10, en çok 1000). |
+| **Şans Çarkı** | Haftada bir, ücretsiz. Bütün dilimlerin olasılığı ekranda yazılı. |
+| **Mağaza** | Kıyafet ve oda eşyaları Coin ile. |
+
+### Kararlar
+
+- **Coin XP'den ayrı.** XP sıralamayı ve sponsor kilitlerini belirler; Coin
+  yalnızca karakter/oda için harcanır. Coin harcamak XP'yi düşürmez, çark XP
+  vermez — oyun, ödül defterini bozamaz.
+- **Çark kumar değil:** parayla ya da Coin'le ek çevirme yok, boş dilim yok,
+  olasılıklar açık. Hafta Pazartesi 00:00'da (İstanbul) yenilenir.
+- **Hoş geldin:** ilk girişte 150 Coin + başlangıç kıyafeti + masa ve sandalye.
+- **Gerçek zamanlı çok oyunculu yok** (MVP): sunucu maliyeti ve moderasyon
+  yükü olmadan sosyal his; ziyaret son kayıtlı odayı gösterir.
+- **Hafif:** Three.js (~150 KB gzip) yalnızca HUB açılınca iner; sekme
+  arka plandayken çizim durur; hareket azaltma tercihinde animasyon yok;
+  WebGL yoksa ya da HUB bir hata verirse uygulama klasik görünümde devam eder.
+
+### Güvenlik modeli
+
+- Tablolar API'ye kapalı `hub` şemasında; istemci yalnızca `hub_*`
+  fonksiyonlarını çağırır, hepsi anonime kapalı.
+- Coin, fiyat, envanter ve çark sonucu **istemciden kabul edilmez**. Her Coin
+  hareketi `hub.coin_islemleri` defterine yazılır; bakiye eksiye düşemez.
+- Satın alma ve hoş geldin satırı kilitlenir: aynı anda beş satın alma ya da
+  beş ilk giriş tek sonuç üretir (yarış testi Y6, Y7).
+- Karakter yalnızca **sahip olunan** ve doğru yuvaya ait eşyayı giyer; oda
+  yalnızca sahip olunan kadar eşya alır, çakışma ve ızgara dışı reddedilir.
+- Hediye edilen eşya gönderenin envanterinden ve odasından düşer; emoji ve
+  mesaj beyaz liste/uzunluk sınırlı, görünmez karakter reddedilir.
+
+### Kurulum
+
+1. Supabase SQL editöründe **`veritabani/07_hub.sql`**'i çalıştır (05'ten
+   sonra; tekrar çalıştırmak zararsız, mevcut Coin ve odalar korunur).
+2. `node baglanti_kontrol.mjs` → "YAZVEB HUB kurulu, anonime kapalı" ✓
+3. Ardından `git push`. SQL'den önce yayına çıkarsa HUB açılır ama "YAZVEB
+   HUB henüz kurulmamış" der; uygulamanın geri kalanı etkilenmez.
 
 ---
 

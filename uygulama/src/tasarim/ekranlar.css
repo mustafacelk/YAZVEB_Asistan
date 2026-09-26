@@ -1105,3 +1105,8 @@ code { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace; 
   .ag line { animation: none; stroke-dashoffset: 0; }
   .ag circle { animation: none; }
 }
+
+/* ── HUB girişi (Ana) ───────────────────────────────────────────── */
+.ana-hub { background: linear-gradient(120deg, rgba(140, 207, 226, 0.12), rgba(184, 156, 255, 0.08) 60%, transparent), var(--z-2); }
+.ana-hub .ana-satir-ikon { background: rgba(140, 207, 226, 0.16); }
+.ana-basi .ana-hub-gecis { margin-left: auto; }

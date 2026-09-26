@@ -29,9 +29,11 @@ export type Gezinme = {
   git: (hedef: Gorunum, secenek?: { bolum?: OdulBolumu; soru?: string; yonetim?: YonetimBolumu }) => void;
   /** Etkinlik QR'si / kısa kod tarayıcısını açar. */
   tara: () => void;
+  /** 3B YAZVEB HUB görünümüne geçer (tercih hatırlanır). */
+  hubAc: () => void;
 };
 
-export const GezinmeBaglami = createContext<Gezinme>({ git: () => {}, tara: () => {} });
+export const GezinmeBaglami = createContext<Gezinme>({ git: () => {}, tara: () => {}, hubAc: () => {} });
 export const useGezinme = () => useContext(GezinmeBaglami);
 
 /**

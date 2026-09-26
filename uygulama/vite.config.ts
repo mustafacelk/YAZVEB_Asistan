@@ -68,6 +68,9 @@ export default defineConfig(({ mode }) => {
     build: {
       // Kaynak haritası üretilmez: kaynak kodu ve dosya yolları tarayıcıya gitmesin.
       sourcemap: false,
+      // En büyük parça 3B HUB'ınki (Three.js, ~150 KB gzip). Yalnızca HUB
+      // açılınca iner; ana uygulamanın açılışını etkilemez.
+      chunkSizeWarningLimit: 650,
     },
     server: {
       // Geliştirme sunucusu yalnızca bu bilgisayardan erişilebilir.

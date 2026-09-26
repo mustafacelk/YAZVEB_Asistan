@@ -212,6 +212,29 @@ for (const tablo of ["profiller", "mesajlar", "etkinlikler"]) {
   }
 }
 
+// ── 6. YAZVEB HUB (07_hub.sql) ──────────────────────────────────────
+// Coin, envanter ve çark yalnızca üyelere açık fonksiyonlarla değişir.
+// Yoksa 3B görünüm açılır ama "HUB'a bağlanılamadı" der.
+{
+  const { durum } = await iste("/rest/v1/rpc/hub_profil", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (durum === 404) yaz("✗", "YAZVEB HUB kurulmamış", "07_hub.sql'i çalıştır");
+  else if (durum === 200) yaz("✗", "GÜVENLİK: HUB profili anonim okunabiliyor");
+  else yaz("✓", "YAZVEB HUB kurulu, anonime kapalı", `HTTP ${durum}`);
+}
+{
+  const { durum } = await iste("/rest/v1/rpc/hub_cark_cevir", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (durum === 200) yaz("✗", "GÜVENLİK: anonim kullanıcı çark çevirebiliyor");
+  else if (durum !== 404) yaz("✓", "Anonim kullanıcı Coin kazanamıyor", `HTTP ${durum}`);
+}
+
 const hatali = sonuc.filter((s) => s.durum === "✗").length;
 console.log(
   `\n═══ ${sonuc.length - hatali}/${sonuc.length} kontrol geçti ═══\n`,

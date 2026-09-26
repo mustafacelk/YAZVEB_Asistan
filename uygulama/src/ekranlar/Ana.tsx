@@ -39,7 +39,7 @@ function rehberKapandiMi() {
 export default function Ana() {
   const { profil, yetkiliMi } = useOturum();
   const { uyari, gorunumSec } = useGorunum();
-  const { git, tara } = useGezinme();
+  const { git, tara, hubAc } = useGezinme();
   // "Yönetici" seçip üye hesabıyla girildiyse: bir kez söylenir, seçim üyeye çekilir.
   const [kipUyarisi, setKipUyarisi] = useState(uyari);
   useEffect(() => { if (uyari) gorunumSec("uye"); }, [uyari, gorunumSec]);
@@ -90,6 +90,9 @@ export default function Ana() {
           {!rehber && (
             <button className="metin-dugme ana-rehber-ac" onClick={() => setRehber(true)}>Nasıl çalışır?</button>
           )}
+          <button className="metin-dugme baglanti ana-hub-gecis" onClick={hubAc} aria-label="3B YAZVEB HUB görünümüne geç">
+            <Simge ad="ev" boyut={14} /> 3D HUB
+          </button>
           {yetkiliMi && (
             <button className="metin-dugme baglanti" onClick={() => gorunumSec("yonetim")}>
               <Simge ad="ayar" boyut={14} /> Yönetim paneli
@@ -166,6 +169,18 @@ export default function Ana() {
         </section>
 
         {ilerleme && <Ilerleme profil={ilerleme} onAc={() => git("odul")} />}
+
+        {/* 3B HUB: oyun ana ekranın önüne geçmez; bir görünüm olarak buradan açılır. */}
+        <section className="ana-bolum gir" style={kademe(5)}>
+          <button className="ana-satir ana-hub" onClick={hubAc}>
+            <span className="ana-satir-ikon"><Simge ad="ev" boyut={20} /></span>
+            <span className="ana-satir-govde">
+              <b>YAZVEB HUB</b>
+              <span className="soluk">Odanı kur, arkadaşlarını ziyaret et, haftalık çarkı çevir.</span>
+            </span>
+            <Simge ad="ileri" boyut={16} />
+          </button>
+        </section>
 
         {aktif.length > 0 && (
           <section className="ana-bolum gir" style={kademe(5)}>
