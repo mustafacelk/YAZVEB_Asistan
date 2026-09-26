@@ -282,13 +282,13 @@ export const SPONSOR_MESAJI: Record<Exclude<SponsorSonucu["durum"], "tamam" | "k
 
 /** Çalışanın ekranı: ne oldu ve şimdi ne yapmalı. Ödülü vermek mi, vermemek mi? */
 export const ISLETME_MESAJI: Record<IsletmeSonucu["durum"], string> = {
-  gecerli: "Ödül geçerli. Önce onayla, sonra ürünü ver: onaylanan ödül ikinci kez geçmez.",
-  kullanildi: "Ödül kullanıldı olarak işaretlendi. Ürünü verebilirsin.",
-  zaten_kullanildi: "Bu ödül daha önce kullanılmış. Ürünü VERME.",
-  suresi_doldu: "Bu ödülün süresi dolmuş. Ürünü verme.",
-  iptal: "Bu ödül iptal edilmiş. Ürünü verme.",
-  gecersiz: "Kod ya da PIN hatalı. Kodu öğrencinin ekranından tekrar oku; PIN'i kontrol et.",
-  sinir: "Çok fazla hatalı deneme yapıldı. Güvenlik için 15 dakika bekle.",
+  gecerli: "Ödül geçerli. Önce onaylayın, sonra ürünü verin: onaylanan ödül ikinci kez geçmez.",
+  kullanildi: "Ödül kullanıldı olarak işaretlendi. Ürünü verebilirsiniz. Topluluğumuza desteğiniz için teşekkürler.",
+  zaten_kullanildi: "Bu ödül daha önce kullanılmış. Ürünü VERMEYİN.",
+  suresi_doldu: "Bu ödülün süresi dolmuş. Ürünü vermeyin.",
+  iptal: "Bu ödül iptal edilmiş. Ürünü vermeyin.",
+  gecersiz: "Kod ya da PIN hatalı. Kodu öğrencinin ekranından yeniden okutun; PIN'i kontrol edin.",
+  sinir: "Çok fazla hatalı deneme yapıldı. Güvenlik için 15 dakika bekleyin.",
 };
 
 // ── Biçimlendirme ──────────────────────────────────────────────────

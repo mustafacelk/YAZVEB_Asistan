@@ -1008,7 +1008,7 @@ code { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace; 
   border-radius: var(--k-2); background: var(--z-2); box-shadow: inset 0 0 0 1px var(--c-ince);
   color: var(--m-2); font-size: var(--y-kucuk);
 }
-.metin-dugme.satir-ici { display: inline; padding: 0; height: auto; min-height: 0; vertical-align: baseline; }
+.metin-dugme.satir-ici { display: inline; padding: 0; height: auto; min-height: 0; vertical-align: baseline; font-size: inherit; }
 
 /* ── Yönetim paneli ─────────────────────────────────────────────── */
 .panel .sayfa-basi { align-items: flex-start; }
@@ -1042,3 +1042,66 @@ code { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace; 
 .isletme-bugun summary b { color: var(--m-1); }
 .isletme-bugun ul { list-style: none; margin: 0; padding: 0 var(--b-4) var(--b-3); display: grid; gap: var(--b-2); font-size: var(--y-kucuk); }
 .isletme-bugun li { display: grid; grid-template-columns: auto 1fr auto; gap: var(--b-3); color: var(--m-2); }
+
+/* ── Giriş alıntısı ─────────────────────────────────────────────────
+   Kelimeler sırayla bulanıklıktan netleşir; ardından ince bir çizgiyle
+   sözün sahibi. Kart sade: tek vurgu tırnak işareti ve köşedeki ağ. */
+.alinti {
+  position: relative;
+  overflow: hidden;
+  margin: var(--b-5) 0 0;
+  padding: var(--b-5) var(--b-5) var(--b-4);
+  border-radius: var(--k-3);
+  background:
+    radial-gradient(120% 90% at 100% 0%, rgba(var(--sinyal-rgb), 0.10), transparent 60%),
+    var(--z-2);
+  box-shadow: var(--isik-ic), inset 0 0 0 1px var(--c-ince);
+  isolation: isolate;
+}
+.alinti-ag { position: absolute; right: -18px; top: -10px; width: 190px; opacity: 0.55; z-index: -1; }
+.alinti-isaret { width: 22px; height: 17px; fill: var(--sinyal); opacity: 0.85; margin-bottom: var(--b-3);
+  animation: alinti-isaret 700ms var(--e-giris) backwards; }
+.alinti blockquote { margin: 0; }
+.alinti blockquote p {
+  color: var(--m-1);
+  font-size: clamp(17px, 4.6vw, 20px);
+  line-height: 1.45;
+  font-weight: 450;
+  letter-spacing: -0.005em;
+  text-wrap: pretty;
+  max-width: 34ch;
+}
+.alinti-kelime {
+  display: inline-block;
+  white-space: pre;
+  animation: alinti-kelime 620ms var(--e-giris) backwards;
+  animation-delay: calc(120ms + var(--i) * 45ms);
+}
+.alinti figcaption {
+  display: flex; align-items: center; gap: var(--b-2);
+  margin-top: var(--b-3);
+  color: var(--m-2); font-size: var(--y-kucuk); font-weight: var(--a-orta);
+  animation: alinti-sahip 700ms var(--e-giris) backwards;
+  animation-delay: var(--gecikme, 800ms);
+}
+.alinti-cizgi { width: 22px; height: 1px; background: var(--sinyal); transform-origin: left;
+  animation: alinti-cizgi 700ms var(--e-giris) backwards; animation-delay: var(--gecikme, 800ms); }
+@keyframes alinti-kelime { from { opacity: 0; transform: translateY(0.35em); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes alinti-sahip { from { opacity: 0; transform: translateX(-6px); } }
+@keyframes alinti-cizgi { from { transform: scaleX(0); } }
+@keyframes alinti-isaret { from { opacity: 0; transform: scale(0.6) rotate(-8deg); } }
+
+/* ── Ağ motifi ───────────────────────────────────────────────────── */
+.ag line { stroke: var(--sinyal); stroke-width: 0.8; opacity: 0.35;
+  stroke-dasharray: 90; stroke-dashoffset: 90;
+  animation: ag-cizgi 1.6s var(--e-giris) forwards; animation-delay: calc(var(--i) * 70ms); }
+.ag circle { fill: var(--sinyal); opacity: 0.55; transform-box: fill-box; transform-origin: center;
+  animation: ag-nabiz 4.2s ease-in-out infinite; animation-delay: calc(var(--i) * -0.45s); }
+@keyframes ag-cizgi { to { stroke-dashoffset: 0; } }
+@keyframes ag-nabiz { 0%, 100% { opacity: 0.35; transform: scale(1); } 50% { opacity: 0.95; transform: scale(1.45); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .alinti-kelime, .alinti figcaption, .alinti-cizgi, .alinti-isaret { animation: none; }
+  .ag line { animation: none; stroke-dashoffset: 0; }
+  .ag circle { animation: none; }
+}

@@ -115,5 +115,28 @@ const sponsor = (ad: string, pin: boolean, kampanyalar: YKampanya[], aktif = tru
   bekle("her şey yolundaysa liste boş", dikkatListesi([suren], [gorev(1, 1, -1, 2)], [], SIMDI).length === 0);
 }
 
+// ── Giriş alıntıları ──────────────────────────────────────────────
+{
+  const depo = new Map<string, string>();
+  (globalThis as unknown as { localStorage: Storage }).localStorage = {
+    getItem: (k: string) => depo.get(k) ?? null,
+    setItem: (k: string, v: string) => void depo.set(k, v),
+    removeItem: (k: string) => void depo.delete(k),
+  } as Storage;
+  const { ALINTILAR, girisAlintisi } = await import("../src/veri/alintilar.ts");
+  for (const set of ["uye", "yonetim", "isletme"] as const) {
+    const l = ALINTILAR[set];
+    bekle(`${set}: en az 6 söz, hepsinin sahibi yazılı`, l.length >= 6 && l.every((x) => x.soz.trim() && x.kim.trim()));
+    bekle(`${set}: aynı söz iki kez yok`, new Set(l.map((x) => x.soz)).size === l.length);
+  }
+  const ilk = girisAlintisi("uye", () => 0);
+  bekle("ilk açılış kaydedildi", depo.get("yazveb:alinti:uye") === "0");
+  bekle("aynı açılışta söz sabit (sekme değişince değişmez)", girisAlintisi("uye") === ilk);
+  const sonraki = ALINTILAR.uye[(Number(depo.get("yazveb:alinti:uye")) + 1) % ALINTILAR.uye.length];
+  bekle("bir sonraki açılışta sıradaki söz, art arda aynısı çıkmaz", sonraki !== ilk);
+  bekle("pencerelerin sözleri ayrı: yönetici ve işletme ilk sözü farklı",
+    girisAlintisi("yonetim", () => 0).soz !== girisAlintisi("isletme", () => 0).soz);
+}
+
 console.log(`\n${adet - hata}/${adet} geçti`);
 process.exit(hata ? 1 : 0);

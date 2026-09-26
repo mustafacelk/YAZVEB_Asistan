@@ -14,6 +14,7 @@ import {
   type Profil,
 } from "../veri/odul";
 import Simge from "../tasarim/Simge";
+import AlintiKarti from "../tasarim/AlintiKarti";
 
 const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
 
@@ -104,6 +105,9 @@ export default function Ana() {
         )}
 
         <h1 className="ana-selam gir" style={kademe(1)}>{ad ? `Merhaba, ${ad}.` : "Merhaba."}</h1>
+
+        {/* Neden buradasın: her açılışta başka bir söz. */}
+        <AlintiKarti set="uye" className="gir" style={kademe(1)} />
 
         {rehber && (
           <Rehber onKapat={() => {

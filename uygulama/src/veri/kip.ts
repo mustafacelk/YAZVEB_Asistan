@@ -2,11 +2,15 @@ import { createContext, useContext } from "react";
 import type { Rol } from "./supabase";
 
 /**
- * Giriş türü: kim, hangi işi yapmak için geliyor?
+ * Hangi arayüz açılacak?
  *
  *   uye      etkinlik, QR, puan, ödül — topluluğun çoğunluğu
  *   yonetim  etkinlik, QR görevi, sponsor, kampanya — başkan ve yöneticiler
  *   isletme  kasada ödül onayı — sponsor çalışanı; HESAP YOK, işletme PIN'i
+ *
+ * Girişte sorulmaz: herkes aynı girişi kullanır, arayüzü BAŞKANIN VERDİĞİ
+ * ROL belirler. Burada saklanan tek şey yetkilinin kendi tercihidir
+ * (Hesabım → Açılış görünümü) ve işletme ekranı seçimi (girişteki bağlantı).
  *
  * SEÇİM YETKİ VERMEZ
  * ──────────────────

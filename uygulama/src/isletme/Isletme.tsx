@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import Simge, { odulIkonu } from "../tasarim/Simge";
 import { ISLETME_MESAJI, odul, OdulHatasi, tarih, tarihSaat, titret, type IsletmeSonucu } from "../veri/odul";
 import { cozucuKur, odulKoduCoz } from "../odul/qr";
 import { useKip } from "../veri/kip";
+import Kure from "../canli/Kure";
+import type { Durum } from "../canli/sahne";
+import Ag from "../tasarim/Ag";
+import AlintiKarti from "../tasarim/AlintiKarti";
 
 /**
  * Bugün bu cihazda onaylananlar — kasada gün sonu sayımı için. Yalnızca ödül
@@ -55,7 +59,11 @@ export default function Isletme() {
   const kodRef = useRef<HTMLInputElement | null>(null);
   const pinRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => { document.title = "YAZVEB · İşletme doğrulama"; }, []);
+  useEffect(() => {
+    const eski = document.title;
+    document.title = "YAZVEB · İşletme doğrulama";
+    return () => { document.title = eski; };   // üye girişine dönünce başlık da dönsün
+  }, []);
 
   const kodTemiz = odulKoduCoz(kod);
 
@@ -84,7 +92,7 @@ export default function Isletme() {
         setBugun(yeni);
       }
     } catch (h) {
-      setHata(h instanceof OdulHatasi ? h.message : "Sunucuya ulaşamadık. Bağlantını kontrol et.");
+      setHata(h instanceof OdulHatasi ? h.message : "Sunucuya ulaşılamadı. Bağlantınızı kontrol edin.");
     } finally {
       setBekliyor(false);
     }
@@ -93,7 +101,7 @@ export default function Isletme() {
   function kontrolEt(e: FormEvent) {
     e.preventDefault();
     if (!kodTemiz) { setHata("Kod 7 karakter: öğrencinin ekranındaki ABCD-EFG biçimindeki kod."); kodRef.current?.focus(); return; }
-    if (!/^[0-9]{4,8}$/.test(pin)) { setHata("İşletme PIN'ini gir (rakamlar)."); pinRef.current?.focus(); return; }
+    if (!/^[0-9]{4,8}$/.test(pin)) { setHata("İşletme PIN'ini girin (rakamlar)."); pinRef.current?.focus(); return; }
     sor(false);
   }
 
@@ -136,29 +144,61 @@ export default function Isletme() {
     ? sonuc.durum === "gecerli" || sonuc.durum === "kullanildi" ? "ver" : "verme"
     : null;
 
+  // Küre ekranın nabzı: bekliyorken düşünür, onayda parlar, redde içe çekilir.
+  const kureDurumu: Durum = bekliyor ? "dusunuyor"
+    : hata || karar === "verme" ? "hata"
+    : karar === "ver" ? "konusuyor"
+    : kamera ? "dinliyor" : "bosta";
+  const adim = sonuc ? 3 : kodTemiz ? 2 : 1;
+
   return (
-    <div className="giris">
-      <div className="giris-kolon yigin">
-        <div className="giris-marka">
-          <img src="/logo-256.webp" alt="YAZVEB" width={64} height={64} />
-          <div>
-            <h1>İşletme doğrulama</h1>
-            <p>Öğrencinin ekranındaki QR'yi okut, işletme PIN'ini gir. Karar bu ekranda; öğrencinin ekranında yazana göre ürün verme.</p>
+    <div className="isletme">
+      <div className="isletme-arka" aria-hidden="true">
+        <Ag className="isletme-ag" />
+      </div>
+
+      <div className="isletme-kolon">
+        <header className="isletme-kahraman">
+          <div className="isletme-kure gir">
+            <Kure durum={kureDurumu} olcek={0.4} />
+            <img src="/logo-128.webp" alt="" width={44} height={44} />
           </div>
-        </div>
+          <span className="etiket gir" style={kademe(1)}>YAZVEB · İş ortağı</span>
+          <h1 className="gir" style={kademe(2)}>Ödül onayı</h1>
+          <p className="gir" style={kademe(3)}>
+            Selçuk Üniversitesi Yapay Zekâ ve Veri Bilimi Topluluğu'nun öğrencilerini ağırladığınız için teşekkürler.
+          </p>
+          {bugun.length > 0 && (
+            <p className="isletme-sayac gir" style={kademe(4)}>
+              Bugün <b className="rakam">{bugun.length}</b> öğrenciyi ağırladınız.
+            </p>
+          )}
+        </header>
+
+        <AlintiKarti set="isletme" className="gir" style={kademe(4)} />
+
+        <ol className="isletme-adimlar gir" style={kademe(5)} aria-label="Onay adımları">
+          {["QR okut", "PIN gir", "Onayla"].map((a, i) => (
+            <li key={a} data-durum={i + 1 < adim ? "bitti" : i + 1 === adim ? "simdi" : "sonra"}>
+              <span className="rakam">{i + 1 < adim ? "✓" : i + 1}</span>{a}
+            </li>
+          ))}
+        </ol>
 
         {sonuc ? (
           <SonucKarti sonuc={sonuc} karar={karar!} bekliyor={bekliyor}
             onOnayla={() => sor(true)} onYeni={yeniOdul} />
         ) : (
-          <form className="yigin" onSubmit={kontrolEt}>
+          <form className="isletme-form yigin gir" style={kademe(6)} onSubmit={kontrolEt}>
             {kamera ? (
               <KodKamerasi onOkundu={okundu} onKapat={() => setKamera(false)} />
             ) : (
-              <button type="button" className="dugme birincil genis" onClick={() => { setHata(null); setKamera(true); }}>
-                <Simge ad="tara" boyut={18} /> Öğrencinin QR'sini okut
+              <button type="button" className="dugme birincil genis isletme-tara" onClick={() => { setHata(null); setKamera(true); }}>
+                <Simge ad="tara" boyut={20} /> Öğrencinin QR'sini okut
               </button>
             )}
+
+            <div className="isletme-ayrac" aria-hidden="true"><span>ya da kodu yaz</span></div>
 
             <label className="alan">
               <span className="etiket">Ödül kodu</span>
@@ -172,9 +212,8 @@ export default function Isletme() {
                 autoCapitalize="characters"
                 autoComplete="off"
                 spellCheck={false}
-                aria-describedby="kod-not"
+                aria-label="Ödül kodu"
               />
-              <span id="kod-not" className="soluk">Kamera yoksa öğrencinin ekranındaki kodu yaz.</span>
             </label>
 
             <label className="alan">
@@ -213,22 +252,23 @@ export default function Isletme() {
           </details>
         )}
 
-        <p className="giris-dip">
-          PIN'i YAZVEB yönetimi verir; öğrenciyle paylaşma, öğrencinin telefonuna girme.
-          Bu sayfayı yer imlerine ya da ana ekrana ekleyebilirsin.
-        </p>
-        <p className="giris-dip">
-          YAZVEB üyesi ya da yöneticisi misin?{" "}
-          <button className="metin-dugme baglanti satir-ici" onClick={() => {
-            sec(null);
-            // /isletme adresinden gelindiyse uygulamanın girişine geç.
-            if (/^\/isletme/.test(location.pathname)) location.assign("/");
-          }}>Giriş türünü değiştir</button>
-        </p>
+        <footer className="isletme-dip">
+          <p>PIN'i YAZVEB yönetimi verir; öğrenciyle paylaşmayın, öğrencinin telefonuna girmeyin. Bu sayfayı yer imlerine ya da ana ekrana ekleyebilirsiniz.</p>
+          <p>
+            YAZVEB üyesi misiniz?{" "}
+            <button className="metin-dugme baglanti satir-ici" onClick={() => {
+              sec(null);
+              // /isletme adresinden gelindiyse uygulamanın girişine geç.
+              if (/^\/isletme/.test(location.pathname)) location.assign("/");
+            }}>Üye girişine dön</button>
+          </p>
+        </footer>
       </div>
     </div>
   );
 }
+
+const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
 
 function SonucKarti({ sonuc, karar, bekliyor, onOnayla, onYeni }: {
   sonuc: IsletmeSonucu;
@@ -248,6 +288,13 @@ function SonucKarti({ sonuc, karar, bekliyor, onOnayla, onYeni }: {
   };
   return (
     <section className="isletme-sonuc" data-karar={karar} role="status" aria-live="assertive">
+      {/* Çizilerek beliren işaret: rengi değil ŞEKLİ de karar söyler. */}
+      <svg className="isletme-isaret" viewBox="0 0 52 52" aria-hidden="true">
+        <circle cx="26" cy="26" r="24" />
+        {karar === "ver"
+          ? <path d="M15 27l7 7 15-16" />
+          : <path d="M18 18l16 16M34 18L18 34" />}
+      </svg>
       <p className="etiket rakam">{sonuc.kod}</p>
       <p className="isletme-karar">{baslik[sonuc.durum]}</p>
       {sonuc.baslik && (
@@ -313,7 +360,7 @@ function KodKamerasi({ onOkundu, onKapat }: { onOkundu: (metin: string) => boole
           let metin: string | null = null;
           try { metin = await coz(video); } catch { /* tek kare */ }
           if (!metin || iptal) return;
-          if (!onOkundu(metin)) setUyari("Bu bir YAZVEB ödül QR'si değil. Öğrenciden 'Ödülü göster' ekranını açmasını iste.");
+          if (!onOkundu(metin)) setUyari("Bu bir YAZVEB ödül QR'si değil. Öğrenciden 'Ödülü göster' ekranını açmasını isteyin.");
         };
         kare = requestAnimationFrame(dongu);
       } catch {
@@ -336,7 +383,7 @@ function KodKamerasi({ onOkundu, onKapat }: { onOkundu: (metin: string) => boole
   if (durum === "yok") {
     return (
       <p className="bildirim" role="alert">
-        Kamera açılamadı. Kodu aşağıya yazabilirsin; kamerayı kullanmak için tarayıcıya kamera izni ver.
+        Kamera açılamadı. Kodu aşağıya yazabilirsiniz; kamerayı kullanmak için tarayıcıya kamera izni verin.
       </p>
     );
   }

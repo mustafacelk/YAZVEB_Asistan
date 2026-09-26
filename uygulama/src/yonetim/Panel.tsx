@@ -5,6 +5,7 @@ import { ODUL_DEGISTI, useGezinme } from "../veri/gezinme";
 import { selamAdi } from "../veri/bicim";
 import { sayi, tarihSaat } from "../veri/odul";
 import Simge from "../tasarim/Simge";
+import AlintiKarti from "../tasarim/AlintiKarti";
 import { CanliQrPenceresi, QrPenceresi } from "./QrKod";
 import { yonetim, type YGorev, type YOzet, type YSponsor } from "./veri";
 import { dikkatListesi, etkinlikGorevleri, odakEtkinlik, suruyor, type Dikkat } from "./oncelik";
@@ -87,6 +88,8 @@ export default function Panel() {
             Üye görünümü
           </button>
         </header>
+
+        <AlintiKarti set="yonetim" className="gir" style={kademe(2)} />
 
         {hata && <p className="bildirim" role="alert">{hata}</p>}
 

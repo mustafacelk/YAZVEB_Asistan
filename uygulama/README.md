@@ -386,24 +386,31 @@ sıradaki etkinlik.
 Topluluk**. Tarama her ekrandan tek dokunuş. Asistan Ana'dan, genel sohbet
 Topluluk'tan açılır; çubuk beş öğeyi geçmez.
 
-### Giriş türü ve role göre arayüz
+### Role göre arayüz
 
-Girişin ilk adımı **"Nasıl gireceksin?"**: Üye · Yönetici · Sponsor işletme.
-Seçim **yetki vermez**, yalnızca açılış ekranını ve önceliği belirler
-(`src/veri/kip.ts`); yetki yine veritabanındaki rolden gelir.
+Herkes aynı girişi kullanır; hangi arayüzün açılacağını **başkanın verdiği
+rol** belirler (Topluluk → üye listesinde rol seçimi). Seçim ekranı yok.
 
-| Tür | Açılış | Çubuğun ortası | Öncelik |
+| Kim | Açılış | Çubuğun ortası | Öncelik |
 | --- | --- | --- | --- |
-| Üye | Ana: sıradaki etkinlik, ilerleme, bekleyen ödül | QR tara | Katıl, okut, kazan |
-| Yönetici | Panel: şu anki etkinlik + "Perdeye yansıt", yapılacaklar (QR görevi yok, PIN yok, stok bitti…), sayılar | Perde QR | Etkinlik anında QR göstermek, eksikleri gidermek |
-| Sponsor işletme | `/isletme` (hesap yok, PIN) | — | QR okut → onayla; bugün bu cihazda onaylananlar |
+| Üye | Ana: alıntı, sıradaki etkinlik, ilerleme, bekleyen ödül | QR tara | Katıl, okut, kazan |
+| Yönetici / başkan | Panel: alıntı, şu anki etkinlik + "Perdeye yansıt", yapılacaklar (QR görevi yok, PIN yok, stok bitti…), sayılar | Perde QR | Etkinlik anında QR göstermek, eksikleri gidermek |
+| Sponsor işletme | Girişteki "Ödül onay ekranı" bağlantısı ya da `/isletme` (hesap yok, PIN) | — | QR okut → PIN → onayla |
 
-- "Yönetici" seçip üye hesabıyla giren kişi üye görünümüne düşer ve nedeni söylenir.
-- Yönetici hesabı kayıtla açılmaz: üye olarak kayıt olunur, rolü başkan verir.
-- Yetkililer görünümü Ana'daki "Yönetim paneli" bağlantısından ya da
-  Hesabım → Açılış görünümü'nden değiştirir.
-- Yapılacaklar listesinin kuralları `src/yonetim/oncelik.ts`; testi
-  `npm run test:rol` (29).
+- Yetkililer üye görünümüne Hesabım → Açılış görünümü'nden geçer; yetki değişmez.
+- Yapılacaklar listesinin kuralları `src/yonetim/oncelik.ts`.
+
+### Alıntılar ve görsel dil
+
+- Her pencerenin kendi sözleri var (`src/veri/alintilar.ts`): üye neden
+  burada olduğunu, yönetici neden yönettiğini, işletme neden bu ortaklıkta
+  olduğunu her açılışta başka bir sözle görür. Kelimeler yumuşakça belirir.
+- **Yalnızca sahibi belgelenmiş sözler.** Kime ait olduğu tartışmalı popüler
+  sözler bilerek yok; yeni söz eklerken aynı kural.
+- Görsel dil tek: yapay sinir ağı motifi (`src/tasarim/Ag.tsx`) ve canlı
+  küre. İşletme ekranında küre sonuca göre değişir (bekliyor, onay, red),
+  sonuç işareti çizilerek belirir. Hareket azaltma tercihinde hepsi durur.
+- Test: `npm run test:rol` (39) — öncelik kuralları ve alıntı sırası.
 
 ### Ürün kararları (UX araştırması sonrası)
 
