@@ -2,6 +2,28 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import Simge, { odulIkonu } from "../tasarim/Simge";
 import { ISLETME_MESAJI, odul, OdulHatasi, tarih, tarihSaat, titret, type IsletmeSonucu } from "../veri/odul";
 import { cozucuKur, odulKoduCoz } from "../odul/qr";
+import { useKip } from "../veri/kip";
+
+/**
+ * Bugün bu cihazda onaylananlar — kasada gün sonu sayımı için. Yalnızca ödül
+ * kodu, adı ve saat; öğrenciye ait hiçbir bilgi yok. Ertesi gün kendiliğinden
+ * sıfırlanır; cihazdan çıkmaz.
+ */
+type BugunKaydi = { kod: string; baslik: string; saat: string };
+const BUGUN_ANAHTARI = "yazveb:isletme-bugun";
+const bugunTarihi = () => new Date().toLocaleDateString("sv-SE");   // YYYY-AA-GG, yerel saat
+
+function bugunOku(): BugunKaydi[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(BUGUN_ANAHTARI) ?? "null");
+    return v?.tarih === bugunTarihi() && Array.isArray(v.liste) ? v.liste : [];
+  } catch {
+    return [];
+  }
+}
+function bugunYaz(liste: BugunKaydi[]) {
+  try { localStorage.setItem(BUGUN_ANAHTARI, JSON.stringify({ tarih: bugunTarihi(), liste })); } catch { /* gizli sekme */ }
+}
 
 /**
  * İşletme sayfası — ÇALIŞANIN telefonunda açılır (<site>/isletme).
@@ -22,6 +44,8 @@ import { cozucuKur, odulKoduCoz } from "../odul/qr";
  * yazılmaz): yoğun kasada her ödülde yeniden girilmez.
  */
 export default function Isletme() {
+  const { sec } = useKip();
+  const [bugun, setBugun] = useState<BugunKaydi[]>(bugunOku);
   const [kod, setKod] = useState("");
   const [pin, setPin] = useState("");
   const [sonuc, setSonuc] = useState<IsletmeSonucu | null>(null);
@@ -50,6 +74,15 @@ export default function Isletme() {
       }
       titret(s.durum === "kullanildi" ? [20, 50, 20] : s.durum === "gecerli" ? 12 : 80);
       setSonuc(s);
+      if (s.durum === "kullanildi") {
+        const yeni = [{
+          kod: s.kod ?? kodTemiz,
+          baslik: s.baslik ?? "Ödül",
+          saat: new Date(s.zaman ?? Date.now()).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+        }, ...bugunOku()].slice(0, 200);
+        bugunYaz(yeni);
+        setBugun(yeni);
+      }
     } catch (h) {
       setHata(h instanceof OdulHatasi ? h.message : "Sunucuya ulaşamadık. Bağlantını kontrol et.");
     } finally {
@@ -166,9 +199,31 @@ export default function Isletme() {
           </form>
         )}
 
+        {bugun.length > 0 && (
+          <details className="isletme-bugun">
+            <summary>
+              <span className="etiket">Bugün bu cihazda</span>
+              <b className="rakam">{bugun.length} onay</b>
+            </summary>
+            <ul>
+              {bugun.map((k, i) => (
+                <li key={k.kod + i}><span className="rakam">{k.saat}</span><span>{k.baslik}</span><span className="rakam soluk">{k.kod}</span></li>
+              ))}
+            </ul>
+          </details>
+        )}
+
         <p className="giris-dip">
           PIN'i YAZVEB yönetimi verir; öğrenciyle paylaşma, öğrencinin telefonuna girme.
           Bu sayfayı yer imlerine ya da ana ekrana ekleyebilirsin.
+        </p>
+        <p className="giris-dip">
+          YAZVEB üyesi ya da yöneticisi misin?{" "}
+          <button className="metin-dugme baglanti satir-ici" onClick={() => {
+            sec(null);
+            // /isletme adresinden gelindiyse uygulamanın girişine geç.
+            if (/^\/isletme/.test(location.pathname)) location.assign("/");
+          }}>Giriş türünü değiştir</button>
         </p>
       </div>
     </div>

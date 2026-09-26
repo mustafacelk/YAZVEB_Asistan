@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import Simge, { ODUL_IKONLARI, odulIkonu } from "../tasarim/Simge";
 import { supabase, type Etkinlik } from "../veri/supabase";
 import { useOturum } from "../veri/oturum";
+import type { YonetimBolumu } from "../veri/gezinme";
 import { konumAl, OdulHatasi, sayi, tarihSaat } from "../veri/odul";
 import { SponsorLogo } from "../odul/SponsorKarti";
 import { CanliQrPenceresi, QrPenceresi } from "./QrKod";
@@ -24,7 +25,7 @@ import {
   type YSponsor,
 } from "./veri";
 
-type Bolum = "ozet" | "gorevler" | "sponsorlar" | "kullanicilar" | "seviyeler" | "kullanimlar" | "denetim";
+export type Bolum = YonetimBolumu;
 
 const BOLUMLER: { anahtar: Bolum; ad: string; simge: Parameters<typeof Simge>[0]["ad"]; baskan?: boolean }[] = [
   { anahtar: "ozet", ad: "Özet", simge: "grafik" },
@@ -67,22 +68,30 @@ function Mesaj({ m }: { m: { tur: "hata" | "bilgi"; metin: string } | null }) {
  * Her işlemin yetkisi veritabanında ayrıca denetlenir; bu ekran yalnızca
  * düğmeleri gösterir ya da gizler.
  */
-export default function Yonetim({ onKapat }: { onKapat: () => void }) {
+export default function Yonetim({ onKapat, gomulu = false, ilkBolum = "ozet" }: {
+  onKapat?: () => void;
+  /** Yönetim görünümünde sekme olarak: pencere değil, sayfanın kendisi. */
+  gomulu?: boolean;
+  ilkBolum?: Bolum;
+}) {
   const { baskanMi } = useOturum();
-  const [bolum, setBolum] = useState<Bolum>("ozet");
+  const [bolum, setBolum] = useState<Bolum>(ilkBolum);
+  useEffect(() => { setBolum(ilkBolum); }, [ilkBolum]);
 
   useEffect(() => {
+    if (gomulu || !onKapat) return;
     const tus = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !document.querySelector(".yonetim .katman, .qr-penceresi")) onKapat();
     };
     window.addEventListener("keydown", tus);
     return () => window.removeEventListener("keydown", tus);
-  }, [onKapat]);
+  }, [onKapat, gomulu]);
 
-  return createPortal(
-    <div className="yonetim" role="dialog" aria-modal="true" aria-label="Ödül yönetimi">
+  const icerik = (
+    <div className={"yonetim" + (gomulu ? " gomulu" : "")} role={gomulu ? undefined : "dialog"}
+         aria-modal={gomulu ? undefined : true} aria-label="Ödül yönetimi">
       <header className="yonetim-ust">
-        <button className="ikon-dugme" onClick={onKapat} aria-label="Kapat"><Simge ad="kapat" /></button>
+        {!gomulu && onKapat && <button className="ikon-dugme" onClick={onKapat} aria-label="Kapat"><Simge ad="kapat" /></button>}
         <div>
           <span className="etiket">Community Rewards</span>
           <h1>Yönetim</h1>
@@ -104,9 +113,9 @@ export default function Yonetim({ onKapat }: { onKapat: () => void }) {
         {bolum === "kullanimlar" && <Kullanimlar />}
         {bolum === "denetim" && baskanMi && <Denetim />}
       </main>
-    </div>,
-    document.body,
+    </div>
   );
+  return gomulu ? icerik : createPortal(icerik, document.body);
 }
 
 // ═══════════════════════════════════════════════════════════════════

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { sorun, yapilandirildi } from "./veri/supabase";
-import { OturumSaglayici, useOturum } from "./veri/oturum";
+import { OturumSaglayici, useGorunum, useOturum } from "./veri/oturum";
+import { KipBaglami, kipOku, kipYaz, type GirisKipi } from "./veri/kip";
 import {
   GezinmeBaglami,
   odulDegisti,
@@ -9,6 +10,7 @@ import {
   type Gorunum,
   type OdulBolumu,
   type Sekme,
+  type YonetimBolumu,
 } from "./veri/gezinme";
 import Giris from "./ekranlar/Giris";
 import Ana from "./ekranlar/Ana";
@@ -22,6 +24,10 @@ import Simge, { type SimgeAdi } from "./tasarim/Simge";
 
 // Çalışanın doğrulama sayfası: üyelerin uygulamasıyla ortak kod az, ayrı yüklenir.
 const Isletme = lazy(() => import("./isletme/Isletme"));
+// Yönetim görünümü: üyelerin hiç indirmediği parçalar.
+const Panel = lazy(() => import("./yonetim/Panel"));
+const YonetimSayfasi = lazy(() => import("./yonetim/Yonetim"));
+const Perde = lazy(() => import("./yonetim/Perde"));
 
 /** <site>/isletme — giriş istemez; kasadaki çalışan kendi telefonunda açar. */
 const ISLETME_SAYFASI =
@@ -42,6 +48,19 @@ const SEKMELER: { anahtar: Sekme; ad: string; simge: SimgeAdi }[] = [
   { anahtar: "topluluk", ad: "Topluluk", simge: "topluluk" },
 ];
 
+/**
+ * Yönetim görünümünde çubuk: aynı dört yer, yöneticinin işine göre.
+ * "Ana" yapılacaklar paneline, "Ödüller" yönetim ekranına dönüşür; ortada
+ * tarama yerine PERDE QR — etkinlikte yöneticinin en sık yaptığı iş QR
+ * göstermek, okutmak değil.
+ */
+const SEKMELER_YONETIM: typeof SEKMELER = [
+  { anahtar: "ana", ad: "Panel", simge: "grafik" },
+  { anahtar: "etkinlik", ad: "Etkinlikler", simge: "etkinlik" },
+  { anahtar: "odul", ad: "Yönetim", simge: "ayar" },
+  { anahtar: "topluluk", ad: "Topluluk", simge: "topluluk" },
+];
+
 /** Çubuktaki sütun sırası: tarama 2. sütunda. */
 const SUTUN: Record<Sekme, number> = { ana: 0, etkinlik: 1, odul: 3, topluluk: 4 };
 
@@ -49,10 +68,18 @@ const SUTUN: Record<Sekme, number> = { ana: 0, etkinlik: 1, odul: 3, topluluk: 4
 const CIKIS_MS = 200;
 
 export default function Uygulama() {
+  // Giriş türü (üye / yönetim / işletme) oturumdan ÖNCE seçilir; işletme
+  // çalışanının oturumu hiç olmaz. Bu yüzden oturumun dışında tutulur.
+  const [kip, setKip] = useState<GirisKipi | null>(kipOku);
+  const kipDegeri = useMemo(() => ({
+    kip,
+    sec: (k: GirisKipi | null) => { kipYaz(k); setKip(k); },
+  }), [kip]);
+
   return (
-    <>
+    <KipBaglami.Provider value={kipDegeri}>
       <div className="atmosfer" aria-hidden="true" />
-      {yapilandirildi && ISLETME_SAYFASI ? (
+      {yapilandirildi && (ISLETME_SAYFASI || kip === "isletme") ? (
         <Suspense fallback={<Acilis />}>
           <Isletme />
         </Suspense>
@@ -63,7 +90,7 @@ export default function Uygulama() {
       ) : (
         <Yapilandirma />
       )}
-    </>
+    </KipBaglami.Provider>
   );
 }
 
@@ -86,12 +113,16 @@ function Kabuk() {
  * sırayla getirir. Hızlı art arda tıklamada son tıklanan kazanır.
  */
 function Ekranlar() {
+  const { gorunum } = useGorunum();
+  const yonetimde = gorunum === "yonetim";
   const [hedef, setHedef] = useState<Gorunum>("ana");
   const [gorunen, setGorunen] = useState<Gorunum>("ana");
   const [asama, setAsama] = useState<"gir" | "cik">("gir");
   const [odulBolumu, setOdulBolumu] = useState<OdulBolumu | undefined>(undefined);
   const [asistanSorusu, setAsistanSorusu] = useState<string | undefined>(undefined);
   const [tarama, setTarama] = useState(false);
+  const [perde, setPerde] = useState(false);
+  const [yonetimBolumu, setYonetimBolumu] = useState<YonetimBolumu>("ozet");
   const zamanlayici = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Zamanlayıcı içinden okunacak güncel görünüm (durum güncelleyicisinde yan etki olmasın).
@@ -100,7 +131,10 @@ function Ekranlar() {
 
   const git = useCallback<Gezinme["git"]>((g, secenek) => {
     setHedef(g);
-    if (g === "odul") setOdulBolumu(secenek?.bolum);
+    if (g === "odul") {
+      setOdulBolumu(secenek?.bolum);
+      setYonetimBolumu(secenek?.yonetim ?? "ozet");
+    }
     if (g === "asistan") setAsistanSorusu(secenek?.soru);
     if (zamanlayici.current) clearTimeout(zamanlayici.current);
     if (gorunenRef.current === g) {
@@ -120,6 +154,14 @@ function Ekranlar() {
   }, []);
 
   const tara = useCallback(() => setTarama(true), []);
+
+  // Görünüm değişince (üye ↔ yönetim) başa dön: aynı sekme artık başka bir ekran.
+  const ilkGorunum = useRef(gorunum);
+  useEffect(() => {
+    if (ilkGorunum.current === gorunum) return;
+    ilkGorunum.current = gorunum;
+    git("ana");
+  }, [gorunum, git]);
   const gezinme = useMemo(() => ({ git, tara }), [git, tara]);
 
   useEffect(() => () => {
@@ -127,15 +169,20 @@ function Ekranlar() {
   }, []);
 
   const secili = UST_SEKME[hedef];
+  const sekmeler = yonetimde ? SEKMELER_YONETIM : SEKMELER;
 
   return (
     <GezinmeBaglami.Provider value={gezinme}>
       <div className="kabuk">
         <main className="sahne" data-asama={asama} key={gorunen}>
-          {gorunen === "ana" && <Ana />}
+          {gorunen === "ana" && (yonetimde
+            ? <Suspense fallback={<Acilis />}><Panel /></Suspense>
+            : <Ana />)}
           {gorunen === "asistan" && <Asistan ilkSoru={asistanSorusu} onGeri={() => git("ana")} />}
           {gorunen === "etkinlik" && <Etkinlikler />}
-          {gorunen === "odul" && <Oduller bolum={odulBolumu} />}
+          {gorunen === "odul" && (yonetimde
+            ? <Suspense fallback={<Acilis />}><YonetimSayfasi gomulu ilkBolum={yonetimBolumu} /></Suspense>
+            : <Oduller bolum={odulBolumu} />)}
           {gorunen === "topluluk" && <Topluluk />}
           {gorunen === "sohbet" && <Sohbet onGeri={() => git("topluluk")} />}
         </main>
@@ -151,20 +198,20 @@ function Ekranlar() {
             <img src="/logo-128.webp" alt="" width={32} height={32} />
             <span><b>YAZVEB</b><small>Yapay Zekâ ve Veri Bilimi</small></span>
           </div>
-          {SEKMELER.slice(0, 2).map((s) => <SekmeDugmesi key={s.anahtar} s={s} secili={secili} git={git} />)}
+          {sekmeler.slice(0, 2).map((s) => <SekmeDugmesi key={s.anahtar} s={s} secili={secili} git={git} />)}
           <button
             className="gezinme-tara"
-            onClick={tara}
-            aria-label="QR tara ya da kısa kod gir"
-            data-ipucu="QR tara"
+            onClick={yonetimde ? () => setPerde(true) : tara}
+            aria-label={yonetimde ? "Perdeye QR yansıt" : "QR tara ya da kısa kod gir"}
+            data-ipucu={yonetimde ? "Perde QR" : "QR tara"}
             data-ipucu-yon="sag"
           >
             <span className="gezinme-tara-yuz">
-              <Simge ad="tara" boyut={22} />
-              <span className="gezinme-tara-etiket">QR tara</span>
+              <Simge ad={yonetimde ? "qr" : "tara"} boyut={22} />
+              <span className="gezinme-tara-etiket">{yonetimde ? "Perde QR" : "QR tara"}</span>
             </span>
           </button>
-          {SEKMELER.slice(2).map((s) => <SekmeDugmesi key={s.anahtar} s={s} secili={secili} git={git} />)}
+          {sekmeler.slice(2).map((s) => <SekmeDugmesi key={s.anahtar} s={s} secili={secili} git={git} />)}
           <p className="gezinme-dip" aria-hidden="true">Selçuk Üniversitesi<br />Yapay Zekâ ve Veri Bilimi Topluluğu</p>
         </nav>
 
@@ -174,6 +221,11 @@ function Ekranlar() {
             onKapat={() => setTarama(false)}
             onDegisti={odulDegisti}
           />
+        )}
+        {perde && (
+          <Suspense fallback={null}>
+            <Perde onKapat={() => setPerde(false)} onGorevOlustur={() => git("odul", { yonetim: "gorevler" })} />
+          </Suspense>
         )}
       </div>
     </GezinmeBaglami.Provider>

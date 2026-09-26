@@ -11,6 +11,8 @@ import { createContext, useContext } from "react";
 export type Sekme = "ana" | "etkinlik" | "odul" | "topluluk";
 export type Gorunum = Sekme | "asistan" | "sohbet";
 export type OdulBolumu = "sponsorlar" | "oduller" | "siralama";
+/** Yönetim görünümünde "Yönetim" sekmesinin bölümleri (yonetim/Yonetim.tsx). */
+export type YonetimBolumu = "ozet" | "gorevler" | "sponsorlar" | "kullanicilar" | "seviyeler" | "kullanimlar" | "denetim";
 
 /** Alt görünüm hangi sekmenin altında: gösterge o sekmede kalır. */
 export const UST_SEKME: Record<Gorunum, Sekme> = {
@@ -24,7 +26,7 @@ export const UST_SEKME: Record<Gorunum, Sekme> = {
 
 export type Gezinme = {
   /** `soru`: Ana'daki kutuya yazılan soru; Asistan açılınca kendiliğinden sorulur. */
-  git: (hedef: Gorunum, secenek?: { bolum?: OdulBolumu; soru?: string }) => void;
+  git: (hedef: Gorunum, secenek?: { bolum?: OdulBolumu; soru?: string; yonetim?: YonetimBolumu }) => void;
   /** Etkinlik QR'si / kısa kod tarayıcısını açar. */
   tara: () => void;
 };

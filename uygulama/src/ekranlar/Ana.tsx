@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { supabase, type Etkinlik } from "../veri/supabase";
-import { useOturum } from "../veri/oturum";
+import { useGorunum, useOturum } from "../veri/oturum";
 import { ODUL_DEGISTI, useGezinme } from "../veri/gezinme";
 import { selamAdi, suruyorMu } from "../veri/bicim";
 import {
@@ -36,8 +36,12 @@ function rehberKapandiMi() {
  * her biri kendi ekranında. Ana ekran bir kontrol paneli değil.
  */
 export default function Ana() {
-  const { profil } = useOturum();
+  const { profil, yetkiliMi } = useOturum();
+  const { uyari, gorunumSec } = useGorunum();
   const { git, tara } = useGezinme();
+  // "Yönetici" seçip üye hesabıyla girildiyse: bir kez söylenir, seçim üyeye çekilir.
+  const [kipUyarisi, setKipUyarisi] = useState(uyari);
+  useEffect(() => { if (uyari) gorunumSec("uye"); }, [uyari, gorunumSec]);
   const [ilerleme, setIlerleme] = useState<Profil | null>(null);
   const [etkinlik, setEtkinlik] = useState<Etkinlik | null | undefined>(undefined);
   const [ozet, setOzet] = useState<EtkinlikOzeti | null>(null);
@@ -85,7 +89,19 @@ export default function Ana() {
           {!rehber && (
             <button className="metin-dugme ana-rehber-ac" onClick={() => setRehber(true)}>Nasıl çalışır?</button>
           )}
+          {yetkiliMi && (
+            <button className="metin-dugme baglanti" onClick={() => gorunumSec("yonetim")}>
+              <Simge ad="ayar" boyut={14} /> Yönetim paneli
+            </button>
+          )}
         </header>
+
+        {kipUyarisi && (
+          <p className="bildirim bilgi gir" role="status">
+            {kipUyarisi}{" "}
+            <button className="metin-dugme baglanti satir-ici" onClick={() => setKipUyarisi(null)}>Tamam</button>
+          </p>
+        )}
 
         <h1 className="ana-selam gir" style={kademe(1)}>{ad ? `Merhaba, ${ad}.` : "Merhaba."}</h1>
 

@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, type Profil, type Rol } from "./supabase";
+import { etkinGorunum, useKip, type Gorunum } from "./kip";
 
 /**
  * Oturum katmanı: kim giriş yapmış, rolü ne.
@@ -113,4 +114,20 @@ export function useOturum(): OturumDurumu {
   const deger = useContext(Baglam);
   if (!deger) throw new Error("useOturum, OturumSaglayici içinde kullanılmalı");
   return deger;
+}
+
+/**
+ * Hangi görünüm: üye mi, yönetim mi? Girişte seçilen tür ile hesabın
+ * gerçek rolü birlikte karar verir (bkz. veri/kip.ts). Yalnızca arayüz:
+ * yönetim görünümüne geçen üye hiçbir yönetim verisine erişemez.
+ */
+export function useGorunum() {
+  const { rol } = useOturum();
+  const { kip, sec } = useKip();
+  const { gorunum, uyari } = etkinGorunum(kip, rol);
+  return {
+    gorunum,
+    uyari,
+    gorunumSec: (g: Gorunum) => sec(g),
+  };
 }

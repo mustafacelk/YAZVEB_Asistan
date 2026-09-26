@@ -589,6 +589,9 @@
   grid-template-rows: auto auto 1fr;
   animation: sol var(--t-ui) var(--e-dokunus) backwards;
 }
+/* Yönetim görünümünde sekme: pencere değil, gezinme çubuğunun üstünde sayfa. */
+.yonetim.gomulu { position: relative; inset: auto; z-index: auto; height: 100%; background: transparent; animation: none; }
+.yonetim.gomulu .yonetim-govde { padding-bottom: calc(var(--gezinme-pay) + var(--b-6)); }
 .yonetim-ust { display: flex; align-items: center; gap: var(--b-3); padding: calc(var(--ust) + var(--b-3)) var(--b-4) var(--b-2); }
 .yonetim-ust h1 { font-size: var(--y-baslik); }
 .yonetim-bolumler {

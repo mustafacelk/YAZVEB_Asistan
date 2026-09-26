@@ -1,6 +1,8 @@
-import { useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
 import { supabase } from "../veri/supabase";
+import { useKip, type GirisKipi } from "../veri/kip";
 import Kure from "../canli/Kure";
+import Simge, { type SimgeAdi } from "../tasarim/Simge";
 
 type Kip = "giris" | "kayit";
 
@@ -33,8 +35,25 @@ const GIRIS_HATASI = "Kullanıcı adı veya parola hatalı.";
  */
 const AD_GIRIS_HATASI =
   GIRIS_HATASI + " Birkaç hatalı denemeden sonra kullanıcı adıyla giriş 15 dakika kapanır; o sırada e-postanla giriş yapabilirsin.";
+/**
+ * Girişin ilk adımı: kim, hangi işi yapmaya geliyor?
+ *
+ * Seçim yetki VERMEZ, yalnızca açılış ekranını ve önceliği belirler (bkz.
+ * veri/kip.ts). Sponsor çalışanının hesabı yoktur: seçimi doğrudan işletme
+ * doğrulama ekranına götürür.
+ */
+const TURLER: { kip: GirisKipi; simge: SimgeAdi; baslik: string; alt: string }[] = [
+  { kip: "uye", simge: "odul", baslik: "Üye", alt: "Etkinliklere katıl, QR okut, puan ve ödül kazan." },
+  { kip: "yonetim", simge: "ayar", baslik: "Yönetici", alt: "Etkinlik, QR görevi, sponsor ve kampanya yönet." },
+  { kip: "isletme", simge: "hediye", baslik: "Sponsor işletme", alt: "Kasada öğrencinin ödülünü onayla. Hesap gerekmez, işletme PIN'i yeter." },
+];
+const TUR_ADI: Record<GirisKipi, string> = { uye: "Üye girişi", yonetim: "Yönetici girişi", isletme: "Sponsor işletme" };
+
 export default function Giris() {
+  const { kip: tur, sec: turSec } = useKip();
   const [kip, setKip] = useState<Kip>("giris");
+  // Yönetici girişinde kayıt yok: kayıt sekmesindeyken yönetici seçilirse girişe dön.
+  useEffect(() => { if (tur === "yonetim") setKip("giris"); }, [tur]);
   const [kimlik, setKimlik] = useState("");     // kullanıcı adı veya e-posta
   const [eposta, setEposta] = useState("");
   const [kullaniciAdi, setKullaniciAdi] = useState("");
@@ -143,6 +162,7 @@ export default function Giris() {
       )}
 
       <div className="giris-kolon">
+        {!tur ? <TurSecimi onSec={turSec} /> : <>
         <div className="giris-marka">
           <img
             className="gir"
@@ -156,13 +176,21 @@ export default function Giris() {
           />
           <div>
             <h1 className="gir" style={kademe(1)}>
-              {kip === "giris" ? "Tekrar hoş geldin." : "Topluluğa katıl."}
+              {tur === "yonetim" ? "Yönetim paneline gir." : kip === "giris" ? "Tekrar hoş geldin." : "Topluluğa katıl."}
             </h1>
             <p className="gir" style={kademe(2)}>Selçuk Üniversitesi · YAZVEB</p>
           </div>
         </div>
 
-        <div
+        <p className="tur-cipi gir" style={kademe(2)}>
+          <span>{TUR_ADI[tur]}</span>
+          <button type="button" className="metin-dugme baglanti" onClick={() => { setHata(null); turSec(null); }}>
+            Değiştir
+          </button>
+        </p>
+
+        {/* Yönetici hesabı kayıtla açılmaz: rolü başkan verir. */}
+        {tur !== "yonetim" && <div
           className="secici gir"
           role="tablist"
           aria-label="Giriş veya kayıt"
@@ -175,7 +203,7 @@ export default function Giris() {
           <button type="button" role="tab" aria-selected={kip === "kayit"} onClick={() => kipSec("kayit")}>
             Kayıt ol
           </button>
-        </div>
+        </div>}
 
         <form onSubmit={gonder} className="yigin gir" style={kademe(4)}>
           {kip === "giris" ? (
@@ -250,6 +278,43 @@ export default function Giris() {
             {bekliyor ? "Bekleniyor" : kip === "giris" ? "Giriş yap" : "Hesap oluştur"}
           </button>
         </form>
+
+        {tur === "yonetim" && (
+          <p className="giris-dip">
+            Yönetici hesabı ayrıca açılmaz: önce{" "}
+            <button type="button" className="metin-dugme baglanti satir-ici" onClick={() => { turSec("uye"); setKip("kayit"); }}>
+              üye olarak kayıt ol
+            </button>
+            , yönetici yetkisini topluluk başkanı verir.
+          </p>
+        )}
+        </>}
+      </div>
+    </div>
+  );
+}
+
+function TurSecimi({ onSec }: { onSec: (k: GirisKipi) => void }) {
+  return (
+    <div className="yigin">
+      <div className="giris-marka">
+        <img className="gir" src="/logo-256.webp" alt="YAZVEB logosu" width={64} height={64} decoding="async" />
+        <div>
+          <h1 className="gir" style={kademe(1)}>Nasıl gireceksin?</h1>
+          <p className="gir" style={kademe(2)}>Sana uygun ekranla açılır; sonra değiştirebilirsin.</p>
+        </div>
+      </div>
+      <div className="tur-secimi" role="list">
+        {TURLER.map((t, i) => (
+          <button key={t.kip} role="listitem" className="ana-satir tur-karti gir" style={kademe(3 + i)} onClick={() => onSec(t.kip)}>
+            <span className="ana-satir-ikon"><Simge ad={t.simge} boyut={22} /></span>
+            <span className="ana-satir-govde">
+              <b>{t.baslik}</b>
+              <span className="soluk">{t.alt}</span>
+            </span>
+            <Simge ad="ileri" boyut={16} />
+          </button>
+        ))}
       </div>
     </div>
   );

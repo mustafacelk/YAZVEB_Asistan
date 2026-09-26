@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { supabase, ROL_ADI, type Mesaj, type Profil, type Rol } from "../veri/supabase";
-import { useOturum } from "../veri/oturum";
+import { useGorunum, useOturum } from "../veri/oturum";
 import { useGezinme } from "../veri/gezinme";
 import Simge from "../tasarim/Simge";
 
@@ -22,6 +22,7 @@ const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
  */
 export default function Topluluk() {
   const { profil, baskanMi, yetkiliMi, cikis, profiliTazele } = useOturum();
+  const { gorunum, gorunumSec } = useGorunum();
   const { git } = useGezinme();
   const [sonMesaj, setSonMesaj] = useState<Mesaj | null | undefined>(undefined);
   const [yonetimAcik, setYonetimAcik] = useState(false);
@@ -131,7 +132,8 @@ export default function Topluluk() {
             <Simge ad="ileri" boyut={16} />
           </button>
 
-          {yetkiliMi && (
+          {/* Yönetim görünümünde "Yönetim" zaten bir sekme; burada tekrar etmez. */}
+          {yetkiliMi && gorunum === "uye" && (
             <button className="ana-satir gir" style={kademe(3)} onClick={() => setYonetimAcik(true)}>
               <span className="ana-satir-ikon"><Simge ad="ayar" boyut={20} /></span>
               <span className="ana-satir-govde">
@@ -223,6 +225,21 @@ export default function Topluluk() {
                 {kaydedildi ? "Kaydedildi" : "Kaydet"}
               </button>
             </form>
+
+            {yetkiliMi && (
+              <div className="alan">
+                <span className="etiket">Açılış görünümü</span>
+                <div className="secici" role="tablist" aria-label="Görünüm"
+                     style={{ "--secim": gorunum === "yonetim" ? 1 : 0 } as CSSProperties}>
+                  <span className="secici-gosterge" aria-hidden="true" />
+                  <button type="button" role="tab" aria-selected={gorunum === "uye"}
+                          onClick={() => { gorunumSec("uye"); setHesapAcik(false); }}>Üye</button>
+                  <button type="button" role="tab" aria-selected={gorunum === "yonetim"}
+                          onClick={() => { gorunumSec("yonetim"); setHesapAcik(false); }}>Yönetim</button>
+                </div>
+                <span className="soluk">Yetkin değişmez; yalnızca hangi ekranların önce geleceği.</span>
+              </div>
+            )}
 
             <VeriOzeti />
 

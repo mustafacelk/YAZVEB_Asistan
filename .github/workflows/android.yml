@@ -71,6 +71,7 @@ jobs:
           npm run test:transkript
           npm run test:odul
           npm run test:ses
+          npm run test:rol
 
       - name: Web derlemesi
         env:

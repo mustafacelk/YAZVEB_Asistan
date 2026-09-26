@@ -386,6 +386,25 @@ sıradaki etkinlik.
 Topluluk**. Tarama her ekrandan tek dokunuş. Asistan Ana'dan, genel sohbet
 Topluluk'tan açılır; çubuk beş öğeyi geçmez.
 
+### Giriş türü ve role göre arayüz
+
+Girişin ilk adımı **"Nasıl gireceksin?"**: Üye · Yönetici · Sponsor işletme.
+Seçim **yetki vermez**, yalnızca açılış ekranını ve önceliği belirler
+(`src/veri/kip.ts`); yetki yine veritabanındaki rolden gelir.
+
+| Tür | Açılış | Çubuğun ortası | Öncelik |
+| --- | --- | --- | --- |
+| Üye | Ana: sıradaki etkinlik, ilerleme, bekleyen ödül | QR tara | Katıl, okut, kazan |
+| Yönetici | Panel: şu anki etkinlik + "Perdeye yansıt", yapılacaklar (QR görevi yok, PIN yok, stok bitti…), sayılar | Perde QR | Etkinlik anında QR göstermek, eksikleri gidermek |
+| Sponsor işletme | `/isletme` (hesap yok, PIN) | — | QR okut → onayla; bugün bu cihazda onaylananlar |
+
+- "Yönetici" seçip üye hesabıyla giren kişi üye görünümüne düşer ve nedeni söylenir.
+- Yönetici hesabı kayıtla açılmaz: üye olarak kayıt olunur, rolü başkan verir.
+- Yetkililer görünümü Ana'daki "Yönetim paneli" bağlantısından ya da
+  Hesabım → Açılış görünümü'nden değiştirir.
+- Yapılacaklar listesinin kuralları `src/yonetim/oncelik.ts`; testi
+  `npm run test:rol` (29).
+
 ### Ürün kararları (UX araştırması sonrası)
 
 | Karar | Neden |
