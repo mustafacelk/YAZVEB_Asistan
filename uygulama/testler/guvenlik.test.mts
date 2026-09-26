@@ -97,6 +97,9 @@ bekle("özel anahtar başlığı engellenir", !ciktiyiSuz("-----BEGIN RSA " + "P
 // ── Köken listesi ─────────────────────────────────────────────────
 bekle("site kökeni izinli", kokenIzinli("https://yazveb-asistan.vercel.app", VARSAYILAN_KOKENLER));
 bekle("Android kabuğu izinli", kokenIzinli("https://localhost", VARSAYILAN_KOKENLER));
+bekle("yerel geliştirme sunucusu (5180) izinli", kokenIzinli("http://127.0.0.1:5180", VARSAYILAN_KOKENLER)
+  && kokenIzinli("http://localhost:5180", VARSAYILAN_KOKENLER));
+bekle("yerel ama başka port reddedilir", !kokenIzinli("http://127.0.0.1:8080", VARSAYILAN_KOKENLER));
 bekle("yabancı site reddedilir", !kokenIzinli("https://kotu-site.example", VARSAYILAN_KOKENLER));
 bekle("alt alan adı hilesi reddedilir", !kokenIzinli("https://yazveb-asistan.vercel.app.kotu.example", VARSAYILAN_KOKENLER));
 bekle("'null' kökeni reddedilir", !kokenIzinli("null", VARSAYILAN_KOKENLER));

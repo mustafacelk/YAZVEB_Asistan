@@ -242,7 +242,7 @@ reset role;
 set role authenticated;
 select test_kullanici('baskan');
 create temporary table sp as
-select public.odul_sponsor_kaydet('{"ad":"Coffee Lab","aciklama":"Kampüs kahvecisi","gerekli_xp":500,"pin":"4321","website":"https://coffeelab.example"}') as v;
+select public.odul_sponsor_kaydet('{"ad":"Coffee Lab","aciklama":"Kampüs kahvecisi","gerekli_xp":500,"pin":"432100","website":"https://coffeelab.example"}') as v;
 create temporary table sp2 as
 select public.odul_sponsor_kaydet('{"ad":"Kitapçı","gerekli_xp":0}') as v;
 grant select on sp, sp2 to authenticated;
@@ -391,7 +391,7 @@ select test_kullanici('ali');
 select bekle('başkası ödül kimliğiyle GÖREMEZ (bulunamadi)',
   (select public.odul_goster((select (v->'kazanim'->>'id')::uuid from kazanc1))->>'durum' = 'bulunamadi'));
 select bekle('başkası ödülü KULLANAMAZ (bulunamadi)',
-  (select public.odul_kullan((select (v->'kazanim'->>'id')::uuid from kazanc1), '4321')->>'durum' = 'bulunamadi'));
+  (select public.odul_kullan((select (v->'kazanim'->>'id')::uuid from kazanc1), '432100')->>'durum' = 'bulunamadi'));
 select bekle('uydurma ödül kimliği → bulunamadi',
   (select public.odul_goster(gen_random_uuid())->>'durum' = 'bulunamadi'));
 
@@ -404,15 +404,15 @@ do $$ declare i int; begin
   for i in 1..3 loop perform public.odul_kullan((select (v->'kazanim'->>'id')::uuid from kazanc1), '1111'); end loop;
 end $$;
 select bekle('5 yanlış PIN → sinir (doğru PIN de beklemeli)',
-  (select public.odul_kullan((select (v->'kazanim'->>'id')::uuid from kazanc1), '4321')->>'durum' = 'sinir'));
+  (select public.odul_kullan((select (v->'kazanim'->>'id')::uuid from kazanc1), '432100')->>'durum' = 'sinir'));
 reset role;
 delete from odul.denemeler;
 set role authenticated;
 select test_kullanici('uye');
 select bekle('doğru PIN → kullanildi',
-  (select public.odul_kullan((select (v->'kazanim'->>'id')::uuid from kazanc1), '4321')->>'durum' = 'kullanildi'));
+  (select public.odul_kullan((select (v->'kazanim'->>'id')::uuid from kazanc1), '432100')->>'durum' = 'kullanildi'));
 select bekle('EKRAN GÖRÜNTÜSÜ SENARYOSU: aynı ödül tekrar → zaten_kullanildi',
-  (select public.odul_kullan((select (v->'kazanim'->>'id')::uuid from kazanc1), '4321')->>'durum' = 'zaten_kullanildi'));
+  (select public.odul_kullan((select (v->'kazanim'->>'id')::uuid from kazanc1), '432100')->>'durum' = 'zaten_kullanildi'));
 select bekle('göster ekranı artık KULLANILDI der',
   (select public.odul_goster((select (v->'kazanim'->>'id')::uuid from kazanc1))->>'durum' = 'kullanildi'));
 reset role;
@@ -425,7 +425,7 @@ select bekle('süresi dolan ödül cüzdanda suresi_doldu',
   (select bool_or(z->>'durum' = 'suresi_doldu') from jsonb_array_elements(public.odul_cuzdan()) z));
 select bekle('süresi dolan ödül kullanılamaz',
   (select public.odul_kullan((select (z->>'id')::uuid from jsonb_array_elements(public.odul_cuzdan()) z
-                              where z->>'sponsor' = 'Coffee Lab'), '4321')->>'durum' = 'suresi_doldu'));
+                              where z->>'sponsor' = 'Coffee Lab'), '432100')->>'durum' = 'suresi_doldu'));
 select bekle('PIN tanımsız sponsorda → pin_tanimsiz',
   (select public.odul_kullan((select (z->>'id')::uuid from jsonb_array_elements(public.odul_cuzdan()) z
                               where z->>'sponsor' = 'Kitapçı'), '1234')->>'durum' = 'pin_tanimsiz'));
@@ -552,6 +552,181 @@ select bekle('özet tutarlı: dağıtılan puan > 0, tarama > 0, sponsor metrikl
           and jsonb_array_length(o->'sponsorlar') = 2
           and (select (s->>'kullanim')::int = 1 from jsonb_array_elements(o->'sponsorlar') s where s->>'ad' = 'Coffee Lab')
    from (select public.odul_yonetim_ozet() o) x));
+reset role;
+
+-- Hata MESAJINI da denetleyen sürüm: başka bir sebeple (yazım hatası,
+-- eksik alan) düşen çağrı "reddedildi" diye geçmesin.
+create or replace function reddedilmeli_mesaj(p_ad text, p_sql text, p_parca text) returns void
+language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+  exception when others then
+    if position(p_parca in sqlerrm) > 0 then
+      raise notice '  GECTI  % (reddedildi: %)', p_ad, left(sqlerrm, 60);
+      return;
+    end if;
+    raise exception 'BASARISIZ: % — beklenmeyen hata: %', p_ad, sqlerrm;
+  end;
+  raise exception 'BASARISIZ: % — islem REDDEDILMELIYDI ama gecti', p_ad;
+end $$;
+
+-- Testin kendisi için: görevin o anki (ya da p_geri dakika önceki) canlı kodu.
+-- Okutmayla aynı ifadede çağrılır; now() işlem boyunca sabit olduğundan
+-- dakika sınırında da tutarlı.
+create or replace function test_canli_kod(p_baslik text, p_geri integer) returns text
+language sql security definer set search_path = odul, public as $$
+  select odul.canli_kod(g.token, odul.canli_pencere() - p_geri) from odul.gorevler g where g.baslik = p_baslik
+$$;
+create or replace function test_gorev_token(p_baslik text) returns text
+language sql security definer set search_path = odul, public as $$
+  select token from odul.gorevler where baslik = p_baslik
+$$;
+grant execute on function reddedilmeli_mesaj(text, text, text), test_canli_kod(text, integer),
+  test_gorev_token(text) to anon, authenticated;
+
+
+\echo ''
+\echo '═══ R11. CANLI KOD — paylaşılan kod ve QR fotoğrafı işe yaramaz ═══'
+set role authenticated;
+select test_kullanici('baskan');
+create temporary table gc as
+select public.odul_gorev_kaydet(jsonb_build_object(
+  'baslik', 'Canlı workshop', 'puan', 40, 'kisa_kod', 'CANLI', 'tur', 'workshop', 'dinamik', true,
+  'baslangic', now() - interval '1 hour', 'bitis', now() + interval '3 hours')) as v;
+create temporary table gc_canli as
+select public.odul_gorev_canli((select (v->>'id')::bigint from gc)) as v;
+grant select on gc, gc_canli to authenticated;
+select bekle('canlı uç: 4 harfli kod; QR ve kısa kod bu kodu taşıyor; pencere bitişi ileride',
+  (select v->>'kod' ~ '^[2-9A-HJ-NP-Z]{4}$'
+      and v->>'qr' = 'YAZVEB:G:' || (select x.v->>'token' from gc x) || ':' || (v->>'kod')
+      and v->>'kisa_kod' = 'CANLI' || (v->>'kod')
+      and (v->>'pencere_bitis')::timestamptz > now()
+   from gc_canli));
+select bekle('yönetim listesinde canlı olarak görünür',
+  (select bool_and((x->>'dinamik')::boolean) from jsonb_array_elements(public.odul_yonetim_gorevler()) x
+   where x->>'baslik' = 'Canlı workshop'));
+
+select test_kullanici('uye');
+select reddedilmeli_mesaj('üye canlı kodu soramaz',
+  format($$select public.odul_gorev_canli(%s)$$, (select v->>'id' from gc)), 'yetkin yok');
+
+select test_kullanici('deniz');
+select bekle('çıplak QR (basılı ya da eski biçim) → canli_kod_eksik',
+  (select public.odul_gorev_tamamla('YAZVEB:G:' || test_gorev_token('Canlı workshop'))->>'durum' = 'canli_kod_eksik'));
+select bekle('yalnızca kısa kod (WhatsApp''a düşen "CANLI") → canli_kod_eksik',
+  (select public.odul_gorev_tamamla('canli')->>'durum' = 'canli_kod_eksik'));
+select bekle('5 dakika önceki kod (paylaşılmış fotoğraf) → canli_kod_eskidi',
+  (select public.odul_gorev_tamamla('CANLI' || test_canli_kod('Canlı workshop', 5))->>'durum' = 'canli_kod_eskidi'));
+select bekle('10 dakika önceki QR → canli_kod_eskidi',
+  (select public.odul_gorev_tamamla('YAZVEB:G:' || test_gorev_token('Canlı workshop') || ':'
+                                    || test_canli_kod('Canlı workshop', 10))->>'durum' = 'canli_kod_eskidi'));
+reset role;
+select bekle('eksik ve eskimiş kod hatalı deneme SAYILMADI',
+  (select count(*) = 0 from odul.denemeler where kullanici = kim('deniz')));
+set role authenticated;
+select test_kullanici('deniz');
+select bekle('tahmin edilmiş canlı kod → gecersiz',
+  (select public.odul_gorev_tamamla('CANLI' || (
+     select c from unnest(array['ZZZZ', 'YYYY', 'XXXX']) c
+     where c not in (select test_canli_kod('Canlı workshop', k) from generate_series(0, 60) k)
+     limit 1))->>'durum' = 'gecersiz'));
+reset role;
+select bekle('tahmin hatalı deneme sayıldı (kaba kuvvet sınırına girer)',
+  (select count(*) = 1 from odul.denemeler where kullanici = kim('deniz')));
+set role authenticated;
+select test_kullanici('deniz');
+select bekle('hiçbiri puan vermedi',
+  (select not exists (select 1 from jsonb_array_elements(public.odul_profil()->'islemler') i
+                      where i->>'aciklama' = 'Canlı workshop')));
+select bekle('ekrandaki kod küçük harf ve tireyle yazılınca → tamam',
+  (select public.odul_gorev_tamamla(lower('canli-' || test_canli_kod('Canlı workshop', 0)))->>'durum' = 'tamam'));
+select test_kullanici('ayse');
+select bekle('ekrandaki canlı QR → tamam',
+  (select public.odul_gorev_tamamla('YAZVEB:G:' || test_gorev_token('Canlı workshop') || ':'
+                                    || test_canli_kod('Canlı workshop', 0))->>'durum' = 'tamam'));
+select test_kullanici('can');
+select bekle('bir önceki dakikanın kodu da geçer (yazma payı)',
+  (select public.odul_gorev_tamamla('CANLI' || test_canli_kod('Canlı workshop', 1))->>'durum' = 'tamam'));
+
+-- Düzenleme "dinamik" alanı göndermezse görev canlı kalır.
+select test_kullanici('baskan');
+select public.odul_gorev_kaydet(jsonb_build_object('id', (select v->>'id' from gc), 'baslik', 'Canlı workshop',
+  'puan', 40, 'kisa_kod', 'CANLI', 'baslangic', now() - interval '1 hour', 'bitis', now() + interval '3 hours'));
+select bekle('düzenlemede canlılık korunur',
+  (select (x->>'dinamik')::boolean from jsonb_array_elements(public.odul_yonetim_gorevler()) x
+   where x->>'baslik' = 'Canlı workshop'));
+reset role;
+create temporary table gc_onceki as select test_canli_kod('Canlı workshop', 0) as kod;
+grant select on gc_onceki to authenticated;
+set role authenticated;
+select test_kullanici('baskan');
+select public.odul_gorev_iptal((select (v->>'id')::bigint from gc), true);
+select test_kullanici('ali');
+select bekle('QR yenilenince o anki canlı kod da geçersiz',
+  (select public.odul_gorev_tamamla('CANLI' || (select kod from gc_onceki))->>'durum' = 'gecersiz'));
+select bekle('yeni token''ın canlı kodu geçer',
+  (select public.odul_gorev_tamamla('CANLI' || test_canli_kod('Canlı workshop', 0))->>'durum' = 'tamam'));
+
+-- Canlı olmayan görev eski davranışı korur.
+select test_kullanici('baskan');
+create temporary table gs as
+select public.odul_gorev_kaydet(jsonb_build_object('baslik', 'Basılı stand', 'puan', 10, 'kisa_kod', 'STAND7',
+  'baslangic', now() - interval '1 hour', 'bitis', now() + interval '3 hours')) as v;
+grant select on gs to authenticated;
+select test_kullanici('ali');
+select bekle('canlı olmayan görev: yalnız kısa kod yine geçer',
+  (select public.odul_gorev_tamamla('stand7')->>'durum' = 'tamam'));
+reset role;
+delete from odul.denemeler;
+
+
+\echo ''
+\echo '═══ R12. SPONSOR KİLİDİ KAMPANYALARI DA KAPSAR; YENİ PIN EN AZ 6 HANE ═══'
+set role authenticated;
+select test_kullanici('baskan');
+create temporary table sp_b as select public.odul_sponsor_kaydet('{"ad":"Başkan Sponsoru","pin":"135790"}') as v;
+select test_kullanici('yonetici');
+create temporary table sp_y as select public.odul_sponsor_kaydet('{"ad":"Yönetici Sponsoru"}') as v;
+create temporary table sp_z as select public.odul_sponsor_kaydet('{"ad":"Serbest Sponsor"}') as v;
+create temporary table kmp_y as select public.odul_kampanya_kaydet(jsonb_build_object(
+  'sponsor_id', (select v->>'id' from sp_y), 'ad', 'Yönetici kampanyası',
+  'baslangic', now() - interval '1 hour', 'bitis', now() + interval '7 days',
+  'oduller', jsonb_build_array(jsonb_build_object('baslik', 'ROZET', 'adet', 5)))) as v;
+grant select on sp_b, sp_y, sp_z, kmp_y to authenticated;
+select bekle('yönetici kendi sponsoruna kampanya ekler', (select (v->>'id') is not null from kmp_y));
+select reddedilmeli_mesaj('yönetici başkanın sponsoruna kampanya EKLEYEMEZ',
+  format($$select public.odul_kampanya_kaydet(%L)$$, jsonb_build_object(
+    'sponsor_id', (select v->>'id' from sp_b), 'ad', 'Sızma',
+    'baslangic', now(), 'bitis', now() + interval '1 day')), 'Başkanın düzenlediği sponsor');
+
+-- Başkan yöneticinin sponsorunu düzenler → sponsor kilitlenir, kampanyası kilitsiz kalır.
+select test_kullanici('baskan');
+select public.odul_sponsor_kaydet(jsonb_build_object('id', (select v->>'id' from sp_y), 'ad', 'Yönetici Sponsoru'));
+select test_kullanici('yonetici');
+select reddedilmeli_mesaj('kilitten sonra yönetici eski kampanyayı düzenleyemez',
+  format($$select public.odul_kampanya_kaydet(%L)$$, jsonb_build_object(
+    'id', (select v->>'id' from kmp_y), 'sponsor_id', (select v->>'id' from sp_y), 'ad', 'Değişti',
+    'baslangic', now(), 'bitis', now() + interval '1 day')), 'Başkanın düzenlediği sponsor');
+select reddedilmeli_mesaj('kilitsiz başka sponsorun kimliğini göstererek de düzenleyemez',
+  format($$select public.odul_kampanya_kaydet(%L)$$, jsonb_build_object(
+    'id', (select v->>'id' from kmp_y), 'sponsor_id', (select v->>'id' from sp_z), 'ad', 'Değişti',
+    'baslangic', now(), 'bitis', now() + interval '1 day')), 'bu sponsora ait değil');
+select reddedilmeli_mesaj('yönetici kilitli sponsorun kampanyasını iptal edemez',
+  format($$select public.odul_kampanya_iptal(%L)$$, (select v->>'id' from kmp_y)), 'Başkanın düzenlediği');
+select bekle('yönetim listesi bu kampanyayı düzenlenemez gösterir',
+  (select not (k->>'duzenlenebilir')::boolean
+   from jsonb_array_elements(public.odul_yonetim_sponsorlar()) s, jsonb_array_elements(s->'kampanyalar') k
+   where k->>'ad' = 'Yönetici kampanyası'));
+select test_kullanici('baskan');
+select bekle('başkan aynı kampanyayı düzenleyebilir',
+  (select (public.odul_kampanya_kaydet(jsonb_build_object(
+     'id', (select v->>'id' from kmp_y), 'sponsor_id', (select v->>'id' from sp_y), 'ad', 'Başkan düzeltti',
+     'baslangic', now() - interval '1 hour', 'bitis', now() + interval '7 days'))->>'id') is not null));
+select reddedilmeli_mesaj('yeni PIN 4 haneli olamaz',
+  $$select public.odul_sponsor_kaydet('{"ad":"Kısa PIN","pin":"1234"}')$$, '6-8 haneli');
+select bekle('6 haneli PIN kabul edilir',
+  (select (public.odul_sponsor_kaydet('{"ad":"Uzun PIN","pin":"123456"}')->>'id') is not null));
 reset role;
 
 \echo ''

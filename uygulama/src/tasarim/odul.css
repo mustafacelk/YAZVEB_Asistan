@@ -535,45 +535,47 @@
 .odul-kart-bilgi .durum-aktif { color: #0b6b3a; }
 .odul-kart-bilgi .durum-kullanildi, .odul-kart-bilgi .durum-suresi_doldu, .odul-kart-bilgi .durum-iptal { color: #8a2b16; }
 .odul-canli { display: flex; align-items: center; gap: var(--b-4); margin-top: var(--b-2); }
-.odul-canli-kod { position: relative; width: 72px; height: 72px; display: grid; place-items: center; }
-.odul-canli-kod svg { position: absolute; inset: 0; transform: rotate(-90deg); }
-.odul-canli-kod circle { fill: none; stroke-width: 2.5; }
-.halka-zemin { stroke: rgba(8, 9, 11, 0.12); }
-.halka-dolu { stroke: #08090b; stroke-dasharray: 100.5; transition: stroke-dashoffset 250ms linear; }
-.odul-canli-kod span { font-size: var(--y-baslik); font-weight: var(--a-kalin); letter-spacing: 0.04em; }
+/* Çalışanın kendi telefonuyla okuttuğu QR: beyaz zemin, sessiz alan dahil. */
+.odul-isletme-qr { flex: none; width: 132px; height: 132px; display: grid; place-items: center; border-radius: var(--k-2); overflow: hidden; background: #fff; }
+.odul-isletme-qr .qr-svg { display: block; width: 100%; height: 100%; }
 .odul-canli-saat { font-size: var(--y-buyuk); font-weight: var(--a-kalin); letter-spacing: -0.01em; text-align: left; }
 .odul-kart-kucuk { font-size: var(--y-kucuk); color: #4a4d52; text-align: left; }
 .odul-not { max-width: 36ch; text-align: center; font-size: var(--y-kucuk); }
 
-.pin-katman { position: fixed; inset: 0; z-index: var(--kat-ipucu); background: rgba(0, 0, 0, 0.7); display: grid; place-items: end center; animation: sol var(--t-ui) var(--e-dokunus) backwards; }
-.pin-panel {
-  width: min(100%, 420px);
+/* ═══════════════════════════════════════════════════════════════════
+   İŞLETME SAYFASI — çalışanın kendi telefonu (/isletme)
+   ═══════════════════════════════════════════════════════════════════
+   Kasada, tek elle, dükkân ışığında: büyük yazı, tek karar ("ver" / "verme"),
+   renk tek başına bilgi taşımaz — her sonucun başlığı da söyler. */
+.isletme-sonuc {
   display: grid;
-  justify-items: center;
   gap: var(--b-3);
-  padding: var(--b-5) var(--b-5) calc(var(--alt) + var(--b-5));
-  border-radius: var(--k-3) var(--k-3) 0 0;
+  padding: var(--b-5);
+  border-radius: var(--k-3);
   background: var(--z-2);
-  box-shadow: var(--g-yuzen), inset 0 0 0 1px var(--c-ince);
-  animation: pencere-gir var(--t-sinema) var(--e-giris) backwards;
+  box-shadow: inset 0 0 0 1px var(--c-ince);
+  text-align: left;
+  animation: kitlik-gir var(--t-ui) var(--e-giris) backwards;
 }
-.pin-noktalar { display: flex; gap: var(--b-3); height: 20px; align-items: center; }
-.pin-noktalar i { width: 12px; height: 12px; border-radius: var(--k-tam); box-shadow: inset 0 0 0 1.5px var(--c-guclu); transition: background-color var(--t-mikro) var(--e-dokunus); }
-.pin-noktalar i[data-dolu="true"] { background: var(--m-1); box-shadow: none; }
-.pin-tuslar { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--b-2); }
-.pin-tuslar button {
-  height: 64px;
-  border-radius: var(--k-2);
-  background: var(--z-3);
-  color: var(--m-1);
-  font-size: var(--y-buyuk);
-  font-weight: var(--a-orta);
-  transition: transform var(--t-mikro) var(--e-dokunus), background-color var(--t-mikro) var(--e-dokunus);
+.isletme-sonuc[data-karar="ver"] { background: #0b3d24; box-shadow: inset 0 0 0 1px #1f7a4a; }
+.isletme-sonuc[data-karar="verme"] { background: #3d140b; box-shadow: inset 0 0 0 1px #8a2b16; }
+.isletme-sonuc .isletme-karar { font-size: clamp(28px, 8vw, 36px); font-weight: var(--a-kalin); letter-spacing: -0.01em; line-height: 1.05; color: var(--m-1); }
+.isletme-odul { display: flex; align-items: center; gap: var(--b-3); }
+.isletme-odul b { display: block; color: var(--m-1); font-size: var(--y-baslik); }
+.isletme-odul span { color: var(--m-2); font-size: var(--y-kucuk); }
+.isletme-sonuc p { color: var(--m-2); }
+.isletme-sonuc .etiket { color: var(--m-3); }
+.isletme-kamera {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--k-3);
+  overflow: hidden;
+  background: var(--z-0);
 }
-.pin-tuslar button:active { transform: scale(0.95); background: var(--z-4); }
-.pin-tuslar .pin-onay { background: var(--m-1); color: var(--z-0); display: grid; place-items: center; }
-.pin-tuslar .pin-onay:disabled { opacity: 0.3; }
-@media (min-width: 720px) { .pin-katman { place-items: center; } .pin-panel { border-radius: var(--k-3); } }
+.isletme-kamera video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.isletme-kamera .tarama-cercevesi { position: absolute; inset: 12%; width: auto; }
+.isletme-pin { letter-spacing: 0.4em; }
 
 /* ═══════════════════════════════════════════════════════════════════
    YÖNETİM PANELİ
@@ -703,6 +705,11 @@ select.girdi.buyuk-secim { height: var(--d-buyuk); font-size: var(--y-govde); pa
 .qr-svg { display: block; max-width: 100%; height: auto; }
 .qr-kod-etiketi { font-size: var(--y-etiket); letter-spacing: var(--h-etiket); text-transform: uppercase; color: #4a4d52; }
 .qr-kisa-kod { font-size: 40px; font-weight: var(--a-kalin); letter-spacing: 0.2em; line-height: 1; }
+/* Canlı kod: sabit kısım soluk, dakikada bir değişen dört harf koyu. */
+.qr-kisa-kod .qr-canli-ek { color: #08090b; background: #e7e9ec; border-radius: var(--k-1); padding: 0 0.1em 0 0.3em; }
+.qr-kisa-kod .qr-sabit { color: #4a4d52; }
+.qr-sure { width: 100%; height: 4px; border-radius: var(--k-tam); background: #e7e9ec; overflow: hidden; }
+.qr-sure i { display: block; height: 100%; background: #08090b; transform-origin: left; transition: transform 250ms linear; }
 
 @media print {
   body.qr-yazdiriliyor { background: #fff !important; overflow: visible !important; }

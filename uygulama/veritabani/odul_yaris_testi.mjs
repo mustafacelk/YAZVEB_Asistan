@@ -10,6 +10,7 @@
 //   Y2  tek kullanıcı aynı QR 10 kez       → tam 1 kazanım, puan bir kez
 //   Y3  stok 1, 10 kullanıcı               → tam 1 kazanan
 //   Y4  toplam limit 3 görev, 15 kullanıcı → tam 3 kazanan
+//   Y5  aynı ödül 5 kasada aynı anda onaylanır → tam 1 "kullanildi"
 //
 // Boş bir PostgreSQL veritabanına karşı çalışır (şemayı kendisi kurar):
 //   PG_URL=postgres://postgres:test@127.0.0.1:5432/yazveb node veritabani/odul_yaris_testi.mjs
@@ -29,7 +30,8 @@ const yonetici = new pg.Client({ connectionString: URL_ });
 await yonetici.connect();
 const q = async (sql, p) => (await yonetici.query(sql, p)).rows;
 
-for (const f of ["00_test_altyapisi.sql", "01_sema.sql", "02_yetkiler.sql", "04_guvenlik.sql", "05_oduller.sql"]) {
+for (const f of ["00_test_altyapisi.sql", "01_sema.sql", "02_yetkiler.sql", "04_guvenlik.sql", "05_oduller.sql",
+                 "06_isletme.sql"]) {
   await yonetici.query(oku(f));
 }
 
@@ -132,6 +134,22 @@ kontrol("hatasız", hatalar(r).join(" | ") || "yok", "yok");
 kontrol("tam 3 kazanan", say(r, "tamam"), 3);
 kontrol("12 tükendi", say(r, "tukendi"), 12);
 kontrol("kullanım sayacı 3", (await q("select kullanim_sayisi from odul.gorevler where kisa_kod = 'ILK3'"))[0].kullanim_sayisi, 3);
+
+console.log("\n═══ Y5. Aynı ödül, 5 kasada aynı anda onay ═══");
+// Ekran görüntüsü birkaç çalışana gösterilse bile ödül bir kez geçmeli.
+await yonetici.query(`
+  update odul.sponsorlar set pin_ozet = extensions.crypt('246810', extensions.gen_salt('bf', 4))
+  where id = 'c0000000-0000-0000-0000-000000000001';
+  insert into odul.kazanimlar (kullanici, kampanya_id, sponsor_ad, odul_baslik, odul_tur, odul_ikon, kod, son_kullanma)
+  values ('${kimlik(20)}', 'd0000000-0000-0000-0000-000000000001', 'Yarış Kafe', 'Tek kahve', 'urun', 'kahve',
+          'YRS5-KSA', now() + interval '1 day');
+`);
+r = await esZamanli([1, 2, 3, 4, 5], "public.isletme_odul_dogrula('YRS5-KSA', '246810', true)");
+kontrol("hatasız", hatalar(r).join(" | ") || "yok", "yok");
+kontrol("tam 1 kasa onayladı", say(r, "kullanildi"), 1);
+kontrol("4 kasa 'daha önce kullanılmış' gördü", say(r, "zaten_kullanildi"), 4);
+kontrol("tek kullanım kaydı",
+  (await q("select count(*)::int n from odul.denetim where islem = 'odul_isletmede_kullanildi'"))[0].n, 1);
 
 await yonetici.end();
 console.log(hata ? "\n═══ YARIŞ TESTLERİ BAŞARISIZ ═══" : "\n═══ YARIŞ TESTLERİ GEÇTİ ═══");

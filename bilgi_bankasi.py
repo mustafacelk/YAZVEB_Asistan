@@ -258,7 +258,10 @@ KAYITLAR: list[dict] = [
         "icerik": (
             "Puan etkinliklere katılarak kazanılır. Etkinlikte gösterilen YAZVEB QR kodunu QR tara "
             "düğmesiyle okutursun; kamera kullanmak istemezsen QR'nin altındaki kısa kodu "
-            "yazabilirsin. Kazanılacak puan Etkinlikler bölümünde etkinliğin yanında '+XP' olarak "
+            "yazabilirsin. Çoğu etkinlikte kod canlıdır: ekrandaki QR ve kısa kodun son dört harfi "
+            "dakikada bir değişir, bu yüzden kodun tamamını yazman ve etkinlikte okutman gerekir; "
+            "başkasının gönderdiği fotoğraf ya da kod birkaç dakika içinde geçersiz olur. "
+            "Kazanılacak puan Etkinlikler bölümünde etkinliğin yanında '+XP' olarak "
             "yazar. Aynı görevin puanı bir kez alınır. Bazı görevler yalnızca etkinlik alanında "
             "tamamlanır; o zaman konum izni istenir, konum yalnızca kontrol edilir ve kaydedilmez. "
             "Puanın görünmüyorsa Ödüller bölümündeki puan geçmişine bak; orada da yoksa etkinlikteki "
@@ -288,8 +291,10 @@ KAYITLAR: list[dict] = [
             "sponsorun işletmesinde kasadaki YAZVEB QR'sini okutursun ve ödülün o an açılır. Sürpriz "
             "kampanyada olası ödüller ve gerçek kalan adetleri görünür; hangisinin çıkacağı "
             "okuttuğunda belli olur. Kazandığın ödül Ödüller bölümündeki Ödüllerim'e düşer. "
-            "Kullanırken 'Ödülü göster' ekranını kasadaki çalışana gösterirsin, çalışan kendi "
-            "PIN'iyle onaylar ve ödül bir kez kullanılmış olur. Her ödülün son kullanım tarihi "
+            "Kullanırken 'Ödülü göster' ekranını kasadaki çalışana gösterirsin; çalışan ekrandaki "
+            "QR'yi ya da kodu kendi telefonundaki YAZVEB işletme sayfasıyla okutup işletme "
+            "PIN'iyle onaylar. Onay çalışanın ekranında görünür, senin ekranın da kendiliğinden "
+            "'Kullanıldı'ya döner ve ödül bir kez kullanılmış olur. Her ödülün son kullanım tarihi "
             "vardır. 'Son 3 ödül' gibi uyarılar gerçek stoktan gelir."
         ),
     },

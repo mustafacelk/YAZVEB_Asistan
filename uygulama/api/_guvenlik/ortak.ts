@@ -17,6 +17,8 @@ export const VARSAYILAN_KOKENLER = [
   "https://localhost",
   "capacitor://localhost",
   "http://localhost:5173",
+  "http://localhost:5180",
+  "http://127.0.0.1:5180",
 ];
 
 export function izinliKokenler(ortam = process.env.IZINLI_KOKENLER): string[] {

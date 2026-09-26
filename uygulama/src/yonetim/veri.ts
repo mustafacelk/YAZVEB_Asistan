@@ -20,9 +20,16 @@ export type YGorev = {
   id: number; etkinlik_id: number | null; etkinlik: string | null; baslik: string; aciklama: string | null;
   tur: string; token: string; kisa_kod: string; puan: number; baslangic: string; bitis: string;
   kisi_basi_limit: number; toplam_limit: number | null; kullanim_sayisi: number; aktif: boolean;
+  /** Canlı kod: QR ve kısa kod dakikada bir değişen 4 harfle birlikte geçerli. Eski veritabanında yok. */
+  dinamik?: boolean;
   iptal: string | null; enlem: number | null; boylam: number | null; yaricap_m: number | null;
   baskan_kilidi: boolean; duzenlenebilir: boolean;
 };
+
+/** Canlı görevin perdede gösterilecek o anki QR'si ve kısa kodu. */
+export type YCanli =
+  | { dinamik: false }
+  | { dinamik: true; kod: string; qr: string; kisa_kod: string; pencere_bitis: string; sunucu_zamani: string };
 
 export type YOdulKalemi = {
   id?: string; baslik: string; tur: string; ikon: string; aciklama: string | null;
@@ -69,6 +76,7 @@ export const yonetim = {
   ozet: () => cagir<YOzet>("odul_yonetim_ozet"),
   gorevler: () => cagir<YGorev[]>("odul_yonetim_gorevler"),
   gorevKaydet: (p: Record<string, unknown>) => cagir<{ id: number; token: string; kisa_kod: string }>("odul_gorev_kaydet", { p }),
+  gorevCanli: (id: number) => cagir<YCanli>("odul_gorev_canli", { p_id: id }),
   gorevIptal: (id: number, yenile: boolean) => cagir<{ id: number; token: string; kisa_kod: string }>("odul_gorev_iptal", { p_id: id, p_yenile: yenile }),
   sponsorlar: () => cagir<YSponsor[]>("odul_yonetim_sponsorlar"),
   sponsorKaydet: (p: Record<string, unknown>) => cagir<{ id: string }>("odul_sponsor_kaydet", { p }),

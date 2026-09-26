@@ -62,6 +62,7 @@ function icerikPolitikasi(ortam: Record<string, string>): Plugin {
 
 export default defineConfig(({ mode }) => {
   const ortam = loadEnv(mode, process.cwd(), "VITE_");
+  const site = (ortam.VITE_SITE_URL || "https://yazveb-asistan.vercel.app").replace(/\/+$/, "");
   return {
     plugins: [react(), icerikPolitikasi(ortam)],
     build: {
@@ -71,6 +72,19 @@ export default defineConfig(({ mode }) => {
     server: {
       // Geliştirme sunucusu yalnızca bu bilgisayardan erişilebilir.
       host: "127.0.0.1",
+      // /api/... (seslendirme) Vercel fonksiyonu; Vite'ta yok. Geliştirmede
+      // yayındaki siteye aktarılır, yoksa ses yerelde hiç çıkmazdı. Köken
+      // başlığı sitenin kendisine çevrilir: istek bu bilgisayardan sunucuya
+      // gidiyor, yayındaki izin listesine yerel adres eklemek gerekmiyor.
+      proxy: {
+        "/api": {
+          target: site,
+          changeOrigin: true,
+          configure: (vekil) => {
+            vekil.on("proxyReq", (istek) => istek.setHeader("origin", site));
+          },
+        },
+      },
     },
     preview: {
       host: "127.0.0.1",

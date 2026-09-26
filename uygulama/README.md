@@ -224,12 +224,15 @@ src/
   odul/
     Tarayici.tsx       kamera + kısa kod, görev başarısı
     Reveal.tsx         sürpriz ödül açılışı
-    OdulGoster.tsx     işletmeye gösterilen ödül + PIN onayı
+    OdulGoster.tsx     işletmeye gösterilen ödül + çalışanın okutacağı QR
+    QrSvg.tsx          QR çizimi (SVG, ayrı yüklenir)
     SponsorKarti.tsx   sponsor kartı, kıtlık etiketi, detay
     qr.ts              QR çözme (BarcodeDetector / jsQR)
+  isletme/
+    Isletme.tsx        /isletme — çalışanın kendi telefonunda ödül onayı (girişsiz)
   yonetim/
     Yonetim.tsx        ödül yönetim paneli (lazy yüklenir)
-    QrKod.tsx          QR üretimi (SVG) ve yazdırma
+    QrKod.tsx          QR penceresi, yazdırma, canlı kodlu perde ekranı
   ekranlar/Oduller.tsx ilerleme profili: puan, seviye, sponsorlar, cüzdan, sıralama
   tasarim/
     jetonlar.css       TEK KAYNAK: renk, boşluk, yazı, hareket, katman
@@ -240,19 +243,24 @@ veritabani/
   01_sema.sql        tablolar, tetikleyiciler
   02_yetkiler.sql    satır düzeyi güvenlik
   03_kurulum.sql     ilk başkanı ata
-  99_testler.sql     yetki testleri
+  04_guvenlik.sql    kota, giriş sınırı, sohbet seli, görünen ad
+  05_oduller.sql     puan, görev (canlı kod), sponsor, kampanya, ödül
+  06_isletme.sql     çalışanın cihazında ödül doğrulama (anonim, sınırlı)
+  99_*.sql           yetki, güvenlik, ödül ve işletme testleri
 ```
 
 ### Testleri çalıştırma
 
 ```bash
-npm run test:guvenlik      # girdi doğrulama, istem ayrımı, çıktı süzgeci, CORS (47)
+npm run test:guvenlik      # girdi doğrulama, istem ayrımı, çıktı süzgeci, CORS (67)
 npm run test:transkript    # mikrofon parçalarını birleştirme (12)
+npm run lint               # CI'da da çalışır; hata varsa APK derlenmez
 npm run yayina-hazir       # derleme + paket taraması (sır, kaynak haritası, CSP)
 ```
 
-Veritabanı testleri (200) — Docker gerekir. Yetki ve güvenlik (86) + ödül iş
-mantığı, sıralama ve saldırı senaryoları (114) tek paket hâlinde çalışır:
+Veritabanı testleri (254) — Docker gerekir. Yetki ve güvenlik (86) + ödül iş
+mantığı, canlı kod, sıralama ve saldırı senaryoları (141) + işletme
+doğrulaması (27) tek paket hâlinde çalışır:
 
 ```bash
 docker run -d --name yz-test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=yazveb \
@@ -262,7 +270,8 @@ for f in *.sql; do docker cp $f yz-test:/tmp/; done
 docker exec yz-test psql -U postgres -d yazveb -v ON_ERROR_STOP=1 -q \
   -f /tmp/00_test_altyapisi.sql -f /tmp/01_sema.sql -f /tmp/02_yetkiler.sql \
   -f /tmp/99_testler.sql -f /tmp/03_kurulum.sql -f /tmp/04_guvenlik.sql \
-  -f /tmp/99_guvenlik_testleri.sql -f /tmp/05_oduller.sql -f /tmp/99_odul_testleri.sql
+  -f /tmp/99_guvenlik_testleri.sql -f /tmp/05_oduller.sql -f /tmp/99_odul_testleri.sql \
+  -f /tmp/06_isletme.sql -f /tmp/99_isletme_testleri.sql
 ```
 
 Bir kural bozulursa betik hata ile durur.
@@ -308,11 +317,17 @@ update public.kota_ayarlari set dakika = 12, gun = 150, genel = 3000 where tur =
 
 ### Güncelleme sırası (mevcut kurulum için)
 
-1. `git push` — site yeni istemciyle yayına çıkar (geçiş süresince eski
-   giriş fonksiyonuna da düşebilir; kimse dışarıda kalmaz).
-2. Supabase SQL editöründe **`veritabani/04_guvenlik.sql`**'i çalıştır.
+1. Supabase SQL editöründe sırayla **`veritabani/04_guvenlik.sql`**,
+   **`05_oduller.sql`**, **`06_isletme.sql`**'i çalıştır (hepsi tekrar
+   çalıştırılabilir; mevcut veri korunur).
+2. `git push` — site yeni istemciyle ve `/isletme` sayfasıyla yayına çıkar.
+   Önce 1. adım: yeni istemci ödül onayını `06_isletme.sql`'deki fonksiyonla
+   yapar, o yoksa ödüller onaylanamaz.
 3. Asistan fonksiyonunu dağıt: `npx supabase functions deploy asistan`
+   (güncel kurumsal hafıza ve yerel geliştirme kökenleri).
 4. Denetle: `node baglanti_kontrol.mjs` — bütün satırlar ✓ olmalı.
+5. Sponsorlara `/isletme` adresini ilet; 4-5 haneli eski PIN'leri 6 haneye
+   çıkar (Ödül yönetimi → Sponsorlar → düzenle).
 
 ### Panelden yapılacak ayarlar
 
@@ -359,9 +374,11 @@ isteğiyle resmî depodan kaldırıldı; bu yüzden kullanılmıyor.
 
 ### Döngü
 
-Etkinliğe gel → QR'yi okut (ya da kısa kodu yaz) → puan → seviye → sponsor
-kilidi açılır → sponsordaki QR'yi okut → sürpriz ödül → işletmede göster →
-çalışan PIN'iyle onaylar → sıradaki etkinlik.
+Etkinliğe gel → ekrandaki canlı QR'yi okut (ya da kısa kodu yaz) → puan →
+seviye → sponsor kilidi açılır → sponsordaki QR'yi okut → sürpriz ödül →
+işletmede "Ödülü göster" → çalışan **kendi telefonunda** `/isletme`
+sayfasıyla QR'yi okutup PIN'ini girer → öğrencinin ekranı "Kullanıldı" olur →
+sıradaki etkinlik.
 
 ### Gezinme
 
@@ -382,6 +399,8 @@ Topluluk'tan açılır; çubuk beş öğeyi geçmez.
 | Sürpriz kampanyada olası ödüller ve gerçek kalan adet görünür | Sürpriz hangisinin çıkacağı; kör kutu kumar hissi verir |
 | Açılış animasyonu 750 ms, dokununca biter | Beklenti evet, yapay bekletme hayır |
 | İşletme ekranında tek cümle yönerge, adres, "kullanıldı" onay anı | Öğrenci "ne yapacağım?", çalışan "geçerli mi?" diye sormasın |
+| Onay çalışanın cihazında (`/isletme`), öğrencinin telefonunda değil | Öğrencinin elindeki ekran sahte olabilir; karar sunucudan, çalışanın ekranına gelmeli |
+| Yeni QR görevi varsayılan olarak canlı kodlu | Perdedeki kodun fotoğrafı WhatsApp'a düşünce gelmeyen de puan alıyordu |
 
 Bilerek **eklenmeyenler**: başlangıçta hediye XP (defteri şişirir, sıralamayı
 bozar), "puanların silinecek" uyarıları ve bırakma maliyeti tasarımı (karanlık
@@ -392,8 +411,9 @@ sıralama (profilde bölüm verisi yok).
 
 1. Supabase SQL editöründe **`veritabani/05_oduller.sql`**'i çalıştır
    (04'ten sonra; tekrar çalıştırmak zararsız).
-2. `node baglanti_kontrol.mjs` → "Ödül sistemi kurulu, anonime kapalı" ✓
-3. Uygulamada **Topluluk → Ödül yönetimi** (ya da Ödüller → Yönetim).
+2. Ardından **`veritabani/06_isletme.sql`**'i çalıştır (çalışanın onay sayfası).
+3. `node baglanti_kontrol.mjs` → ödül, canlı kod ve işletme satırları ✓
+4. Uygulamada **Topluluk → Ödül yönetimi** (ya da Ödüller → Yönetim).
 
 ### Yönetim
 
@@ -404,11 +424,15 @@ sıralama (profilde bölüm verisi yok).
 | Başkanın oluşturduğu/düzenlediği görev, sponsor, kampanya | yalnızca başkan |
 | Elle puan ekle/düş, seviyeler, seri bonusu, sıralama aç/kapa, denetim kaydı | yalnızca başkan |
 
-- **Etkinlik QR'si:** görev oluştur → QR simgesi → perdeye yansıt ya da yazdır.
-  Kamerası olmayan için altında kısa kod yazar.
+- **Etkinlik QR'si:** görev oluştur → QR simgesi → perdeye yansıt. Görev
+  **canlı kodluysa** (yeni görevlerde varsayılan) QR ve kısa kodun son dört
+  harfi dakikada bir değişir; paylaşılan fotoğraf ya da kod iki dakikada
+  eskir. Canlı kod yazdırılamaz. Basılı QR gereken yerde (stand, afiş) canlı
+  kodu kapat ve mümkünse konum şartı ekle.
 - **Sponsor QR'si:** kampanyanın QR'sini yazdırıp işletmeye bırak. İşletmeye
-  **PIN'i** ayrıca ilet; ödül onayında çalışan girer. PIN tanımlanmadan ödül
-  kullanılamaz.
+  **PIN'i** (6-8 hane) ve **`<site>/isletme`** adresini ilet. Çalışan ödülü
+  kendi telefonunda bu sayfadan onaylar; PIN'i öğrencinin telefonuna girmez.
+  PIN tanımlanmadan ödül kullanılamaz.
 - **Stok:** kampanyayı düzenle → kaleme "stok ekle". Tükenen kampanya yeniden
   açılır. Sınırsız kalemde stok düşmez, kişi başı hak yine işler.
 - **QR sızdıysa:** "QR yenile" — basılmış eski QR'ler anında geçersiz olur.
@@ -418,6 +442,10 @@ sıralama (profilde bölüm verisi yok).
 - Tablolar API'ye açık olmayan `odul` şemasında; istemci yalnızca `odul_*`
   fonksiyonlarını çağırır. Puan, kilit, stok, ödül kararı sunucuda.
 - QR içeriği `YAZVEB:G:` / `YAZVEB:S:` + 192 bit rastgele token. Sıralı kimlik yok.
+- Canlı görev: kabul edilen kod `HMAC(sır, token + dakika)`'dan türetilir; o
+  anki ve bir önceki dakikanınki geçer. Sır sunucudan çıkmaz; istemci gelecek
+  kodu hesaplayamaz. Eskimiş kod "süresi geçmiş" der ve deneme sayılmaz;
+  uydurma kod hatalı deneme sayılır.
 - Eşzamanlılık: görev ve kampanya satırı kilitlenir; son ödülü iki kişi aynı
   anda isterse biri alır. Stok eksiye düşemez.
 - Olası ödüller (başlık, ikon, kalan adet) istemciye gider; kalem kimliği,
@@ -425,22 +453,30 @@ sıralama (profilde bölüm verisi yok).
   sunucuda, tarama anında belirlenir.
 - Etkinlik özeti (`odul_etkinlik_ozeti`) yalnızca etkinlik başına toplam puanı
   ve kişinin katılıp katılmadığını döner; görev kodları sızmaz.
-- Kaba kuvvet: 10 dakikada 10 hatalı kod; ödül başına 15 dakikada 5 hatalı PIN;
-  dakikada 20 tarama.
-- Ödül ekranında saniyesi akan saat ve 30 saniyede değişen doğrulama kodu;
-  asıl koruma PIN ile sunucuda "kullanıldı" işareti — ekran görüntüsüyle ikinci
-  kullanım yok.
+- Kaba kuvvet: 10 dakikada 10 hatalı kod; dakikada 20 tarama. İşletme
+  sayfasında 15 dakikada kaynak başına 10, ödül kodu başına 5, sponsor
+  başına 30 hatalı deneme; başarılı onaylar sayılmaz.
+- Ödül onayı **çalışanın cihazında**: `/isletme` sayfası kod + PIN'i sunucuya
+  sorar, cevabı sunucudan gösterir. Kod ya da PIN yanlışsa yalnızca
+  "geçersiz" döner (hangisi olduğu ve kodun varlığı söylenmez). "Kullanıldı"
+  işareti sunucuda; ekran görüntüsü ya da sahte bir sayfa ikinci kullanım
+  sağlamaz. Çalışan öğrencinin adını görmez, yalnızca ödülü.
+- Eski sürümün öğrenci telefonundaki PIN akışı (`odul_kullan`) veritabanında
+  duruyor: güncellenmemiş uygulamalar bozulmasın diye. Yeni arayüz onu
+  kullanmaz.
 - Her yönetim işlemi `odul.denetim` tablosuna yazılır.
 
 ### Testler
 
 ```bash
-npm run test:odul       # QR gidiş-dönüşü, ilerleme dili, bir sonraki adım, son kullanım (31)
+npm run test:odul       # QR gidiş-dönüşü (canlı ve ödül QR'si dahil), ilerleme dili, son kullanım (48)
 ```
 
-İş mantığı ve saldırı senaryoları (114) — tekrar tarama, süre, iptal, konum,
-kilit, stok, son 3, tükenme, sınırsız, PIN, başkasının ödülü, hız sınırı,
-haftalık sıralama, etkinlik özeti —
+İş mantığı ve saldırı senaryoları (141 + 27) — tekrar tarama, süre, iptal,
+konum, canlı kod (eksik, eskimiş, uydurma, yenilenen QR), kilit, stok, son 3,
+tükenme, sınırsız, PIN, başkasının ödülü, hız sınırı, haftalık sıralama,
+etkinlik özeti, sponsor kilidinin kampanyaları kapsaması, işletme onayı
+(yanlış PIN, olmayan kod, başka sponsorun PIN'i, ikinci onay, kaba kuvvet) —
 yukarıdaki "Testleri çalıştırma" paketinin içinde çalışır.
 
 Gerçek eşzamanlılık (20 kişi aynı anda son ödüle) ayrı ve **boş** bir

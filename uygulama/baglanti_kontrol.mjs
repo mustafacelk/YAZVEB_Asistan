@@ -182,6 +182,35 @@ for (const tablo of ["profiller", "mesajlar", "etkinlikler"]) {
   if (durum === 200) yaz("✗", "GÜVENLİK: anonim kullanıcı görev tamamlayabiliyor");
   else if (durum !== 404) yaz("✓", "Anonim kullanıcı puan kazanamıyor", `HTTP ${durum}`);
 }
+{
+  // Canlı kod ucu (05_oduller.sql'in güncel sürümü). Yetkililere açık,
+  // anonime kapalı olmalı; yoksa perdedeki canlı QR gösterilemez.
+  const { durum } = await iste("/rest/v1/rpc/odul_gorev_canli", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ p_id: 0 }),
+  });
+  if (durum === 404) yaz("✗", "Canlı kod ucu yok", "05_oduller.sql'i yeniden çalıştır");
+  else if (durum === 200) yaz("✗", "GÜVENLİK: anonim kullanıcı canlı kodu okuyabiliyor");
+  else yaz("✓", "Canlı kod ucu kurulu, anonime kapalı", `HTTP ${durum}`);
+}
+{
+  // İşletme doğrulaması (06_isletme.sql): çalışanın hesabı olmadığı için
+  // ANONİME AÇIK olmalı. Biçimsiz girdi gönderilir; fonksiyon deneme
+  // kaydı yazmadan "gecersiz" döner — bu kontrol hiçbir şey yazmaz.
+  const { durum, govde } = await iste("/rest/v1/rpc/isletme_odul_dogrula", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ p_kod: "X", p_pin: "0" }),
+  });
+  if (durum === 404) {
+    yaz("✗", "İşletme doğrulaması yok — ödüller kullanılamaz", "06_isletme.sql'i çalıştır");
+  } else if (durum === 200 && govde?.durum === "gecersiz") {
+    yaz("✓", "İşletme doğrulaması kurulu, ayrıntı sızdırmıyor");
+  } else {
+    yaz("!", "İşletme doğrulaması beklenmeyen yanıt", `HTTP ${durum}`);
+  }
+}
 
 const hatali = sonuc.filter((s) => s.durum === "✗").length;
 console.log(

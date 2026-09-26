@@ -25,6 +25,14 @@ const genisEkran = typeof matchMedia !== "undefined" && matchMedia("(min-width: 
  * hataları bu yüzden tek tip.
  */
 const GIRIS_HATASI = "Kullanıcı adı veya parola hatalı.";
+/**
+ * Kullanıcı adı yolunda ek cümle: arka arkaya hatalı denemede bu yol o ad
+ * için 15 dakika kapanır (başkası da tetikleyebilir, çünkü adlar sohbette
+ * görünüyor). E-postayla giriş bu sınırdan etkilenmez. Her durumda aynı
+ * cümle gösterilir: hesabın varlığını ya da kilidi ele vermez.
+ */
+const AD_GIRIS_HATASI =
+  GIRIS_HATASI + " Birkaç hatalı denemeden sonra kullanıcı adıyla giriş 15 dakika kapanır; o sırada e-postanla giriş yapabilirsin.";
 export default function Giris() {
   const [kip, setKip] = useState<Kip>("giris");
   const [kimlik, setKimlik] = useState("");     // kullanıcı adı veya e-posta
@@ -53,7 +61,7 @@ export default function Giris() {
         ({ data, error } = await supabase.rpc("giris_epostasi", { p_kullanici_adi: girilen }));
       }
       if (error) throw new Error("Giriş servisine ulaşılamadı. Biraz sonra tekrar dene.");
-      if (!data) throw new Error(GIRIS_HATASI);
+      if (!data) throw new Error(AD_GIRIS_HATASI);
       adres = data as string;
     }
 

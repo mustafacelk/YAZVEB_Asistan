@@ -31,3 +31,13 @@ const koku = kokBul();
 export function apiAdresi(yol: string): string {
   return koku + (yol.startsWith("/") ? yol : "/" + yol);
 }
+
+/**
+ * Bir insana SÖYLENECEK tam adres (ör. işletme sayfası). Göreli adres
+ * burada işe yaramaz: telefondaki kabukta sayfa `capacitor://localhost`
+ * olduğu için dışarıdaki birinin açabileceği site adresi kullanılır.
+ */
+export function siteAdresi(yol: string): string {
+  const kok = koku || (typeof location !== "undefined" ? location.origin : VARSAYILAN_SITE);
+  return kok + (yol.startsWith("/") ? yol : "/" + yol);
+}

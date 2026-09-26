@@ -30,6 +30,8 @@ export type Dogrulama = { tamam: true; deger: Istek } | { tamam: false; neden: s
  */
 export function metniTemizle(metin: string): string {
   return metin
+    // Kontrol karakterleri burada BİLEREK aranıyor: amaç tam da onları silmek.
+    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, "")
     .replace(/[═━─=_*#~-]{4,}/g, " ")
     .trim();
@@ -47,7 +49,7 @@ export function istegiDogrula(govde: unknown): Dogrulama {
   if (!soru) return { tamam: false, neden: "soru boş" };
   if (soru.length > SINIR.soru) return { tamam: false, neden: "soru çok uzun" };
 
-  let gecmis: Tur[] = [];
+  const gecmis: Tur[] = [];
   if (g.gecmis !== undefined) {
     if (!Array.isArray(g.gecmis)) return { tamam: false, neden: "geçmiş liste değil" };
     if (g.gecmis.length > SINIR.gecmisListe) return { tamam: false, neden: "geçmiş çok uzun" };
@@ -160,7 +162,9 @@ export const VARSAYILAN_KOKENLER = [
   "https://yazveb-asistan.vercel.app",
   "https://localhost",            // Capacitor Android
   "capacitor://localhost",        // Capacitor iOS
-  "http://localhost:5173",        // yerel geliştirme
+  "http://localhost:5173",        // yerel geliştirme (Vite varsayılanı)
+  "http://localhost:5180",        // yerel geliştirme (.claude/launch.json, README)
+  "http://127.0.0.1:5180",        // vite.config.ts sunucuyu 127.0.0.1'e bağlar
 ];
 
 export function kokenIzinli(koken: string | null, izinli: string[]): boolean {

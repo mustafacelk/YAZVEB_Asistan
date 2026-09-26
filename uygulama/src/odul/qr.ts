@@ -66,12 +66,28 @@ export async function cozucuKur(): Promise<Cozucu> {
  */
 export function yazvebKoduMu(metin: string): "gorev" | "sponsor" | null {
   const m = metin.trim().toUpperCase();
-  if (/^YAZVEB:G:[A-Z0-9_-]{32}$/.test(m)) return "gorev";
+  // Canlı görevde token'ın ardından dakikada bir değişen 4 harf gelir.
+  if (/^YAZVEB:G:[A-Z0-9_-]{32}(:[A-Z0-9]{4})?$/.test(m)) return "gorev";
   if (/^YAZVEB:S:[A-Z0-9_-]{32}$/.test(m)) return "sponsor";
   return null;
 }
 
-/** Kısa kod girişini sadeleştirir: "yaz-25 " → "YAZ25". */
+/**
+ * Kısa kod girişini sadeleştirir: "yaz-25 " → "YAZ25".
+ * 14 karakter: en uzun kısa kod (10) + canlı görevin 4 harfi.
+ */
 export function kisaKodSadelestir(girdi: string): string {
-  return girdi.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
+  return girdi.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 14);
+}
+
+/**
+ * Ödül kodu (işletme sayfası): öğrencinin ekranındaki QR "YAZVEB:K:ABCD-EFG"
+ * ya da elle yazılmış "abcd efg" → "ABCD-EFG". Tanınmazsa null.
+ */
+export function odulKoduCoz(metin: string): string | null {
+  let m = metin.trim().toUpperCase();
+  if (m.startsWith("YAZVEB:K:")) m = m.slice(9);
+  else if (m.startsWith("YAZVEB:")) return null;   // görev ya da sponsor QR'si
+  m = m.replace(/[^A-Z0-9]/g, "");
+  return /^[A-Z0-9]{7}$/.test(m) ? `${m.slice(0, 4)}-${m.slice(4)}` : null;
 }

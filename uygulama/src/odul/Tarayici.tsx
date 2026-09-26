@@ -344,7 +344,7 @@ export default function Tarayici({
                 ? "Bu cihazda kamera kullanılamıyor. Kısa kodla aynı şekilde devam edebilirsin."
                 : sponsorMu
                   ? "QR'nin altında yazan kodu gir."
-                  : "Etkinlikte QR'nin altında gösterilen kodu gir."}
+                  : "Etkinlikte QR'nin altında gösterilen kodun tamamını gir."}
           </p>
           <input
             className="kod-alani"
@@ -356,7 +356,7 @@ export default function Tarayici({
             autoCapitalize="characters"
             autoComplete="off"
             spellCheck={false}
-            maxLength={10}
+            maxLength={14}
             aria-label="Kısa kod"
             autoFocus
           />

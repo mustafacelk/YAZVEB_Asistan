@@ -5,7 +5,8 @@ import { supabase, type Etkinlik } from "../veri/supabase";
 import { useOturum } from "../veri/oturum";
 import { konumAl, OdulHatasi, sayi, tarihSaat } from "../veri/odul";
 import { SponsorLogo } from "../odul/SponsorKarti";
-import { QrPenceresi } from "./QrKod";
+import { CanliQrPenceresi, QrPenceresi } from "./QrKod";
+import { siteAdresi } from "../veri/api";
 import {
   isoTarih,
   logoHazirla,
@@ -194,7 +195,7 @@ function Gorevler() {
               <b>{g.baslik}</b>
               <span className="soluk rakam">
                 +{g.puan} XP · {g.kisa_kod} · {g.kullanim_sayisi}{g.toplam_limit ? `/${g.toplam_limit}` : ""} kullanım
-                {g.etkinlik ? ` · ${g.etkinlik}` : ""}{g.enlem !== null ? " · konum şartlı" : ""}
+                {g.etkinlik ? ` · ${g.etkinlik}` : ""}{g.dinamik ? " · canlı kod" : ""}{g.enlem !== null ? " · konum şartlı" : ""}
               </span>
               <span className="soluk rakam">{tarihSaat(g.baslangic)} → {tarihSaat(g.bitis)}</span>
             </div>
@@ -229,8 +230,10 @@ function Gorevler() {
           const r = await calistir(() => yonetim.gorevKaydet(p), "Görev kaydedildi.");
           if (r) { setForm(null); yukle(); }
         }} />}
-      {qr && <QrPenceresi baslik={qr.baslik} altBaslik={`+${qr.puan} XP`} icerik={`YAZVEB:G:${qr.token}`}
-        kisaKod={qr.kisa_kod} onKapat={() => setQr(null)} />}
+      {qr && (qr.dinamik
+        ? <CanliQrPenceresi gorevId={qr.id} baslik={qr.baslik} altBaslik={`+${qr.puan} XP`} onKapat={() => setQr(null)} />
+        : <QrPenceresi baslik={qr.baslik} altBaslik={`+${qr.puan} XP`} icerik={`YAZVEB:G:${qr.token}`}
+            kisaKod={qr.kisa_kod} onKapat={() => setQr(null)} />)}
     </>
   );
 }
@@ -253,6 +256,8 @@ function GorevFormu({ baslangic, bekliyor, onKapat, onKaydet }: {
     toplam_limit: baslangic.toplam_limit ? String(baslangic.toplam_limit) : "",
     kisa_kod: baslangic.kisa_kod ?? "",
     aktif: baslangic.aktif ?? true,
+    // Yeni görevde varsayılan AÇIK: perdedeki kod paylaşılsa bile gelmeyen puan alamaz.
+    dinamik: baslangic.dinamik ?? !baslangic.id,
     konumlu: baslangic.enlem != null,
     enlem: baslangic.enlem != null ? String(baslangic.enlem) : "",
     boylam: baslangic.boylam != null ? String(baslangic.boylam) : "",
@@ -273,7 +278,7 @@ function GorevFormu({ baslangic, bekliyor, onKapat, onKaydet }: {
       etkinlik_id: f.etkinlik_id ? Number(f.etkinlik_id) : null,
       puan: Number(f.puan), baslangic: isoTarih(f.baslangic), bitis: isoTarih(f.bitis),
       kisi_basi_limit: Number(f.kisi_basi_limit), toplam_limit: f.toplam_limit ? Number(f.toplam_limit) : null,
-      kisa_kod: f.kisa_kod.trim() || null, aktif: f.aktif,
+      kisa_kod: f.kisa_kod.trim() || null, aktif: f.aktif, dinamik: f.dinamik,
       enlem: f.konumlu ? Number(f.enlem) : null, boylam: f.konumlu ? Number(f.boylam) : null,
       yaricap_m: f.konumlu ? Number(f.yaricap_m) : null,
     });
@@ -309,6 +314,12 @@ function GorevFormu({ baslangic, bekliyor, onKapat, onKaydet }: {
           <input className="girdi rakam" value={f.kisa_kod} onChange={(e) => d("kisa_kod", e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))} maxLength={10} placeholder="Örn. YAZ25" />
         </Alan>
         <Alan ad="Açıklama" not="isteğe bağlı"><textarea className="girdi" rows={2} value={f.aciklama} onChange={(e) => d("aciklama", e.target.value)} maxLength={500} /></Alan>
+        <label className="onay-kutusu"><input type="checkbox" checked={f.dinamik} onChange={(e) => d("dinamik", e.target.checked)} /> Canlı kod (QR ve kodun sonu dakikada bir değişir)</label>
+        <p className="soluk yonetim-not">
+          {f.dinamik
+            ? "Perdeye yansıtılır; fotoğrafı ya da kodu paylaşılsa bile iki dakikada eskir, gelmeyen puan alamaz. Yazdırılamaz."
+            : "Sabit kod yazdırılabilir (stand, afiş) ama paylaşılırsa etkinliğe gelmeyen de okutabilir. Mümkünse konum şartıyla kullan."}
+        </p>
         <label className="onay-kutusu"><input type="checkbox" checked={f.konumlu} onChange={(e) => d("konumlu", e.target.checked)} /> Konum şartı (etkinlik alanında olmalı)</label>
         {f.konumlu && (
           <>
@@ -381,6 +392,11 @@ function Sponsorlar() {
             )}
           </div>
           {!s.pin_tanimli && <p className="bildirim yonetim-not">İşletme PIN'i tanımlanmadan ödüller kullanılamaz.</p>}
+          {s.pin_tanimli && (
+            <p className="soluk yonetim-not">
+              Çalışan ödülü kendi telefonunda <b className="rakam">{siteAdresi("/isletme")}</b> sayfasından PIN'iyle onaylar.
+            </p>
+          )}
           <ul className="yonetim-liste">
             {s.kampanyalar.map((k) => {
               const kalan = k.oduller.some((o) => o.toplam === null) ? null : k.oduller.reduce((t, o) => t + (o.kalan ?? 0), 0);
@@ -495,13 +511,17 @@ function SponsorFormu({ baslangic, seviyeler, bekliyor, onKapat, onKaydet }: {
           <Alan ad="Gerekli etkinlik"><input className="girdi" type="number" min={0} value={f.gerekli_etkinlik} onChange={(e) => d("gerekli_etkinlik", e.target.value)} /></Alan>
         </div>
         <div className="alan-ikili">
-          <Alan ad="İşletme PIN'i" not={baslangic.pin_tanimli ? "boş = değişmez" : "4-8 rakam"}>
+          <Alan ad="İşletme PIN'i" not={baslangic.pin_tanimli ? "boş = değişmez · yenisi 6-8 rakam" : "6-8 rakam"}>
             <input className="girdi rakam" type="password" inputMode="numeric" autoComplete="new-password" value={f.pin}
               onChange={(e) => d("pin", e.target.value.replace(/[^0-9]/g, "").slice(0, 8))} placeholder={baslangic.pin_tanimli ? "••••" : ""} />
           </Alan>
           <Alan ad="Sıralama"><input className="girdi" type="number" value={f.siralama} onChange={(e) => d("siralama", e.target.value)} /></Alan>
         </div>
-        <p className="soluk yonetim-not">PIN yalnızca işletme çalışanına verilir; ödül onayında girilir. Sunucuda özetlenerek saklanır, bir daha gösterilmez.</p>
+        <p className="soluk yonetim-not">
+          PIN'i ve {siteAdresi("/isletme")} adresini yalnızca işletme çalışanına ver: çalışan ödülü kendi
+          telefonunda bu sayfadan onaylar, öğrencinin telefonuna PIN girmez. PIN sunucuda özetlenerek saklanır,
+          bir daha gösterilmez.
+        </p>
         <label className="onay-kutusu"><input type="checkbox" checked={f.aktif} onChange={(e) => d("aktif", e.target.checked)} /> Aktif (uygulamada görünür)</label>
         <div className="pencere-dip">
           <button type="button" className="dugme" onClick={onKapat}>Vazgeç</button>

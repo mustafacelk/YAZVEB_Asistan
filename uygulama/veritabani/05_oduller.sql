@@ -89,6 +89,10 @@ create table if not exists odul.gorevler (
   toplam_limit     integer check (toplam_limit > 0),
   kullanim_sayisi  integer not null default 0 check (kullanim_sayisi >= 0),
   aktif            boolean not null default true,
+  -- Canlı kod: QR ve kısa kod, dakikada bir değişen 4 harfli bir ekle
+  -- birlikte geçerli (bkz. odul.canli_kod). Perdedeki kodun fotoğrafı
+  -- WhatsApp'a düşse bile iki dakika içinde eskir; gelmeyen puan alamaz.
+  dinamik          boolean not null default false,
   iptal_zamani     timestamptz,
   enlem            double precision check (enlem between -90 and 90),
   boylam           double precision check (boylam between -180 and 180),
@@ -102,6 +106,8 @@ create table if not exists odul.gorevler (
   check (toplam_limit is null or kullanim_sayisi <= toplam_limit)
 );
 create index if not exists gorevler_etkinlik_idx on odul.gorevler (etkinlik_id);
+-- Mevcut kurulumlar için: tablo zaten varsa yukarıdaki satır eklenmez.
+alter table odul.gorevler add column if not exists dinamik boolean not null default false;
 
 create table if not exists odul.gorev_kullanimlari (
   id         bigint generated always as identity primary key,
@@ -308,6 +314,32 @@ as $$
   select (('x' || encode(extensions.gen_random_bytes(6), 'hex'))::bit(48)::bigint)::double precision
          / 281474976710656.0
 $$;
+
+-- Canlı kod penceresi 60 saniye. Okutmada o anki ve bir önceki pencere
+-- kabul edilir: perdedeki kod 1-2 dakika geçerli, kalabalıkta yazmaya yeter.
+create or replace function odul.canli_pencere()
+returns bigint language sql stable
+as $$ select floor(extract(epoch from now()) / 60)::bigint $$;
+
+-- Görevin o penceredeki 4 harfli kodu. Anahtar ayarlar.sir: istemci ne
+-- gelecekteki kodu hesaplayabilir ne de eski bir kodu yeniden kullanabilir.
+-- Token girdiye dahil: "QR yenile" bütün canlı kodları da değiştirir.
+create or replace function odul.canli_kod(p_token text, p_pencere bigint)
+returns text language plpgsql stable
+set search_path = odul, extensions
+as $$
+declare
+  alfabe constant text := '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  h bytea := extensions.hmac(convert_to('G:' || p_token || ':' || p_pencere::text, 'UTF8'),
+                             (select a.sir from odul.ayarlar a), 'sha256');
+  s text := '';
+  i integer;
+begin
+  for i in 0 .. 3 loop
+    s := s || substr(alfabe, (get_byte(h, i) % 32) + 1, 1);
+  end loop;
+  return s;
+end $$;
 
 create or replace function odul.mesafe_m(e1 double precision, b1 double precision,
                                          e2 double precision, b2 double precision)
@@ -583,6 +615,9 @@ declare
   onceki_etkinlik bigint;
   yeni_seri integer;
   hedef jsonb;
+  sade text;
+  canli text := '';
+  pencere bigint;
 begin
   if kim is null then return jsonb_build_object('durum', 'kimliksiz'); end if;
   if char_length(girdi) = 0 or char_length(girdi) > 200 then
@@ -598,14 +633,22 @@ begin
   -- Satır kilidi: aynı göreve gelen eşzamanlı istekler sıraya girer.
   if upper(girdi) like 'YAZVEB:G:%' then
     yontem := 'qr';
-    select * into g from odul.gorevler where token = substr(girdi, 10) for update;
+    -- "YAZVEB:G:<token>" ya da canlı görevde "YAZVEB:G:<token>:<canlı kod>"
+    canli := upper(split_part(substr(girdi, 10), ':', 2));
+    select * into g from odul.gorevler where token = split_part(substr(girdi, 10), ':', 1) for update;
   elsif upper(girdi) like 'YAZVEB:S:%' then
     -- Sponsor QR'si görev ekranında okutuldu: yol göster, deneme sayma.
     return jsonb_build_object('durum', 'sponsor_qr');
   else
     yontem := 'kod';
-    select * into g from odul.gorevler
-    where kisa_kod = upper(regexp_replace(girdi, '[^A-Za-z0-9]', '', 'g')) for update;
+    sade := upper(regexp_replace(girdi, '[^A-Za-z0-9]', '', 'g'));
+    select * into g from odul.gorevler where kisa_kod = sade for update;
+    -- Canlı görevde kısa kodun sonuna ekrandaki 4 harf eklenir: "YAZ25" + "7K3P".
+    if not found and char_length(sade) > 4 then
+      select * into g from odul.gorevler
+      where dinamik and kisa_kod = left(sade, char_length(sade) - 4) for update;
+      if found then canli := right(sade, 4); end if;
+    end if;
   end if;
 
   if not found or not g.aktif or g.iptal_zamani is not null then
@@ -617,6 +660,25 @@ begin
   end if;
   if now() >= g.bitis then
     return jsonb_build_object('durum', 'suresi_doldu', 'baslik', g.baslik);
+  end if;
+
+  -- Canlı görev: kod yalnızca o an ekranda olanla birlikte geçer. Paylaşılan
+  -- bir fotoğraf ya da mesaj iki dakika içinde eskir.
+  if g.dinamik then
+    if coalesce(canli, '') = '' then
+      return jsonb_build_object('durum', 'canli_kod_eksik', 'baslik', g.baslik);
+    end if;
+    pencere := odul.canli_pencere();
+    if canli not in (odul.canli_kod(g.token, pencere), odul.canli_kod(g.token, pencere - 1)) then
+      -- Son bir saatin kodlarından biriyse "eskimiş" de: kullanıcı ne olduğunu
+      -- anlasın. Deneme sayılmaz; tahmin değil, geç kalmış bir okutma.
+      if exists (select 1 from generate_series(2, 60) k
+                 where odul.canli_kod(g.token, pencere - k) = canli) then
+        return jsonb_build_object('durum', 'canli_kod_eskidi', 'baslik', g.baslik);
+      end if;
+      perform odul.hatali_deneme(kim);
+      return jsonb_build_object('durum', 'gecersiz');
+    end if;
   end if;
 
   if g.enlem is not null then
@@ -1110,7 +1172,7 @@ begin
             'puan', g.puan, 'baslangic', g.baslangic, 'bitis', g.bitis,
             'kisi_basi_limit', g.kisi_basi_limit, 'toplam_limit', g.toplam_limit,
             'kullanim_sayisi', g.kullanim_sayisi, 'aktif', g.aktif, 'iptal', g.iptal_zamani,
-            'enlem', g.enlem, 'boylam', g.boylam, 'yaricap_m', g.yaricap_m,
+            'dinamik', g.dinamik, 'enlem', g.enlem, 'boylam', g.boylam, 'yaricap_m', g.yaricap_m,
             'baskan_kilidi', g.baskan_kilidi,
             'duzenlenebilir', public.baskan_mi() or not g.baskan_kilidi)
           order by g.baslangic desc), '[]')
@@ -1154,6 +1216,7 @@ begin
       kisi_basi_limit = coalesce((p->>'kisi_basi_limit')::integer, 1),
       toplam_limit = (p->>'toplam_limit')::integer,
       aktif = coalesce((p->>'aktif')::boolean, true),
+      dinamik = coalesce((p->>'dinamik')::boolean, g.dinamik),
       enlem = (p->>'enlem')::double precision, boylam = (p->>'boylam')::double precision,
       yaricap_m = (p->>'yaricap_m')::integer,
       baskan_kilidi = g.baskan_kilidi or public.baskan_mi(),
@@ -1162,19 +1225,45 @@ begin
     perform odul.denetle('gorev_duzenle', 'gorev:' || g.id, p - 'token');
   else
     insert into odul.gorevler (etkinlik_id, baslik, aciklama, tur, token, kisa_kod, puan, baslangic, bitis,
-                               kisi_basi_limit, toplam_limit, aktif, enlem, boylam, yaricap_m,
+                               kisi_basi_limit, toplam_limit, aktif, dinamik, enlem, boylam, yaricap_m,
                                baskan_kilidi, olusturan)
     values ((p->>'etkinlik_id')::bigint, p->>'baslik', nullif(p->>'aciklama', ''),
             coalesce(p->>'tur', 'giris'), odul.token(), kod, (p->>'puan')::integer,
             (p->>'baslangic')::timestamptz, (p->>'bitis')::timestamptz,
             coalesce((p->>'kisi_basi_limit')::integer, 1), (p->>'toplam_limit')::integer,
-            coalesce((p->>'aktif')::boolean, true),
+            coalesce((p->>'aktif')::boolean, true), coalesce((p->>'dinamik')::boolean, false),
             (p->>'enlem')::double precision, (p->>'boylam')::double precision, (p->>'yaricap_m')::integer,
             public.baskan_mi(), auth.uid())
     returning * into g;
     perform odul.denetle('gorev_olustur', 'gorev:' || g.id, p);
   end if;
   return jsonb_build_object('id', g.id, 'token', g.token, 'kisa_kod', g.kisa_kod);
+end $$;
+
+
+-- Canlı görevin perdede gösterilecek o anki QR'si ve kısa kodu. Yönetim
+-- ekranı pencere bitince yeniden sorar. Yalnızca yetkililer.
+create or replace function public.odul_gorev_canli(p_id bigint)
+returns jsonb language plpgsql stable security definer
+set search_path = public, odul
+as $$
+declare
+  g odul.gorevler;
+  pencere bigint := odul.canli_pencere();
+  kod text;
+begin
+  perform odul.yetkili_olmali();
+  select * into g from odul.gorevler where id = p_id;
+  if not found then raise exception 'Görev bulunamadı.'; end if;
+  if not g.dinamik then return jsonb_build_object('dinamik', false); end if;
+  kod := odul.canli_kod(g.token, pencere);
+  return jsonb_build_object(
+    'dinamik', true,
+    'kod', kod,
+    'qr', 'YAZVEB:G:' || g.token || ':' || kod,
+    'kisa_kod', g.kisa_kod || kod,
+    'pencere_bitis', to_timestamp((pencere + 1) * 60),
+    'sunucu_zamani', now());
 end $$;
 
 
@@ -1220,7 +1309,8 @@ begin
           'id', k.id, 'ad', k.ad, 'token', k.token, 'kisa_kod', k.kisa_kod,
           'baslangic', k.baslangic, 'bitis', k.bitis, 'aktif', k.aktif, 'iptal', k.iptal_zamani,
           'kisi_basi_limit', k.kisi_basi_limit, 'surpriz', k.surpriz, 'gecerlilik_gun', k.gecerlilik_gun,
-          'baskan_kilidi', k.baskan_kilidi, 'duzenlenebilir', public.baskan_mi() or not k.baskan_kilidi,
+          'baskan_kilidi', k.baskan_kilidi,
+          'duzenlenebilir', public.baskan_mi() or not (k.baskan_kilidi or s.baskan_kilidi),
           'kazanim', (select count(*) from odul.kazanimlar z where z.kampanya_id = k.id),
           'kullanim', (select count(*) from odul.kazanimlar z where z.kampanya_id = k.id and z.kullanildi is not null),
           'oduller', (select coalesce(jsonb_agg(jsonb_build_object(
@@ -1241,8 +1331,12 @@ declare
   pin text := nullif(p->>'pin', '');
 begin
   perform odul.yetkili_olmali();
-  if pin is not null and pin !~ '^[0-9]{4,8}$' then
-    raise exception 'PIN 4-8 haneli rakam olmalı.' using errcode = '22023';
+  -- Yeni PIN en az 6 hane. PIN sponsor genelinde tek ve anonim doğrulama
+  -- sayfasında denenebilir: 4 hane (10.000 olasılık) deneme sınırına
+  -- rağmen dağıtık bir denemede birkaç günde düşer. Eski 4-5 haneli PIN'ler
+  -- doğrulamada geçerli kalır; değiştirilmeleri önerilir.
+  if pin is not null and pin !~ '^[0-9]{6,8}$' then
+    raise exception 'PIN 6-8 haneli rakam olmalı.' using errcode = '22023';
   end if;
 
   if p ? 'id' and p->>'id' is not null then
@@ -1300,6 +1394,11 @@ begin
   perform odul.yetkili_olmali();
   select * into s from odul.sponsorlar where id = (p->>'sponsor_id')::uuid;
   if not found then raise exception 'Sponsor bulunamadı.'; end if;
+  -- Başkanın kilitlediği sponsorun kampanyalarına (yenisini eklemek dahil)
+  -- yalnızca başkan dokunur.
+  if s.baskan_kilidi and not public.baskan_mi() then
+    raise exception 'Başkanın düzenlediği sponsorun kampanyalarını değiştiremezsin.' using errcode = '42501';
+  end if;
 
   if kod is null and not (p ? 'id' and p->>'id' is not null) then
     loop
@@ -1315,6 +1414,11 @@ begin
   if p ? 'id' and p->>'id' is not null then
     select * into k from odul.kampanyalar where id = (p->>'id')::uuid for update;
     if not found then raise exception 'Kampanya bulunamadı.'; end if;
+    -- Kampanya başka sponsora aitse dur: aksi hâlde kilitsiz bir sponsorun
+    -- kimliği gösterilerek kilitli sponsorun kampanyası düzenlenebilirdi.
+    if k.sponsor_id <> s.id then
+      raise exception 'Kampanya bu sponsora ait değil.' using errcode = '22023';
+    end if;
     if k.baskan_kilidi and not public.baskan_mi() then
       raise exception 'Başkanın düzenlediği kampanyayı değiştiremezsin.' using errcode = '42501';
     end if;
@@ -1396,7 +1500,8 @@ begin
   perform odul.yetkili_olmali();
   select * into k from odul.kampanyalar where id = p_id for update;
   if not found then raise exception 'Kampanya bulunamadı.'; end if;
-  if k.baskan_kilidi and not public.baskan_mi() then
+  if not public.baskan_mi()
+     and (k.baskan_kilidi or exists (select 1 from odul.sponsorlar s where s.id = k.sponsor_id and s.baskan_kilidi)) then
     raise exception 'Başkanın düzenlediği kampanyayı değiştiremezsin.' using errcode = '42501';
   end if;
   update odul.kampanyalar set iptal_zamani = now(), aktif = false, guncellendi = now() where id = p_id;

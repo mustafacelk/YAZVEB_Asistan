@@ -108,7 +108,8 @@ export type GorevSonucu =
 
 export type GorevDurumu =
   | "tamam" | "zaten_alindi" | "gecersiz" | "suresi_doldu" | "baslamadi" | "tukendi"
-  | "konum_gerekli" | "konum_uzak" | "sinir" | "kimliksiz" | "sponsor_qr";
+  | "konum_gerekli" | "konum_uzak" | "sinir" | "kimliksiz" | "sponsor_qr"
+  | "canli_kod_eksik" | "canli_kod_eskidi";
 
 export type SponsorSonucu =
   | {
@@ -139,11 +140,20 @@ export type GosterSonucu = {
   adres?: string | null;
 };
 
-export type KullanSonucu = {
-  durum: "kullanildi" | "zaten_kullanildi" | "pin_hatali" | "pin_tanimsiz" | "sinir"
-       | "suresi_doldu" | "iptal" | "bulunamadi" | "kimliksiz";
+/**
+ * İşletme sayfasının cevabı. Kod ya da PIN yanlışsa yalnızca "gecersiz"
+ * gelir: hangisinin yanlış olduğu, kodun var olup olmadığı söylenmez.
+ */
+export type IsletmeSonucu = {
+  durum: "gecerli" | "kullanildi" | "zaten_kullanildi" | "suresi_doldu" | "iptal" | "gecersiz" | "sinir";
+  kod?: string;
+  sponsor?: string;
+  baslik?: string;
+  aciklama?: string | null;
+  ikon?: string;
   zaman?: string;
-  kalan_deneme?: number;
+  son_kullanma?: string;
+  adres?: string | null;
 };
 
 export type Donem = "hafta" | "tum";
@@ -202,7 +212,12 @@ export const odul = {
     cagir<SponsorSonucu>("odul_sponsor_tara", { p_sponsor: sponsorId, p_icerik: icerik }),
   cuzdan: () => cagir<KazanimOzeti[]>("odul_cuzdan"),
   goster: (id: string) => cagir<GosterSonucu>("odul_goster", { p_id: id }),
-  kullan: (id: string, pin: string) => cagir<KullanSonucu>("odul_kullan", { p_id: id, p_pin: pin }),
+  /**
+   * Çalışanın cihazından: kod + işletme PIN'i. `kullan` false iken yalnızca
+   * denetler; true iken ödülü kullanılmış işaretler. Giriş gerektirmez.
+   */
+  isletmeDogrula: (kod: string, pin: string, kullan = false) =>
+    cagir<IsletmeSonucu>("isletme_odul_dogrula", { p_kod: kod, p_pin: pin, p_kullan: kullan }),
   /**
    * Veritabanı güncellenmeden önce yeni istemci yayına çıkabilir. Dönemli
    * çağrı tanınmazsa eski (dönemsiz, tüm zamanlar) sürüme düşülür.
@@ -237,12 +252,18 @@ export const GOREV_MESAJI: Record<Exclude<GorevDurumu, "tamam">, string> = {
   sinir: "Kısa sürede çok deneme yapıldı. Birkaç dakika sonra tekrar dene.",
   kimliksiz: "Oturumun sona ermiş. Devam etmek için tekrar giriş yap.",
   sponsor_qr: "Bu bir sponsor QR'si. Ödüller'de ilgili sponsoru açıp oradan okut.",
+  canli_kod_eksik: "Bu etkinliğin kodu canlı: ekrandaki kısa kodun sonundaki dört harfle birlikte, kodun tamamını gir.",
+  canli_kod_eskidi: "Bu kodun süresi geçmiş; etkinlikteki kod dakikada bir değişiyor. Ekranda şu an görünen kodu okut.",
 };
 
 /** QR ile okunan geçersiz kodda "harfleri kontrol et" demek yanlış yönlendirir. */
 export function gorevMesaji(durum: Exclude<GorevDurumu, "tamam">, yontem: "qr" | "kod"): string {
   if (durum === "gecersiz" && yontem === "qr") {
     return "Bu QR artık geçerli değil. Etkinlikte gösterilen güncel QR'yi okut.";
+  }
+  if (durum === "canli_kod_eksik" && yontem === "qr") {
+    // Basılı ya da ekran görüntüsü alınmış eski biçim: canlı ekranda değil.
+    return "Bu QR canlı değil. Etkinlikte ekranda gösterilen, dakikada bir değişen QR'yi okut.";
   }
   return GOREV_MESAJI[durum];
 }
@@ -259,16 +280,15 @@ export const SPONSOR_MESAJI: Record<Exclude<SponsorSonucu["durum"], "tamam" | "k
   gorev_qr: "Bu bir etkinlik QR'si. Alttaki tarama düğmesiyle okut.",
 };
 
-export const KULLAN_MESAJI: Record<KullanSonucu["durum"], string> = {
-  kullanildi: "Ödül kullanıldı.",
-  zaten_kullanildi: "Bu ödül daha önce kullanılmış.",
-  pin_hatali: "PIN hatalı.",
-  pin_tanimsiz: "Bu işletmenin onay PIN'i henüz tanımlanmamış. Ödülün geçerli; YAZVEB yönetimine haber ver.",
-  sinir: "Çok fazla hatalı PIN denendi. Güvenlik için 15 dakika bekleniyor.",
-  suresi_doldu: "Bu ödülün süresi dolmuş.",
-  iptal: "Bu ödül iptal edilmiş.",
-  bulunamadi: "Ödül bulunamadı.",
-  kimliksiz: "Oturumun sona ermiş. Devam etmek için tekrar giriş yap.",
+/** Çalışanın ekranı: ne oldu ve şimdi ne yapmalı. Ödülü vermek mi, vermemek mi? */
+export const ISLETME_MESAJI: Record<IsletmeSonucu["durum"], string> = {
+  gecerli: "Ödül geçerli. Önce onayla, sonra ürünü ver: onaylanan ödül ikinci kez geçmez.",
+  kullanildi: "Ödül kullanıldı olarak işaretlendi. Ürünü verebilirsin.",
+  zaten_kullanildi: "Bu ödül daha önce kullanılmış. Ürünü VERME.",
+  suresi_doldu: "Bu ödülün süresi dolmuş. Ürünü verme.",
+  iptal: "Bu ödül iptal edilmiş. Ürünü verme.",
+  gecersiz: "Kod ya da PIN hatalı. Kodu öğrencinin ekranından tekrar oku; PIN'i kontrol et.",
+  sinir: "Çok fazla hatalı deneme yapıldı. Güvenlik için 15 dakika bekle.",
 };
 
 // ── Biçimlendirme ──────────────────────────────────────────────────

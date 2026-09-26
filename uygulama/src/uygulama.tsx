@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { sorun, yapilandirildi } from "./veri/supabase";
 import { OturumSaglayici, useOturum } from "./veri/oturum";
 import {
@@ -19,6 +19,13 @@ import Asistan from "./ekranlar/Asistan";
 import Oduller from "./ekranlar/Oduller";
 import Tarayici from "./odul/Tarayici";
 import Simge, { type SimgeAdi } from "./tasarim/Simge";
+
+// Çalışanın doğrulama sayfası: üyelerin uygulamasıyla ortak kod az, ayrı yüklenir.
+const Isletme = lazy(() => import("./isletme/Isletme"));
+
+/** <site>/isletme — giriş istemez; kasadaki çalışan kendi telefonunda açar. */
+const ISLETME_SAYFASI =
+  typeof location !== "undefined" && /^\/isletme\/?$/.test(location.pathname);
 
 /**
  * Gezinme çubuğu: dört sekme, ortada tarama.
@@ -45,7 +52,11 @@ export default function Uygulama() {
   return (
     <>
       <div className="atmosfer" aria-hidden="true" />
-      {yapilandirildi ? (
+      {yapilandirildi && ISLETME_SAYFASI ? (
+        <Suspense fallback={<Acilis />}>
+          <Isletme />
+        </Suspense>
+      ) : yapilandirildi ? (
         <OturumSaglayici>
           <Kabuk />
         </OturumSaglayici>

@@ -66,6 +66,7 @@ jobs:
       - name: Güvenlik denetimi
         run: |
           npm audit --omit=dev --audit-level=high
+          npm run lint
           npm run test:guvenlik
           npm run test:transkript
           npm run test:odul

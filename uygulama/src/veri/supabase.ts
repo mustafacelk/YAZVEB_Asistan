@@ -35,16 +35,34 @@ function yapilandirmaSorunu(): string | null {
     return "VITE_SUPABASE_ANON_KEY bir adres değil, anahtar olmalı. " +
            "İki değer yer değiştirmiş olabilir.";
   }
+  // Gizli anahtar kontrolü biçim kontrolünden ÖNCE: sb_secret_ "tanınmadı"
+  // deyip geçilmesin, ne olduğu açıkça söylensin.
+  if (anahtar.startsWith("sb_secret_") || eskiServisAnahtari(anahtar)) {
+    return "BU ANAHTAR GİZLİ (secret/service_role) — uygulamaya konmamalı. " +
+           "Publishable key kullan ve bu anahtarı Supabase panelinden yenile.";
+  }
   // Hem eski (JWT, "eyJ...") hem yeni (sb_publishable_...) biçim geçerli.
   if (!anahtar.startsWith("sb_publishable_") && !anahtar.startsWith("eyJ")) {
     return "Anahtar tanınmadı. Supabase panelinde Project Settings → API " +
            "altındaki Publishable key değerini kopyala.";
   }
-  if (anahtar.startsWith("sb_secret_") || anahtar.includes("service_role")) {
-    return "BU ANAHTAR GİZLİ (secret/service_role) — uygulamaya konmamalı. " +
-           "Publishable key kullan.";
-  }
   return null;
+}
+
+/**
+ * Eski biçim anahtar bir JWT'dir; rolü ortadaki parçada base64 olarak
+ * yazar. "service_role" kelimesi metinde düz geçmez, bu yüzden aramak
+ * işe yaramaz: parça çözülüp rol okunur.
+ */
+function eskiServisAnahtari(jwt: string): boolean {
+  const parca = jwt.split(".")[1];
+  if (!jwt.startsWith("eyJ") || !parca) return false;
+  try {
+    const b64 = parca.replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4))).role === "service_role";
+  } catch {
+    return false;
+  }
 }
 
 export const sorun = yapilandirmaSorunu();

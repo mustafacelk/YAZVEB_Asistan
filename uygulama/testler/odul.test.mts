@@ -7,7 +7,7 @@
 import qrcode from "qrcode-generator";
 import jsQR from "jsqr";
 import { randomBytes } from "node:crypto";
-import { kisaKodSadelestir, yazvebKoduMu } from "../src/odul/qr.ts";
+import { kisaKodSadelestir, odulKoduCoz, yazvebKoduMu } from "../src/odul/qr.ts";
 import { hedefCumlesi, seviyeIlerlemesi, sonKullanimEtiketi, sonrakiAdim } from "../src/veri/odul_bicim.ts";
 
 let hata = 0;
@@ -44,11 +44,20 @@ function qrPiksel(icerik: string, olcek = 6) {
 }
 
 // ── QR gidiş-dönüş ────────────────────────────────────────────────
-for (const [tur, onek] of [["görev", "YAZVEB:G:"], ["sponsor", "YAZVEB:S:"]] as const) {
+/** Sunucudaki odul.rastgele_kod ile aynı alfabe (0/O, 1/I yok). */
+const ALFABE = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+const rastgeleKod = (n: number) => Array.from(randomBytes(n), (b) => ALFABE[b % 32]).join("");
+
+for (const [tur, uret] of [
+  ["görev", () => "YAZVEB:G:" + token()],
+  ["canlı görev", () => "YAZVEB:G:" + token() + ":" + rastgeleKod(4)],
+  ["sponsor", () => "YAZVEB:S:" + token()],
+  ["ödül (işletme)", () => "YAZVEB:K:" + rastgeleKod(4) + "-" + rastgeleKod(3)],
+] as const) {
   let dogru = 0;
   const deneme = 25;
   for (let i = 0; i < deneme; i++) {
-    const icerik = onek + token();
+    const icerik = uret();
     const { veri, boyut } = qrPiksel(icerik);
     const okunan = jsQR(veri, boyut, boyut)?.data;
     if (okunan === icerik) dogru++;
@@ -61,6 +70,18 @@ for (const [tur, onek] of [["görev", "YAZVEB:G:"], ["sponsor", "YAZVEB:S:"]] as
   const { veri, boyut } = qrPiksel(icerik, 3);
   bekle("küçük ölçekte (3 px/modül) de okunuyor", jsQR(veri, boyut, boyut)?.data === icerik);
 }
+{
+  // Perdedeki canlı QR daha uzun içerik taşır; salonun arkasından (3 px/modül) da okunmalı.
+  const icerik = "YAZVEB:G:" + token() + ":" + rastgeleKod(4);
+  const { veri, boyut } = qrPiksel(icerik, 3);
+  bekle("canlı QR küçük ölçekte de okunuyor", jsQR(veri, boyut, boyut)?.data === icerik);
+}
+{
+  // Öğrencinin ödül ekranındaki QR 132 px: modül başına ~4 piksel.
+  const icerik = "YAZVEB:K:" + rastgeleKod(4) + "-" + rastgeleKod(3);
+  const { veri, boyut } = qrPiksel(icerik, 4);
+  bekle("ödül QR'si ekrandaki boyutta okunuyor", jsQR(veri, boyut, boyut)?.data === icerik);
+}
 
 // ── İçerik sınıflandırma ──────────────────────────────────────────
 const t = token();
@@ -70,11 +91,27 @@ bekle("baş/son boşluk tolere edilir", yazvebKoduMu("  YAZVEB:S:" + t + "\n") =
 bekle("yabancı QR (menü linki) sunucuya gönderilmez", yazvebKoduMu("https://kafe.example/menu") === null);
 bekle("sahte önek + kısa token reddedilir", yazvebKoduMu("YAZVEB:G:abc") === null);
 bekle("fazladan içerik eklenmiş token reddedilir", yazvebKoduMu("YAZVEB:G:" + t + "<script>") === null);
+bekle("canlı görev QR'si (token + 4 harf) tanınır", yazvebKoduMu("YAZVEB:G:" + t + ":7K3P") === "gorev");
+bekle("canlı ek 4 harften farklıysa reddedilir", yazvebKoduMu("YAZVEB:G:" + t + ":7K3") === null
+  && yazvebKoduMu("YAZVEB:G:" + t + ":7K3PX") === null);
+bekle("sponsor QR'sine canlı ek eklenemez", yazvebKoduMu("YAZVEB:S:" + t + ":7K3P") === null);
+bekle("ödül QR'si görev ekranında görev sayılmaz", yazvebKoduMu("YAZVEB:K:ABCD-EFG") === null);
+
+// ── Ödül kodu (işletme sayfası) ───────────────────────────────────
+bekle("ödül QR'si çözülür", odulKoduCoz("YAZVEB:K:ABCD-EFG") === "ABCD-EFG");
+bekle("elle yazım: küçük harf, boşluk", odulKoduCoz(" abcd efg ") === "ABCD-EFG");
+bekle("elle yazım: tiresiz", odulKoduCoz("ABCDEFG") === "ABCD-EFG");
+bekle("görev QR'si ödül kodu sayılmaz", odulKoduCoz("YAZVEB:G:" + t) === null);
+bekle("sponsor QR'si ödül kodu sayılmaz", odulKoduCoz("YAZVEB:S:" + t) === null);
+bekle("eksik kod reddedilir", odulKoduCoz("ABCD-EF") === null);
+bekle("fazla kod reddedilir", odulKoduCoz("ABCD-EFGH") === null);
+bekle("yabancı QR reddedilir", odulKoduCoz("https://kafe.example/menu") === null);
 
 // ── Kısa kod sadeleştirme ─────────────────────────────────────────
 bekle("küçük harf ve tire", kisaKodSadelestir(" yaz-25 ") === "YAZ25");
 bekle("boşluk ve noktalama silinir", kisaKodSadelestir("a7k 9p!") === "A7K9P");
-bekle("10 karakterle kırpılır", kisaKodSadelestir("ABCDEFGHIJKLMNOP") === "ABCDEFGHIJ");
+bekle("14 karakterle kırpılır (10 kısa kod + 4 canlı)", kisaKodSadelestir("ABCDEFGHIJKLMNOP") === "ABCDEFGHIJKLMN");
+bekle("canlı kod tireyle yazılabilir", kisaKodSadelestir("yaz25-7k3p") === "YAZ257K3P");
 bekle("SQL/HTML karakterleri silinir", kisaKodSadelestir("YAZ'25;<b>") === "YAZ25B");
 
 // ── İlerleme dili ─────────────────────────────────────────────────

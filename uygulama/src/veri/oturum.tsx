@@ -67,14 +67,21 @@ export function OturumSaglayici({ children }: { children: ReactNode }) {
 
     // Giriş, çıkış ve jeton yenileme aynı yerden akar; ekranlar bunu
     // dinlemek zorunda kalmaz.
-    const { data: abone } = supabase.auth.onAuthStateChange(
-      async (_olay, yeni) => {
+    //
+    // Geri çağrının İÇİNDE başka bir Supabase çağrısı beklenmez: kütüphane
+    // bu sırada oturum kilidini tutuyor, içeride await edilen sorgu da aynı
+    // kilidi bekliyor — ikisi birbirini sonsuza dek bekler ve uygulama
+    // açılış ekranında donar (supabase-js belgelerindeki uyarı). Profil
+    // sorgusu bir sonraki tura bırakılır.
+    const { data: abone } = supabase.auth.onAuthStateChange((_olay, yeni) => {
+      if (!gecerli) return;
+      setOturum(yeni);
+      setTimeout(async () => {
         if (!gecerli) return;
-        setOturum(yeni);
         await profiliGetir(yeni?.user.id);
         if (gecerli) setYukleniyor(false);
-      },
-    );
+      }, 0);
+    });
 
     return () => {
       gecerli = false;
