@@ -159,11 +159,13 @@ export default function Isletme() {
 
       <div className="isletme-kolon">
         <header className="isletme-kahraman">
-          <div className="isletme-kure gir">
+          <div className="isletme-kure gir" aria-hidden="true">
             <Kure durum={kureDurumu} olcek={0.4} />
-            <img src="/logo-128.webp" alt="" width={44} height={44} />
           </div>
-          <span className="etiket gir" style={kademe(1)}>YAZVEB · İş ortağı</span>
+          <span className="isletme-marka gir" style={kademe(1)}>
+            <img src="/logo-128.webp" alt="YAZVEB" width={26} height={26} />
+            <span className="etiket">YAZVEB · İş ortağı</span>
+          </span>
           <h1 className="gir" style={kademe(2)}>Ödül onayı</h1>
           <p className="gir" style={kademe(3)}>
             Selçuk Üniversitesi Yapay Zekâ ve Veri Bilimi Topluluğu'nun öğrencilerini ağırladığınız için teşekkürler.

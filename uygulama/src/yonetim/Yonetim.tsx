@@ -853,7 +853,10 @@ function FormPenceresi({ baslik, onKapat, children }: { baslik: string; onKapat:
     window.addEventListener("keydown", tus, true);
     return () => window.removeEventListener("keydown", tus, true);
   }, [onKapat]);
-  return (
+  // Pencere body'ye taşınır: Yönetim bir sekme olarak açıldığında sahne katmanı
+  // kendi yığın bağlamını kuruyor ve gezinme çubuğu formun altını (Kaydet
+  // düğmesini) örtüyordu.
+  return createPortal(
     <div className="katman" onClick={onKapat}>
       <div className="pencere yonetim-pencere" role="dialog" aria-modal="true" aria-label={baslik} onClick={(e) => e.stopPropagation()}>
         <div className="pencere-basi">
@@ -862,6 +865,7 @@ function FormPenceresi({ baslik, onKapat, children }: { baslik: string; onKapat:
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
