@@ -29,6 +29,7 @@ export default function Dogrulama({ neden, onKapat, onDogrulandi }: {
   const [hata, setHata] = useState<string | null>(null);
   const [islemde, setIslemde] = useState(false);
   const [bekleme, setBekleme] = useState(0);
+  const [dakika, setDakika] = useState(30);
   const kodRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -40,6 +41,7 @@ export default function Dogrulama({ neden, onKapat, onDogrulandi }: {
       setSinif(d.sinif ?? "");
       if (d.bekleyen && d.bekleyen.kalan_sn > 0) {
         setAlan(d.bekleyen.eposta_alani);
+        setDakika(Math.max(1, Math.ceil(d.bekleyen.kalan_sn / 60)));
         setAdim("kod");
       } else {
         setAdim("eposta");
@@ -81,6 +83,7 @@ export default function Dogrulama({ neden, onKapat, onDogrulandi }: {
     }
     setAlan(e.split("@")[1]);
     setUniversite(g.universite ?? "");
+    setDakika(g.dakika ?? 30);
     setKod("");
     setBekleme(60);
     setAdim("kod");
@@ -177,7 +180,10 @@ export default function Dogrulama({ neden, onKapat, onDogrulandi }: {
                      pattern="[0-9]*" maxLength={6} value={kod}
                      onChange={(e) => setKod(e.target.value.replace(/\D/g, "").slice(0, 6))} aria-describedby="kod-sure" />
             </label>
-            <p id="kod-sure" className="soluk">Kod 15 dakika geçerli, 5 deneme hakkın var.</p>
+            <p id="kod-sure" className="soluk">
+              Kod {dakika} dakika geçerli, 5 deneme hakkın var. E-posta birkaç dakika gecikebilir; Gereksiz
+              klasörüne düşerse “Gereksiz değil” olarak işaretle, sonrakiler gelen kutuna gelir.
+            </p>
             {hata && <p className="bildirim" role="alert">{hata}</p>}
             <button type="submit" className="dugme birincil genis" disabled={islemde || kod.length !== 6}>
               {islemde ? "Doğrulanıyor…" : "Doğrula"}

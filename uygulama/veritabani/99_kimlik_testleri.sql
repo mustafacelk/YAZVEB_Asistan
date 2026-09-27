@@ -74,7 +74,7 @@ delete from kimlik.gonderimler where kullanici in (kim('can'), kim('ayse'), kim(
 set role authenticated;
 select test_kullanici('ali');
 select bekle('bekleyen kod alanıyla görünür, adres görünmez',
-  (select d->'bekleyen'->>'eposta_alani' = 'ogr.selcuk.edu.tr' and (d->'bekleyen'->>'kalan_sn')::int between 800 and 900
+  (select d->'bekleyen'->>'eposta_alani' = 'ogr.selcuk.edu.tr' and (d->'bekleyen'->>'kalan_sn')::int between 1700 and 1800
           and d::text !~* 'ali\.veli' from (select public.kimlik_durum() d) x));
 select bekle('yanlış kod → hatalı, 4 hak', (select r->>'durum' = 'hatali' and (r->>'kalan')::int = 4
   from (select public.kimlik_kod_onayla('000000') r) x));
@@ -86,7 +86,7 @@ select bekle('yanan kodla giriş yok', (select public.kimlik_kod_onayla('444444'
 reset role;
 select k_bekleme_bitir('ali');
 select k_gonder('ali', 'ali.veli@ogr.selcuk.edu.tr');
-update kimlik.kodlar set olusturuldu = now() - interval '16 minutes' where kullanici = kim('ali');
+update kimlik.kodlar set olusturuldu = now() - interval '31 minutes' where kullanici = kim('ali');
 select bekle('süresi geçen kod → sure', (select k_onayla('ali')->>'durum' = 'sure'));
 select k_bekleme_bitir('ali');
 select k_gonder('ali', 'ali.veli@ogr.selcuk.edu.tr');

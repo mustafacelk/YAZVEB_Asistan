@@ -635,7 +635,8 @@ fonksiyonu 6 haneli bir kod gönderir, öğrenci kodu uygulamaya yazar.
   anahtarlı özeti (aynı adres iki hesabı doğrulamasın diye). Öğrenci numarası
   veritabanına hiç girmez. Kullanıcı doğrulamasını kendisi kaldırabilir.
 - Kodu üreten fonksiyon **yalnızca sunucu rolüne** açık; kod istemciye hiç
-  dönmez. 15 dakika geçerli, 5 hatalı denemede yanar. Kullanıcı başına
+  dönmez. 30 dakika geçerli (Selçuk'un sunucusu yeni göndereni ~10 dk
+  bekletiyor), 5 hatalı denemede yanar. Kullanıcı başına
   dakikada 1, günde 5; adres başına günde 5; toplam günde 250 gönderim
   (e-posta servisinin ücretsiz katmanı aşılmasın).
 - Doğrulama her yıl **31 Ekim**'de biter (en az üç ay geçerli). Selçuk'ta

@@ -48,9 +48,13 @@ create table if not exists kimlik.ayarlar (
   sir                 bytea not null default extensions.gen_random_bytes(32),
   -- E-posta servisinin ücretsiz katmanı (ör. günde 300) aşılmasın.
   gunluk_genel_sinir  integer not null default 250 check (gunluk_genel_sinir between 1 and 100000),
-  kod_dakika          integer not null default 15 check (kod_dakika between 5 and 60)
+  -- 30 dk: Selçuk'un sunucusu yeni göndereni önce geri çevirip ~10 dk sonra
+  -- kabul ediyor (ilk denemede ölçüldü); 15 dk öğrenciye 3 dk bırakıyordu.
+  kod_dakika          integer not null default 30 check (kod_dakika between 5 and 60)
 );
 insert into kimlik.ayarlar default values on conflict do nothing;
+-- Eski varsayılanla kurulmuş olanlar yeni süreye geçer (elle değiştirilmişse dokunulmaz).
+update kimlik.ayarlar set kod_dakika = 30 where kod_dakika = 15;
 
 -- Kurum alanı → üniversite adı. Bilinmeyen .edu.tr alanı da kabul edilir;
 -- adı yönetici sonradan yazar (o zamana kadar alan adı görünür).
