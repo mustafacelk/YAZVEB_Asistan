@@ -5,6 +5,7 @@ import "./tasarim/jetonlar.css";
 import "./tasarim/temel.css";
 import "./tasarim/ekranlar.css";
 import "./tasarim/odul.css";
+import "./tasarim/notlar.css";
 
 createRoot(document.getElementById("kok")!).render(
   <StrictMode>

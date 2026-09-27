@@ -13,6 +13,9 @@
 //   Y5  aynı ödül 5 kasada aynı anda onaylanır → tam 1 "kullanildi"
 //   Y6  HUB'a ilk giriş aynı anda 5 kez → tek karşılama Coin'i
 //   Y7  aynı bakiyeyle aynı anda 5 satın alma → bakiye bir kez harcanır
+//   Y8  bekleyen not 5 oturumda aynı anda onaylanır → taban puan bir kez
+//   Y9  10 kişi aynı nota aynı anda "işime yaradı" → sayaç 10, puan tutarlı
+//   Y10 aynı e-postayı iki hesap aynı anda onaylar → yalnızca biri
 //
 // Boş bir PostgreSQL veritabanına karşı çalışır (şemayı kendisi kurar):
 //   PG_URL=postgres://postgres:test@127.0.0.1:5432/yazveb node veritabani/odul_yaris_testi.mjs
@@ -33,7 +36,7 @@ await yonetici.connect();
 const q = async (sql, p) => (await yonetici.query(sql, p)).rows;
 
 for (const f of ["00_test_altyapisi.sql", "01_sema.sql", "02_yetkiler.sql", "04_guvenlik.sql", "05_oduller.sql",
-                 "06_isletme.sql", "07_hub.sql"]) {
+                 "06_isletme.sql", "07_hub.sql", "08_kimlik.sql", "09_pano.sql"]) {
   await yonetici.query(oku(f));
 }
 
@@ -166,6 +169,74 @@ kontrol("hatasız", hatalar(r).join(" | ") || "yok", "yok");
 kontrol("tam 1 satın alma", say(r, "tamam"), 1);
 kontrol("4 yetersiz", say(r, "yetersiz"), 4);
 kontrol("bakiye 30, eksiye düşmedi", (await q("select coin from hub.oyuncular where kullanici = $1", [kimlik(12)]))[0].coin, 30);
+
+// ── Notlar ──────────────────────────────────────────────────────────
+// Süper kullanıcı oturumunda kimliğe bürünüp doğrular (kod e-posta yerine buradan).
+async function dogrula(n, eposta) {
+  const kod = (await q("select public.kimlik_kod_olustur($1, $2)->>'kod' as k", [kimlik(n), eposta]))[0].k;
+  await q("select set_config('request.jwt.claim.sub', $1, false)", [kimlik(n)]);
+  return (await q("select public.kimlik_kod_onayla($1)->>'durum' as d", [kod]))[0].d;
+}
+for (let n = 1; n <= 11; n++) await dogrula(n, `yarisci${n}@ogr.selcuk.edu.tr`);
+await q("select set_config('request.jwt.claim.sub', $1, false)", [kimlik(11)]);
+const hazir = (await q(`select public.pano_not_hazirla(jsonb_build_object('baslik', 'Yarış notu', 'ders_adi', 'Algoritma',
+  'yil', 2026, 'yariyil', 'guz', 'tur', 'ders_notu', 'dosya_turu', 'pdf', 'boyut', 100, 'bolum', 'Bilgisayar',
+  'sinif', '1', 'dosya_ozet', repeat('a', 64))) as r`))[0].r;
+await q("insert into storage.objects (bucket_id, name, metadata) values ('notlar', $1, '{\"mimetype\": \"application/pdf\", \"size\": 100}')", [hazir.yol]);
+await q("select public.pano_not_yayinla($1)", [hazir.id]);
+await q("update pano.notlar set yayinlandi = now() - interval '49 hours' where id = $1", [hazir.id]);
+
+console.log("\n═══ Y8. Bekleyen not, 5 oturum aynı anda onaylar ═══");
+r = await esZamanli([1, 2, 3, 4, 5], "jsonb_build_object('durum', 'tamam', 'l', public.pano_notlar())");
+kontrol("hatasız", hatalar(r).join(" | ") || "yok", "yok");
+kontrol("taban puan bir kez (20)", (await q("select verilen from pano.not_xp where not_id = $1", [hazir.id]))[0].verilen, 20);
+kontrol("defterde tek not satırı",
+  (await q("select count(*)::int n from odul.puan_islemleri where kullanici = $1 and tur = 'not'", [kimlik(11)]))[0].n, 1);
+
+console.log("\n═══ Y9. 10 kişi aynı nota aynı anda oy ═══");
+for (let n = 1; n <= 10; n++) {
+  await q("insert into pano.acilislar (not_id, kullanici) values ($1, $2)", [hazir.id, kimlik(n)]);
+}
+r = await esZamanli([...Array(10).keys()].map((i) => i + 1), `public.pano_not_oy('${hazir.id}', true)`);
+kontrol("hatasız", hatalar(r).join(" | ") || "yok", "yok");
+kontrol("10 oy kabul", say(r, "tamam"), 10);
+kontrol("sayaç 10", (await q("select yararli from pano.notlar where id = $1", [hazir.id]))[0].yararli, 10);
+kontrol("puan 20 + 3×10 = 50", (await q("select verilen from pano.not_xp where not_id = $1", [hazir.id]))[0].verilen, 50);
+kontrol("defter toplamı verilenle aynı",
+  (await q("select sum(miktar)::int s from odul.puan_islemleri where kullanici = $1 and tur = 'not'", [kimlik(11)]))[0].s, 50);
+kontrol("XP önbelleği defterle aynı",
+  (await q(`select (h.xp = (select sum(miktar) from odul.puan_islemleri p where p.kullanici = h.kullanici))::text t
+            from odul.hesaplar h where h.kullanici = $1`, [kimlik(11)]))[0].t, "true");
+
+console.log("\n═══ Y10. Aynı e-posta, iki hesap aynı anda onaylar ═══");
+const kodlar = {};
+for (const n of [15, 16]) {
+  kodlar[n] = (await q("select public.kimlik_kod_olustur($1, 'ortak@ogr.selcuk.edu.tr')->>'kod' as k", [kimlik(n)]))[0].k;
+}
+r = await Promise.all([15, 16].map(async (n) => {
+  const c = new pg.Client({ connectionString: URL_ });
+  await c.connect();
+  try {
+    await c.query("set role authenticated");
+    await c.query("select set_config('request.jwt.claim.sub', $1, false)", [kimlik(n)]);
+    await c.query("begin");
+    const d = (await c.query("select public.kimlik_kod_onayla($1)->>'durum' as d", [kodlar[n]])).rows[0].d;
+    await c.query("select pg_sleep(0.15)");
+    await c.query("commit");
+    return d;
+  } catch (h) {
+    await c.query("rollback").catch(() => {});
+    return "HATA: " + h.message;
+  } finally {
+    await c.end();
+  }
+}));
+kontrol("hatasız", hatalar(r).join(" | ") || "yok", "yok");
+kontrol("tam 1 doğrulandı", say(r, "tamam"), 1);
+kontrol("diğeri kullanımda", say(r, "kullanimda"), 1);
+kontrol("adres tek hesapta",
+  (await q("select count(*)::int n from kimlik.ogrenciler where kullanici in ($1, $2) and dogrulandi is not null",
+    [kimlik(15), kimlik(16)]))[0].n, 1);
 
 await yonetici.end();
 console.log(hata ? "\n═══ YARIŞ TESTLERİ BAŞARISIZ ═══" : "\n═══ YARIŞ TESTLERİ GEÇTİ ═══");

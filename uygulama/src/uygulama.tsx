@@ -32,6 +32,8 @@ const YonetimSayfasi = lazy(() => import("./yonetim/Yonetim"));
 const Perde = lazy(() => import("./yonetim/Perde"));
 // 3B HUB: Three.js yalnızca bu görünüm açılınca iner.
 const HubGorunumu = lazy(() => import("./hub/Hub"));
+// Notlar: dosya yükleme ve doğrulama pencereleriyle birlikte, sekme açılınca iner.
+const Notlar = lazy(() => import("./ekranlar/Notlar"));
 
 /** <site>/isletme — giriş istemez; kasadaki çalışan kendi telefonunda açar. */
 const ISLETME_SAYFASI =
@@ -48,8 +50,8 @@ const ISLETME_SAYFASI =
 const SEKMELER: { anahtar: Sekme; ad: string; simge: SimgeAdi }[] = [
   { anahtar: "ana", ad: "Ana", simge: "ev" },
   { anahtar: "etkinlik", ad: "Etkinlikler", simge: "etkinlik" },
+  { anahtar: "notlar", ad: "Notlar", simge: "kitap" },
   { anahtar: "odul", ad: "Ödüller", simge: "odul" },
-  { anahtar: "topluluk", ad: "Topluluk", simge: "topluluk" },
 ];
 
 /**
@@ -65,8 +67,11 @@ const SEKMELER_YONETIM: typeof SEKMELER = [
   { anahtar: "topluluk", ad: "Topluluk", simge: "topluluk" },
 ];
 
-/** Çubuktaki sütun sırası: tarama 2. sütunda. */
-const SUTUN: Record<Sekme, number> = { ana: 0, etkinlik: 1, odul: 3, topluluk: 4 };
+/** Çubuktaki sütun: tarama 2. sütunda. Sekme çubukta yoksa (üyede Topluluk) -1. */
+function sutun(sekmeler: typeof SEKMELER, s: Sekme) {
+  const i = sekmeler.findIndex((x) => x.anahtar === s);
+  return i < 0 ? -1 : i < 2 ? i : i + 1;
+}
 
 /** Eski ekranın geri çekilme süresi. temel.css → .sahne[data-asama="cik"] ile aynı. */
 const CIKIS_MS = 200;
@@ -190,6 +195,7 @@ function Ekranlar() {
           {gorunen === "odul" && (yonetimde
             ? <Suspense fallback={<Acilis />}><YonetimSayfasi gomulu ilkBolum={yonetimBolumu} /></Suspense>
             : <Oduller bolum={odulBolumu} />)}
+          {gorunen === "notlar" && <Suspense fallback={<Acilis />}><Notlar /></Suspense>}
           {gorunen === "topluluk" && <Topluluk />}
           {gorunen === "sohbet" && <Sohbet onGeri={() => git("topluluk")} />}
         </main>
@@ -197,7 +203,8 @@ function Ekranlar() {
         <nav
           className="gezinme cam"
           aria-label="Ana gezinme"
-          style={{ "--i": SUTUN[secili], "--adet": 5 } as CSSProperties}
+          style={{ "--i": Math.max(0, sutun(sekmeler, secili)), "--adet": 5 } as CSSProperties}
+          data-gosterge={sutun(sekmeler, secili) < 0 ? "yok" : undefined}
         >
           <span className="gezinme-gosterge" aria-hidden="true" />
           {/* Yalnızca masaüstü kenar çubuğunda görünür. */}

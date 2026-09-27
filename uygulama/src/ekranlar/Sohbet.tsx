@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { supabase, ROL_ADI, type Mesaj, type Profil } from "../veri/supabase";
 import { useOturum } from "../veri/oturum";
 import Simge from "../tasarim/Simge";
+import SikayetPenceresi from "../pano/SikayetPenceresi";
 
 const SAYFA = 60;
 
@@ -18,6 +19,7 @@ export default function Sohbet({ onGeri }: { onGeri?: () => void }) {
   const { profil, yetkiliMi } = useOturum();
   const [mesajlar, setMesajlar] = useState<Mesaj[]>([]);
   const [kisiler, setKisiler] = useState<Record<string, Profil>>({});
+  const [sikayet, setSikayet] = useState<number | null>(null);
   const [taslak, setTaslak] = useState("");
   const [yukleniyor, setYukleniyor] = useState(true);
   const [hata, setHata] = useState<string | null>(null);
@@ -187,8 +189,18 @@ export default function Sohbet({ onGeri }: { onGeri?: () => void }) {
                 <time dateTime={ilk.olusturuldu}>{saat(ilk.olusturuldu)}</time>
               </div>
               {grup.mesajlar.map((m) => (
-                <div key={m.id} className="satir">
-                  <p>{m.icerik}</p>
+                <div key={m.id} className={"satir mesaj" + (m.gizlendi ? " gizlenmis" : "")}>
+                  <p>{m.icerik}{m.gizlendi && <span className="gizli-not"> · şikayetle gizlendi</span>}</p>
+                  {!benimMi && (
+                    <button
+                      className="ikon-dugme kucuk mesaj-sikayet"
+                      onClick={() => setSikayet(m.id)}
+                      aria-label="Mesajı şikayet et"
+                      data-ipucu="Şikayet et"
+                    >
+                      <Simge ad="kalkan" boyut={15} />
+                    </button>
+                  )}
                   {(benimMi || yetkiliMi) && (
                     <button
                       className="ikon-dugme kucuk"
@@ -207,6 +219,11 @@ export default function Sohbet({ onGeri }: { onGeri?: () => void }) {
       </div>
 
       {hata && <p className="bildirim cam" role="alert">{hata}</p>}
+      {sikayet !== null && (
+        // Şikayet eden kişi mesajı artık görmez; eşik dolarsa herkesten gizlenir.
+        <SikayetPenceresi tur="mesaj" hedef={String(sikayet)} onKapat={() => setSikayet(null)}
+          onTamam={() => setMesajlar((o) => o.filter((x) => x.id !== sikayet))} />
+      )}
 
       <form
         className="yazici yalin cam gir"

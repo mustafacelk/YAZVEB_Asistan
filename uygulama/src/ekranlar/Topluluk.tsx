@@ -4,6 +4,7 @@ import { supabase, ROL_ADI, type Mesaj, type Profil, type Rol } from "../veri/su
 import { useGorunum, useOturum } from "../veri/oturum";
 import { useGezinme } from "../veri/gezinme";
 import Simge from "../tasarim/Simge";
+import KimlikKarti from "../kimlik/KimlikKarti";
 
 const SIRA: Record<Rol, number> = { baskan: 0, yonetici: 1, uye: 2 };
 
@@ -226,6 +227,11 @@ export default function Topluluk() {
               </button>
             </form>
 
+            <div className="alan">
+              <span className="etiket">Öğrenci kimliği</span>
+              <KimlikKarti />
+            </div>
+
             {yetkiliMi && (
               <div className="alan">
                 <span className="etiket">Açılış görünümü</span>
@@ -289,7 +295,9 @@ function VeriOzeti() {
         <li><b>Puan ve ödüller:</b> kazandığın her puan ve ödül hesabında kayıtlı; Ödüller → Geçmiş'te hepsini görebilirsin. Ödülü onaylayan işletme çalışanı yalnızca ödülün kodunu ve adını görür; adın ve hesabın ona gösterilmez.</li>
         <li><b>Sıralama:</b> yalnızca kullanıcı adın görünür. Gizli profili açarak tamamen çıkabilirsin.</li>
         <li><b>Asistan:</b> sorun, yanıt üretmek için yapay zekâ servisine gönderilir; YAZVEB soruları saklamaz. Etkinlik sorarsan uygulamadaki yaklaşan etkinlikler, puanını sorarsan yalnızca puanın ve seviyen yanıta eklenir; adın ve e-postan gönderilmez. Sesli yanıt açıksa yanıt metni seslendirme servisine gider.</li>
-        <li><b>Sohbet:</b> genel sohbetteki mesajlar topluluk üyelerine görünür ve saklanır. Kendi mesajını silebilirsin.</li>
+        <li><b>Sohbet:</b> genel sohbetteki mesajlar topluluk üyelerine görünür ve saklanır. Kendi mesajını silebilirsin. Birkaç üye şikayet ederse mesaj yönetim inceleyene kadar gizlenir.</li>
+        <li><b>Öğrenci doğrulama:</b> üniversite e-postan yalnızca kodu göndermek için kullanılır ve saklanmaz. Hesabında kalan: üniversiten (alan adından), doğrulama tarihi ve adresin geri çevrilemeyen bir özeti (aynı adres iki hesabı doğrulamasın diye). Bölüm ve sınıf senin beyanın. Hesabım → Öğrenci kimliği'nden doğrulamayı kaldırabilirsin.</li>
+        <li><b>Notlar:</b> paylaştığın dosya, künyesi ve kullanıcı adın (gizli profilde adsız) diğer üyelere görünür; dosyayı yalnızca doğrulanmış öğrenciler açabilir. Kimin hangi notu açtığı başkasına gösterilmez; yalnızca toplam sayı. Notunu kaldırınca dosya da silinir.</li>
         <li><b>Güvenlik:</b> kötüye kullanımı sınırlamak için IP adresinin geri çevrilemeyen kısa bir özeti en fazla 30 gün tutulur.</li>
       </ul>
       <p className="soluk">Verilerini satmıyoruz, reklam için kullanmıyoruz. Hesabının silinmesini istersen YAZVEB yönetimine yaz.</p>

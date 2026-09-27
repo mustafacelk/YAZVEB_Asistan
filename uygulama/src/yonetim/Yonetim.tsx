@@ -1,5 +1,8 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
+import { Alan, FormPenceresi, Mesaj } from "./ortak";
+import { useIslem } from "./islem";
+import { Moderasyon, NotYonetimi } from "./PanoYonetim";
 import Simge, { ODUL_IKONLARI, odulIkonu } from "../tasarim/Simge";
 import { supabase, type Etkinlik } from "../veri/supabase";
 import { useOturum } from "../veri/oturum";
@@ -31,37 +34,13 @@ const BOLUMLER: { anahtar: Bolum; ad: string; simge: Parameters<typeof Simge>[0]
   { anahtar: "ozet", ad: "Özet", simge: "grafik" },
   { anahtar: "gorevler", ad: "QR görevleri", simge: "qr" },
   { anahtar: "sponsorlar", ad: "Sponsorlar", simge: "hediye" },
+  { anahtar: "notlar", ad: "Notlar", simge: "kitap" },
+  { anahtar: "moderasyon", ad: "Şikayetler", simge: "kalkan" },
   { anahtar: "kullanicilar", ad: "Kullanıcılar", simge: "topluluk" },
   { anahtar: "seviyeler", ad: "Seviyeler", simge: "yildiz" },
   { anahtar: "kullanimlar", ad: "Kullanımlar", simge: "tik" },
   { anahtar: "denetim", ad: "Denetim", simge: "kalkan", baskan: true },
 ];
-
-/** Hata/bilgi mesajı taşıyan ortak kanca. */
-function useIslem() {
-  const [mesaj, setMesaj] = useState<{ tur: "hata" | "bilgi"; metin: string } | null>(null);
-  const [bekliyor, setBekliyor] = useState(false);
-  const calistir = useCallback(async <T,>(is: () => Promise<T>, basari?: string): Promise<T | undefined> => {
-    setBekliyor(true);
-    setMesaj(null);
-    try {
-      const r = await is();
-      if (basari) setMesaj({ tur: "bilgi", metin: basari });
-      return r;
-    } catch (h) {
-      setMesaj({ tur: "hata", metin: h instanceof OdulHatasi ? h.message : "İşlem tamamlanamadı." });
-      return undefined;
-    } finally {
-      setBekliyor(false);
-    }
-  }, []);
-  return { mesaj, bekliyor, calistir, setMesaj };
-}
-
-function Mesaj({ m }: { m: { tur: "hata" | "bilgi"; metin: string } | null }) {
-  if (!m) return null;
-  return <p className={"bildirim" + (m.tur === "bilgi" ? " bilgi" : "")} role={m.tur === "hata" ? "alert" : "status"}>{m.metin}</p>;
-}
 
 /**
  * Ödül sistemi yönetim paneli — yalnızca yetkililer (başkan, yönetici).
@@ -77,6 +56,10 @@ export default function Yonetim({ onKapat, gomulu = false, ilkBolum = "ozet" }: 
   const { baskanMi } = useOturum();
   const [bolum, setBolum] = useState<Bolum>(ilkBolum);
   useEffect(() => { setBolum(ilkBolum); }, [ilkBolum]);
+  // Bölüm çubuğu dar ekranda yatay kayar: seçili bölüm görünür alana gelsin.
+  useEffect(() => {
+    document.querySelector(".yonetim-bolumler [aria-current=page]")?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [bolum]);
 
   useEffect(() => {
     if (gomulu || !onKapat) return;
@@ -93,7 +76,7 @@ export default function Yonetim({ onKapat, gomulu = false, ilkBolum = "ozet" }: 
       <header className="yonetim-ust">
         {!gomulu && onKapat && <button className="ikon-dugme" onClick={onKapat} aria-label="Kapat"><Simge ad="kapat" /></button>}
         <div>
-          <span className="etiket">Community Rewards</span>
+          <span className="etiket">YAZVEB</span>
           <h1>Yönetim</h1>
         </div>
       </header>
@@ -108,6 +91,8 @@ export default function Yonetim({ onKapat, gomulu = false, ilkBolum = "ozet" }: 
         {bolum === "ozet" && <Ozet />}
         {bolum === "gorevler" && <Gorevler />}
         {bolum === "sponsorlar" && <Sponsorlar />}
+        {bolum === "notlar" && <NotYonetimi />}
+        {bolum === "moderasyon" && <Moderasyon />}
         {bolum === "kullanicilar" && <Kullanicilar baskan={baskanMi} />}
         {bolum === "seviyeler" && <Seviyeler baskan={baskanMi} />}
         {bolum === "kullanimlar" && <Kullanimlar />}
@@ -834,38 +819,5 @@ function Denetim() {
         {liste?.length === 0 && <li className="soluk">Kayıt yok.</li>}
       </ul>
     </>
-  );
-}
-
-// ── Ortak form parçaları ────────────────────────────────────────────
-function Alan({ ad, not, children }: { ad: string; not?: string; children: ReactNode }) {
-  return (
-    <label className="alan">
-      <span className="etiket">{ad}{not ? <i> ({not})</i> : null}</span>
-      {children}
-    </label>
-  );
-}
-
-function FormPenceresi({ baslik, onKapat, children }: { baslik: string; onKapat: () => void; children: ReactNode }) {
-  useEffect(() => {
-    const tus = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); onKapat(); } };
-    window.addEventListener("keydown", tus, true);
-    return () => window.removeEventListener("keydown", tus, true);
-  }, [onKapat]);
-  // Pencere body'ye taşınır: Yönetim bir sekme olarak açıldığında sahne katmanı
-  // kendi yığın bağlamını kuruyor ve gezinme çubuğu formun altını (Kaydet
-  // düğmesini) örtüyordu.
-  return createPortal(
-    <div className="katman" onClick={onKapat}>
-      <div className="pencere yonetim-pencere" role="dialog" aria-modal="true" aria-label={baslik} onClick={(e) => e.stopPropagation()}>
-        <div className="pencere-basi">
-          <h2>{baslik}</h2>
-          <button className="ikon-dugme" onClick={onKapat} aria-label="Kapat"><Simge ad="kapat" /></button>
-        </div>
-        {children}
-      </div>
-    </div>,
-    document.body,
   );
 }

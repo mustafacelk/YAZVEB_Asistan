@@ -7,7 +7,7 @@ import { sayi, tarihSaat } from "../veri/odul";
 import Simge from "../tasarim/Simge";
 import AlintiKarti from "../tasarim/AlintiKarti";
 import { CanliQrPenceresi, QrPenceresi } from "./QrKod";
-import { yonetim, type YGorev, type YOzet, type YSponsor } from "./veri";
+import { panoYonetim, yonetim, type YGorev, type YOzet, type YSponsor } from "./veri";
 import { dikkatListesi, etkinlikGorevleri, odakEtkinlik, suruyor, type Dikkat } from "./oncelik";
 
 const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
@@ -41,6 +41,8 @@ export default function Panel() {
   const [hata, setHata] = useState<string | null>(null);
   const [perde, setPerde] = useState<YGorev | null>(null);
   const [simdi, setSimdi] = useState(Date.now());
+  // Açık şikayet sayısı (Notlar kurulmamışsa null: satır görünmez).
+  const [sikayet, setSikayet] = useState<number | null>(null);
 
   const yukle = useCallback(async () => {
     try {
@@ -53,6 +55,7 @@ export default function Panel() {
         yonetim.ozet().catch(() => null),
       ]);
       setVeri({ etkinlikler: (etk.data as Etkinlik[] | null) ?? [], gorevler, sponsorlar, ozet });
+      panoYonetim.moderasyon().then((l) => setSikayet(l.length)).catch(() => setSikayet(null));
       setSimdi(Date.now());
       setHata(null);
     } catch {
@@ -199,6 +202,13 @@ export default function Panel() {
             <Gecis simge="etkinlik" baslik="Etkinlikler" alt="Ekle, düzenle, takvim" onAc={() => git("etkinlik")} />
             <Gecis simge="qr" baslik="QR görevleri" alt="Oluştur, perdeye yansıt, yenile" onAc={() => git("odul", { yonetim: "gorevler" })} />
             <Gecis simge="hediye" baslik="Sponsorlar ve kampanyalar" alt="PIN, stok, kampanya QR'si" onAc={() => git("odul", { yonetim: "sponsorlar" })} />
+            {sikayet !== null && (
+              <Gecis simge="kalkan" baslik={sikayet > 0 ? `${sikayet} açık şikayet` : "Şikayetler"}
+                     alt={sikayet > 0 ? "Not ya da sohbet mesajı: incele, karar ver" : "Açık şikayet yok"}
+                     onAc={() => git("odul", { yonetim: "moderasyon" })} />
+            )}
+            <Gecis simge="kitap" baslik="Notlar" alt="Sınav dönemleri, sponsorlu ilanlar, puan kuralları"
+                   onAc={() => git("odul", { yonetim: "notlar" })} />
             <Gecis simge="tik" baslik="Ödül kullanımları" alt="Kim, hangi ödülü, ne zaman kullandı" onAc={() => git("odul", { yonetim: "kullanimlar" })} />
             <Gecis simge="topluluk" baslik={rol === "baskan" ? "Üyeler ve roller" : "Üyeler ve sohbet"}
                    alt={rol === "baskan" ? "Rol dağıt, sohbeti izle" : "Genel sohbet ve üye listesi"} onAc={() => git("topluluk")} />

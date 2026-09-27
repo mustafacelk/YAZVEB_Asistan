@@ -7,18 +7,23 @@ import { createContext, useContext } from "react";
  * sekme değil, bir sekmenin içinden açılan görünümler: Asistan Ana'nın,
  * Sohbet Topluluk'un altında. Çubuk en fazla beş öğe taşır; altıncı öğe
  * hem seçimi zorlaştırır hem de taramayı parmaktan uzaklaştırır.
+ *
+ * Üye çubuğu: Ana · Etkinlikler · [QR] · Notlar · Ödüller. Topluluk (sohbet,
+ * hesap, üyeler) Ana'nın başlığındaki profil düğmesinden açılır; yönetim
+ * çubuğunda ise hâlâ bir sekmedir.
  */
-export type Sekme = "ana" | "etkinlik" | "odul" | "topluluk";
+export type Sekme = "ana" | "etkinlik" | "notlar" | "odul" | "topluluk";
 export type Gorunum = Sekme | "asistan" | "sohbet";
 export type OdulBolumu = "sponsorlar" | "oduller" | "siralama";
 /** Yönetim görünümünde "Yönetim" sekmesinin bölümleri (yonetim/Yonetim.tsx). */
-export type YonetimBolumu = "ozet" | "gorevler" | "sponsorlar" | "kullanicilar" | "seviyeler" | "kullanimlar" | "denetim";
+export type YonetimBolumu = "ozet" | "gorevler" | "sponsorlar" | "notlar" | "moderasyon" | "kullanicilar" | "seviyeler" | "kullanimlar" | "denetim";
 
 /** Alt görünüm hangi sekmenin altında: gösterge o sekmede kalır. */
 export const UST_SEKME: Record<Gorunum, Sekme> = {
   ana: "ana",
   asistan: "ana",
   etkinlik: "etkinlik",
+  notlar: "notlar",
   odul: "odul",
   topluluk: "topluluk",
   sohbet: "topluluk",

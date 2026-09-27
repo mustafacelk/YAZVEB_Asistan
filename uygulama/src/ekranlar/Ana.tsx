@@ -15,6 +15,8 @@ import {
 } from "../veri/odul";
 import Simge from "../tasarim/Simge";
 import AlintiKarti from "../tasarim/AlintiKarti";
+import { pano, type PanoOzeti } from "../veri/pano";
+import { sinavMetni } from "../veri/pano_bicim";
 
 const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
 
@@ -49,6 +51,11 @@ export default function Ana() {
   const [cuzdan, setCuzdan] = useState<KazanimOzeti[]>([]);
   const [rehber, setRehber] = useState(() => !rehberKapandiMi());
   const [soru, setSoru] = useState("");
+  const [notOzeti, setNotOzeti] = useState<PanoOzeti | null>(null);
+
+  // Sınav dönemi kartı: yalnızca dönem yaklaşınca/sürerken. Notlar henüz
+  // kurulmamışsa sessizce yok sayılır.
+  useEffect(() => { pano.ozet().then(setNotOzeti).catch(() => setNotOzeti(null)); }, []);
 
   const yukle = useCallback(async () => {
     const [p, liste, oz, cz] = await Promise.all([
@@ -95,9 +102,13 @@ export default function Ana() {
           </button>
           {yetkiliMi && (
             <button className="metin-dugme baglanti" onClick={() => gorunumSec("yonetim")}>
-              <Simge ad="ayar" boyut={14} /> Yönetim paneli
+              <Simge ad="ayar" boyut={14} /> Yönetim
             </button>
           )}
+          {/* Topluluk (sohbet, hesap, üyeler) üye çubuğunda değil: buradan. */}
+          <button className="ana-profil" onClick={() => git("topluluk")} aria-label="Topluluk ve hesabım" data-ipucu="Topluluk">
+            {bashar(profil?.ad_soyad || profil?.kullanici_adi)}
+          </button>
         </header>
 
         {kipUyarisi && (
@@ -142,6 +153,23 @@ export default function Ana() {
             <Simge ad={soru.trim() ? "gonder" : "mikrofon"} boyut={16} />
           </button>
         </form>
+
+        {notOzeti?.sinav && (
+          <section className="ana-bolum gir" style={kademe(3)}>
+            <button className="ana-satir ana-sinav" onClick={() => git("notlar")}>
+              <span className="ana-satir-ikon"><Simge ad="kitap" boyut={20} /></span>
+              <span className="ana-satir-govde">
+                <b>{sinavMetni(notOzeti.sinav)}</b>
+                <span className="soluk">
+                  {notOzeti.bolum_notlari
+                    ? `${notOzeti.bolum}: ${notOzeti.bolum_notlari} not seni bekliyor.`
+                    : "Bölümünün notlarına bak, sen de paylaş."}
+                </span>
+              </span>
+              <Simge ad="ileri" boyut={16} />
+            </button>
+          </section>
+        )}
 
         <section className="ana-bolum gir" style={kademe(3)} aria-labelledby="ana-etkinlik">
           <div className="bolum-basi yakin">
@@ -304,4 +332,11 @@ function enYakinBitis(aktif: KazanimOzeti[]) {
   const etiket = sonKullanimEtiketi(sirali[0].son_kullanma);
   if (!etiket) return null;
   return aktif.length === 1 ? etiket : `En yakını · ${etiket.toLocaleLowerCase("tr")}`;
+}
+
+/** "Mustafa Çelik" → "MÇ", "mustafa" → "M". */
+function bashar(ad?: string | null) {
+  const parca = (ad ?? "").trim().split(/\s+/).filter(Boolean);
+  const harfler = parca.length > 1 ? parca[0][0] + parca[parca.length - 1][0] : (parca[0]?.[0] ?? "?");
+  return harfler.toLocaleUpperCase("tr");
 }

@@ -235,6 +235,52 @@ for (const tablo of ["profiller", "mesajlar", "etkinlikler"]) {
   else if (durum !== 404) yaz("✓", "Anonim kullanıcı Coin kazanamıyor", `HTTP ${durum}`);
 }
 
+// ── 7. Öğrenci doğrulama (08_kimlik.sql) ve Notlar (09_pano.sql) ───
+{
+  const { durum } = await iste("/rest/v1/rpc/kimlik_durum", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (durum === 404) yaz("✗", "Öğrenci doğrulama kurulmamış", "08_kimlik.sql'i çalıştır");
+  else if (durum === 200) yaz("✗", "GÜVENLİK: kimlik durumu anonim okunabiliyor");
+  else yaz("✓", "Öğrenci doğrulama kurulu, anonime kapalı", `HTTP ${durum}`);
+}
+{
+  // Kodu üreten fonksiyon YALNIZCA sunucu rolüne açık olmalı: yayınlanabilir
+  // anahtarla çağrılabiliyorsa kod e-postasız öğrenilir. Biçimsiz girdi gider;
+  // izin verilse bile hiçbir şey yazmaz ("gecersiz" döner).
+  const { durum } = await iste("/rest/v1/rpc/kimlik_kod_olustur", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ p_kullanici: "00000000-0000-0000-0000-000000000000", p_eposta: "x" }),
+  });
+  if (durum === 200) yaz("✗", "GÜVENLİK: doğrulama kodu üreticisi dışarıya açık", "08_kimlik.sql'i yeniden çalıştır");
+  else if (durum !== 404) yaz("✓", "Doğrulama kodu yalnızca sunucuda üretilir", `HTTP ${durum}`);
+}
+{
+  const { durum } = await iste("/rest/v1/rpc/pano_notlar", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ p: {} }),
+  });
+  if (durum === 404) yaz("✗", "Notlar kurulmamış", "09_pano.sql'i çalıştır");
+  else if (durum === 200) yaz("✗", "GÜVENLİK: not listesi anonim okunabiliyor");
+  else yaz("✓", "Notlar kurulu, anonime kapalı", `HTTP ${durum}`);
+}
+{
+  // Doğrulama e-postası fonksiyonu: jetonsuz istek 401 döner (kod üretmez).
+  const { durum } = await iste("/functions/v1/dogrula", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ eposta: "kontrol@ogr.selcuk.edu.tr" }),
+  });
+  if (durum === 404) yaz("!", "Doğrulama e-posta fonksiyonu dağıtılmamış", "npx supabase functions deploy dogrula");
+  else if (durum === 401) yaz("✓", "Doğrulama e-posta fonksiyonu dağıtılmış, kimliksiz isteği reddediyor");
+  else if (durum === 503) yaz("!", "Doğrulama fonksiyonu var ama e-posta sağlayıcısı ayarlanmamış", "EPOSTA_SAGLAYICI / EPOSTA_ANAHTARI / EPOSTA_GONDEREN");
+  else yaz("!", "Doğrulama fonksiyonu beklenmeyen yanıt", `HTTP ${durum}`);
+}
+
 const hatali = sonuc.filter((s) => s.durum === "✗").length;
 console.log(
   `\n═══ ${sonuc.length - hatali}/${sonuc.length} kontrol geçti ═══\n`,

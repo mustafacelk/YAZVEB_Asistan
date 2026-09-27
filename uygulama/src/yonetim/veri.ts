@@ -124,3 +124,53 @@ export async function logoHazirla(dosya: File): Promise<string> {
   }
   throw new OdulHatasi("Logo sıkıştırılamadı; daha sade bir görsel dene.");
 }
+
+// ── Notlar (Pano): moderasyon, sınav dönemleri, sponsorlu ilanlar ──
+
+export type YSikayet = {
+  tur: "not" | "mesaj";
+  hedef: string;
+  sayi: number;
+  son: string;
+  nedenler: Record<string, number>;
+  aciklamalar: string[];
+  icerik:
+    | { baslik: string; ders: string; bolum: string; universite: string; durum: string; dosya_turu: string; yol: string; yazar: string }
+    | { metin: string; gizli: boolean; zaman: string; yazar: string }
+    | null;
+};
+
+export type YSinavDonemi = { id?: number; kurum_alani: string; universite?: string; ad: string; baslangic: string; bitis: string };
+
+export type YSponsorlu = {
+  id?: string; sponsor_id: string | null; sponsor?: string | null; kademe: "altin" | "gumus" | "bronz";
+  baslik: string; metin: string | null; baglanti: string | null; baglam: "her_zaman" | "sinav_donemi";
+  hedef_kurum: string | null; baslangic: string; bitis: string; aktif: boolean; gosterim?: number; tiklama?: number;
+};
+
+export type YPanoAyarlar = {
+  taban_xp: number; oy_xp: number; not_tavan: number; haftalik_tavan: number; sinav_oncesi_gun: number;
+  sinav_carpani: number; onay_saat: number; sikayet_esigi: number; gunluk_yukleme: number;
+};
+
+export type YPano = {
+  ayarlar: YPanoAyarlar;
+  sinav_donemleri: YSinavDonemi[];
+  sponsorlu: YSponsorlu[];
+  sponsorlar: { id: string; ad: string }[];
+  alanlar: { kurum_alani: string; ad: string | null; uye: number }[];
+  istatistik: { not: number; bu_hafta: number; dogrulanmis: number; acilma_hafta: number; acik_sikayet: number };
+};
+
+export const panoYonetim = {
+  ozet: () => cagir<YPano>("pano_yonetim"),
+  moderasyon: () => cagir<YSikayet[]>("pano_moderasyon"),
+  karar: (tur: string, hedef: string, karar: "tut" | "kaldir") =>
+    cagir<{ durum: string }>("pano_moderasyon_karar", { p_tur: tur, p_hedef: hedef, p_karar: karar }),
+  sinavKaydet: (p: YSinavDonemi) => cagir<{ durum: string }>("pano_sinav_kaydet", { p }),
+  sinavSil: (id: number) => cagir<{ durum: string }>("pano_sinav_sil", { p_id: id }),
+  sponsorluKaydet: (p: Partial<YSponsorlu>) => cagir<{ durum: string }>("pano_sponsorlu_kaydet", { p }),
+  sponsorluSil: (id: string) => cagir<{ durum: string }>("pano_sponsorlu_sil", { p_id: id }),
+  ayarlarKaydet: (p: Partial<YPanoAyarlar>) => cagir<YPanoAyarlar>("pano_ayarlar_kaydet", { p }),
+  universiteKaydet: (kurum: string, ad: string) => cagir<{ durum: string }>("kimlik_universite_kaydet", { p_kurum: kurum, p_ad: ad }),
+};

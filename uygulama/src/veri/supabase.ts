@@ -106,6 +106,8 @@ export type Mesaj = {
   yazar: string;
   icerik: string;
   olusturuldu: string;
+  /** Şikayetle gizlendi (09_pano.sql); yalnızca yazarı ve yetkililer görür. */
+  gizlendi?: boolean;
 };
 
 export type Etkinlik = {

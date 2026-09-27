@@ -13,6 +13,7 @@ Tek kod tabanı; **web sitesi**, **Android** ve **iOS** olarak çalışır.
 | Genel sohbet (anlık) | ✅ hazır |
 | Etkinlik takvimi | ✅ hazır |
 | Üç kademeli yetki (başkan / yönetici / üye) | ✅ hazır, testli |
+| Notlar (ders notu, çıkmış soru, özet) + öğrenci doğrulama | ✅ hazır, testli; e-posta servisi anahtarı bekliyor |
 | Web sitesi olarak yayın | ⏳ senin hesabını bekliyor |
 | Android APK | ⏳ GitHub Actions hazır, çalıştırman yeter |
 | iOS | ⏳ Mac + Apple Developer hesabı gerekiyor |
@@ -246,6 +247,14 @@ src/
     katalog.ts         renkler, adlar, hediye emojileri (sunucu kataloğuyla aynı kimlikler)
     veri.ts            hub_* çağrıları, tipler, "HUB açık kalsın" tercihi
     HubSiniri.tsx      HUB çökerse uygulama değil yalnızca HUB kapanır
+  ekranlar/Notlar.tsx  notlar: keşfet, paylaş, aç, "işime yaradı", şikayet, Notlarım
+  kimlik/
+    Dogrulama.tsx      üniversite e-postasıyla öğrenci doğrulama (e-posta → kod → bölüm)
+    KimlikKarti.tsx    hesap penceresinde öğrenci kimliği, doğrulamayı kaldırma
+  veri/kimlik.ts       kimlik_* çağrıları ve kullanıcıya gösterilecek mesajlar
+  veri/pano.ts         pano_* çağrıları, Storage'a yükleme / indirme
+  veri/pano_bicim.ts   saf yardımcılar: künye denetimi, dönem, sponsorlu kart yerleşimi
+  yonetim/PanoYonetim.tsx  şikayet kuyruğu, sınav dönemleri, sponsorlu ilanlar, puan kuralları
 veritabani/
   01_sema.sql        tablolar, tetikleyiciler
   02_yetkiler.sql    satır düzeyi güvenlik
@@ -254,7 +263,12 @@ veritabani/
   05_oduller.sql     puan, görev (canlı kod), sponsor, kampanya, ödül
   06_isletme.sql     çalışanın cihazında ödül doğrulama (anonim, sınırlı)
   07_hub.sql         YAZVEB HUB: Coin defteri, envanter, oda, ziyaret, hediye, çark
-  99_*.sql           yetki, güvenlik, ödül, işletme ve HUB testleri
+  08_kimlik.sql      öğrenci doğrulama: kod (yalnız sunucuda), alan → üniversite, süre
+  09_pano.sql        notlar, oy, puan, şikayet/moderasyon, sınav dönemi, sponsorlu, Storage
+  99_*.sql           yetki, güvenlik, ödül, işletme, HUB, doğrulama ve not testleri
+supabase/functions/
+  asistan/           sesli/yazılı asistan
+  dogrula/           doğrulama kodunu üniversite e-postasına gönderir (Brevo ya da Resend)
 ```
 
 ### Testleri çalıştırma
@@ -262,13 +276,15 @@ veritabani/
 ```bash
 npm run test:guvenlik      # girdi doğrulama, istem ayrımı, çıktı süzgeci, CORS (67)
 npm run test:transkript    # mikrofon parçalarını birleştirme (12)
+npm run test:notlar        # künye, sponsorlu yerleşimi, doğrulama e-postası (46)
 npm run lint               # CI'da da çalışır; hata varsa APK derlenmez
 npm run yayina-hazir       # derleme + paket taraması (sır, kaynak haritası, CSP)
 ```
 
-Veritabanı testleri (328) — Docker gerekir. Yetki ve güvenlik (86) + ödül iş
+Veritabanı testleri (486) — Docker gerekir. Yetki ve güvenlik (86) + ödül iş
 mantığı, canlı kod, sıralama ve saldırı senaryoları (141) + işletme
-doğrulaması (27) + YAZVEB HUB ekonomisi (74) tek paket hâlinde çalışır:
+doğrulaması (27) + YAZVEB HUB ekonomisi (74) + öğrenci doğrulama (50) +
+notlar, depo kuralları, puan ve moderasyon (108) tek paket hâlinde çalışır:
 
 ```bash
 docker run -d --name yz-test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=yazveb \
@@ -279,7 +295,10 @@ docker exec yz-test psql -U postgres -d yazveb -v ON_ERROR_STOP=1 -q \
   -f /tmp/00_test_altyapisi.sql -f /tmp/01_sema.sql -f /tmp/02_yetkiler.sql \
   -f /tmp/99_testler.sql -f /tmp/03_kurulum.sql -f /tmp/04_guvenlik.sql \
   -f /tmp/99_guvenlik_testleri.sql -f /tmp/05_oduller.sql -f /tmp/99_odul_testleri.sql \
-  -f /tmp/06_isletme.sql -f /tmp/99_isletme_testleri.sql   -f /tmp/07_hub.sql -f /tmp/99_hub_testleri.sql
+  -f /tmp/06_isletme.sql -f /tmp/99_isletme_testleri.sql \
+  -f /tmp/07_hub.sql -f /tmp/99_hub_testleri.sql \
+  -f /tmp/08_kimlik.sql -f /tmp/99_kimlik_testleri.sql \
+  -f /tmp/09_pano.sql -f /tmp/99_pano_testleri.sql
 ```
 
 Bir kural bozulursa betik hata ile durur.
@@ -326,8 +345,9 @@ update public.kota_ayarlari set dakika = 12, gun = 150, genel = 3000 where tur =
 ### Güncelleme sırası (mevcut kurulum için)
 
 1. Supabase SQL editöründe sırayla **`veritabani/04_guvenlik.sql`**,
-   **`05_oduller.sql`**, **`06_isletme.sql`**, **`07_hub.sql`**'i çalıştır
-   (hepsi tekrar çalıştırılabilir; mevcut veri korunur).
+   **`05_oduller.sql`**, **`06_isletme.sql`**, **`07_hub.sql`**,
+   **`08_kimlik.sql`**, **`09_pano.sql`**'i çalıştır (hepsi tekrar
+   çalıştırılabilir; mevcut veri korunur).
 2. `git push` — site yeni istemciyle ve `/isletme` sayfasıyla yayına çıkar.
    Önce 1. adım: yeni istemci ödül onayını `06_isletme.sql`'deki fonksiyonla
    yapar, o yoksa ödüller onaylanamaz.
@@ -390,9 +410,10 @@ sıradaki etkinlik.
 
 ### Gezinme
 
-Çubukta dört sekme ve ortada tarama: **Ana · Etkinlikler · [Tara] · Ödüller ·
-Topluluk**. Tarama her ekrandan tek dokunuş. Asistan Ana'dan, genel sohbet
-Topluluk'tan açılır; çubuk beş öğeyi geçmez.
+Çubukta dört sekme ve ortada tarama: **Ana · Etkinlikler · [Tara] · Notlar ·
+Ödüller**. Tarama her ekrandan tek dokunuş. Asistan Ana'dan açılır; Topluluk
+(genel sohbet, hesap, üyeler) Ana'nın sağ üstündeki profil düğmesinden. Çubuk
+beş öğeyi geçmez. Yönetim görünümünde çubuk değişmez (Topluluk orada sekme).
 
 ### Role göre arayüz
 
@@ -578,6 +599,107 @@ tasarlandı; asıl uygulamanın (etkinlik, QR, ödül) önüne geçmez.
 2. `node baglanti_kontrol.mjs` → "YAZVEB HUB kurulu, anonime kapalı" ✓
 3. Ardından `git push`. SQL'den önce yayına çıkarsa HUB açılır ama "YAZVEB
    HUB henüz kurulmamış" der; uygulamanın geri kalanı etkilenmez.
+
+---
+
+## Notlar ve öğrenci doğrulama
+
+Uygulamanın kampüs geneline açılan ilk modülü: bölüm bölüm **ders notu,
+çıkmış soru çözümü ve özet**. Aynı altyapı (doğrulanmış yazar, künye,
+şikayet, moderasyon, sponsorlu kart) ileride ev devri, 2. el ve duyurular
+için kullanılacak.
+
+### Değişmez kurallar
+
+- **Uygulamada para dönmez.** Ödeme, kapora, komisyon yok. Gelir yalnızca
+  reklam, duyuru ve sponsordan gelir; öğrenciden para alınmaz.
+- **Her öğrenci ağa eşit erişir.** Öğrencinin notu parayla öne çıkarılamaz.
+  Sponsorlu kart kademesine göre (altın → gümüş → bronz) üstte ve daha dikkat
+  çekici durur, ama her zaman "Sponsorlu" etiketiyle ve en fazla her beş
+  kartta bir; organik notu listeden itmez. Not yokken en fazla bir sponsorlu
+  kart görünür.
+- **Hedefleme kişisel veriyle değil bağlamla:** üniversite ve sınav dönemi.
+
+### Öğrenci doğrulama (resmî prosedür yok)
+
+Üniversitenin kendi e-posta sunucusu kanıttır. Öğrenci `.edu.tr` ile biten
+adresini yazar (Selçuk: `öğrencinumarası@ogr.selcuk.edu.tr`), `dogrula`
+fonksiyonu 6 haneli bir kod gönderir, öğrenci kodu uygulamaya yazar.
+
+- Herhangi bir üniversite kabul edilir; üniversite **e-posta alanından**
+  gelir, elle yazılamaz. Bölüm ve sınıf beyandır. Öğrenci alt alanları
+  (`ogr.`, `ogrenci.`, `std.`, `stu.`, `stud.`, `student.`) "Doğrulanmış
+  öğrenci", kurumun ana alanı "Doğrulanmış üniversite e-postası" rozeti alır.
+  Tanınmayan alanın adını yönetici verir (Yönetim → Notlar → Üniversiteler).
+- **Adres saklanmaz**; yalnızca alan adı, doğrulama tarihi ve adresin gizli
+  anahtarlı özeti (aynı adres iki hesabı doğrulamasın diye). Öğrenci numarası
+  veritabanına hiç girmez. Kullanıcı doğrulamasını kendisi kaldırabilir.
+- Kodu üreten fonksiyon **yalnızca sunucu rolüne** açık; kod istemciye hiç
+  dönmez. 15 dakika geçerli, 5 hatalı denemede yanar. Kullanıcı başına
+  dakikada 1, günde 5; adres başına günde 5; toplam günde 250 gönderim
+  (e-posta servisinin ücretsiz katmanı aşılmasın).
+- Doğrulama her yıl **31 Ekim**'de biter (en az üç ay geçerli). Selçuk'ta
+  öğrenci e-postası mezuniyetten 60 gün sonra silinir: mezun yenileyemez.
+- Doğrulanmamış üye notun **var olduğunu** görür (künye, kaç kişinin işine
+  yaradığı) ama dosyayı açamaz ve paylaşamaz. Kural Storage'ın satır
+  kurallarında: istemci atlayamaz.
+
+### Puan (cazip, abartısız — Yönetim → Notlar'dan başkan değiştirir)
+
+| Ne | XP |
+| --- | --- |
+| Not onaylandı (48 saat içinde açık şikayet yok) | +20 |
+| Sınavdan önceki 14 gün / sınav haftası içinde paylaşılan | taban ×1,5 (+30) |
+| Her "işime yaradı" (notu açmış, doğrulanmış, farklı kişi) | +3 |
+| Bir notun tavanı | 60 |
+| Haftalık not puanı tavanı (net) | 150 |
+
+Puanın çoğu yüklemekten değil, başkasının işine yaramaktan gelir. Tavanı
+aşan kısım kaybolmaz; sonraki haftalarda tamamlanır. Not gizlenir ya da
+kaldırılırsa verilen puan geri alınır. Aynı dosya ikinci kez paylaşılamaz;
+kişi başı günde 5 paylaşım.
+
+### Şikayet ve moderasyon
+
+Notlar ve sohbet mesajları şikayet edilebilir. Not için **doğrulanmış**
+öğrencilerin şikayeti sayılır (sahte hesaplarla not düşürülemesin); eşik (3)
+dolunca içerik incelemeye kadar gizlenir, yetkilinin şikayeti tek başına
+gizler. Karar Yönetim → Şikayetler'de: "Yayında tut" ya da "Kaldır". Her
+karar denetim kaydına yazılır. Yazar onaylanmış notunun dosyasını silip
+yerine başka dosya koyamaz (Storage kuralı).
+
+### Sınav dönemi
+
+Yönetim → Notlar → Sınav dönemleri: üniversite (e-posta alanı), ad (Vize,
+Final...) ve tarihler. Dönemden 14 gün önce ana ekranda kart çıkar, Notlar'da
+şerit ve "en faydalı" sıralama gelir, o sırada paylaşılan not ×1,5 taban puan
+alır ve "yalnızca sınav döneminde" sponsorlu ilanlar görünür.
+
+### Kurulum
+
+1. Supabase SQL editöründe **`veritabani/08_kimlik.sql`**, sonra
+   **`veritabani/09_pano.sql`**'i çalıştır. 09, `notlar` Storage kovasını
+   (özel, 15 MB, PDF/JPG/PNG/WEBP) ve satır kurallarını da kurar.
+2. E-posta servisi (ücretsiz): **Brevo** (alan adı gerekmez; topluluğun
+   Gmail adresini gönderen olarak doğrulamak yeter, günde 300 e-posta) ya da
+   **Resend** (kendi alan adı + DNS kaydı ister). Anahtarı al, sonra:
+
+   ```bash
+   npx supabase secrets set EPOSTA_SAGLAYICI=brevo EPOSTA_ANAHTARI=xkeysib-... "EPOSTA_GONDEREN=YAZVEB <topluluk@gmail.com>"
+   npx supabase functions deploy dogrula
+   ```
+
+3. `node baglanti_kontrol.mjs` → doğrulama, kod üreticinin kapalılığı, Notlar
+   ve e-posta fonksiyonu satırları ✓.
+4. Yönetim → Notlar'dan bu dönemin vize/final tarihlerini gir.
+
+Gönderen adresin alan adı (ör. gmail.com) servis tarafından imzalanmadığı
+için bazı üniversite sunucuları ilk e-postaları gereksiz klasörüne atabilir;
+uygulama bu yüzden "gereksiz klasörüne de bak" der. Kalıcı çözüm, topluluğa
+ait bir alan adını servise doğrulatmak (DNS kaydı).
+
+E-posta servisi kurulmadan yayına çıkılırsa uygulama çalışır; doğrulama
+penceresi "E-posta gönderimi henüz kurulmadı" der, notlar görünür ama açılamaz.
 
 ---
 
