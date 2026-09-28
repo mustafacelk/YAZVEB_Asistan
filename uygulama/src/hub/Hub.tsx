@@ -233,7 +233,7 @@ export default function Hub({ onKapat }: { onKapat: () => void }) {
   function karakterBaslat() {
     if (!profil) return;
     if (gorunum?.tur !== "oda" || !gorunum.oyuncu.ben) odamAc();
-    setTaslakAvatar(structuredClone(profil.ben.avatar));
+    setTaslakAvatar(JSON.parse(JSON.stringify(profil.ben.avatar)) as Avatar);
     setPanel("karakter");
   }
   function avatarDegisti(a: Avatar) {

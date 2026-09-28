@@ -736,7 +736,7 @@ function Seviyeler({ baskan }: { baskan: boolean }) {
         ))}
         {baskan && (
           <div className="yonetim-arac">
-            <button type="button" className="dugme cizgili" onClick={() => setListe((l) => [...l!, { ad: "YENİ", esik: (l!.at(-1)?.esik ?? 0) + 1000, ikon: "yildiz", aciklama: "" }])}><Simge ad="arti" boyut={14} /> Seviye ekle</button>
+            <button type="button" className="dugme cizgili" onClick={() => setListe((l) => [...l!, { ad: "YENİ", esik: (l![l!.length - 1]?.esik ?? 0) + 1000, ikon: "yildiz", aciklama: "" }])}><Simge ad="arti" boyut={14} /> Seviye ekle</button>
             <button type="button" className="dugme birincil" disabled={bekliyor}
               onClick={() => calistir(() => yonetim.seviyelerKaydet([...liste].sort((a, b) => a.esik - b.esik)), "Seviyeler kaydedildi.").then(yukle)}>Seviyeleri kaydet</button>
           </div>

@@ -438,3 +438,19 @@ button.satir-dugme:active { background: var(--z-4); }
 @media (prefers-reduced-motion: reduce) {
   .canli-nokta, .hub-portal-kup, .satir-ikon[data-canli]::after { animation: none; }
 }
+
+/* ── Hata ekranı (HataSiniri): boş ekran yerine ne olduğunu söyler ── */
+.hata-ekrani { padding: var(--b-5) var(--b-4); text-align: center; }
+.hata-ekrani-metin { display: grid; gap: var(--b-2); max-width: 420px; }
+.hata-ekrani h1 { margin: 0; font: var(--t-h2); color: var(--m-1); }
+.hata-ekrani p { margin: 0; font: var(--t-aciklama); color: var(--m-2); }
+.hata-ekrani code {
+  margin-top: var(--b-2);
+  padding: var(--b-2) var(--b-3);
+  border: 1px solid var(--c-ince);
+  border-radius: var(--k-1);
+  font: var(--t-ustveri);
+  font-family: ui-monospace, monospace;
+  color: var(--m-3);
+  overflow-wrap: anywhere;
+}

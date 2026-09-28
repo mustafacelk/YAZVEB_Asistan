@@ -235,7 +235,7 @@ export function dersleriGrupla(notlar: NotBenzeri[]): DersOzeti[] {
     cikmis: g.filter((n) => n.tur === "cikmis_cozum").length,
     ozet: g.filter((n) => n.tur === "ozet").length,
     yararli: g.reduce((t, n) => t + n.yararli, 0),
-    son: g.map((n) => n.yayinlandi).sort().at(-1) ?? "",
+    son: g.map((n) => n.yayinlandi).sort().pop() ?? "",
   })).sort((a, b) => b.son.localeCompare(a.son) || a.ad.localeCompare(b.ad, "tr"));
 }
 
