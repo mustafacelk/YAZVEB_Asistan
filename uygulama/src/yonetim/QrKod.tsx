@@ -36,7 +36,9 @@ export function QrPenceresi({ baslik, altBaslik, icerik, kisaKod, onKapat }: {
         <div className="qr-cerceve"><QrSvg icerik={icerik} boyut={320} /></div>
         <p className="qr-kod-etiketi">Kamera yoksa kısa kod</p>
         <p className="qr-kisa-kod rakam">{kisaKod}</p>
-        <p className="qr-alt">YAZVEB uygulaması → Ödüller → QR tara</p>
+        <p className="qr-alt">{icerik.startsWith("YAZVEB:S:")
+          ? "YAZVEB → Ben → Sponsorlar → işletme → QR'yi okut"
+          : "YAZVEB → Etkinlikler → QR okut"}</p>
       </div>
     </div>,
     document.body,
@@ -119,7 +121,7 @@ export function CanliQrPenceresi({ gorevId, baslik, altBaslik, onKapat }: {
           <div className="dogrulama-halkasi" aria-label="Yükleniyor" />
         )}
         {hata && <p className="qr-alt" role="status">{hata}</p>}
-        <p className="qr-alt">YAZVEB uygulaması → QR tara</p>
+        <p className="qr-alt">YAZVEB → Etkinlikler → QR okut</p>
       </div>
     </div>,
     document.body,

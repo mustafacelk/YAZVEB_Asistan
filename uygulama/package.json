@@ -17,7 +17,8 @@
     "test:odul": "tsx testler/odul.test.mts",
     "test:ses": "tsx testler/ses.test.mts",
     "test:rol": "tsx testler/rol.test.mts",
-    "test:notlar": "tsx testler/notlar.test.mts"
+    "test:notlar": "tsx testler/notlar.test.mts",
+    "test:gezinme": "tsx testler/gezinme.test.mts"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.2",

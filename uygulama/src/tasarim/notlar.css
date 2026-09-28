@@ -19,7 +19,6 @@
 .gezinme[data-gosterge="yok"] .gezinme-gosterge { opacity: 0; }
 
 /* ── Sayfa başı ─────────────────────────────────────────────────── */
-.notlar-paylas { flex: none; }
 
 .sinav-seridi {
   display: flex;
@@ -36,10 +35,6 @@
 .sinav-seridi b { color: var(--m-1); font-weight: var(--a-orta); }
 .sinav-seridi span { color: var(--m-2); font-size: var(--y-kucuk); }
 .sinav-seridi[data-asama="suruyor"] { box-shadow: var(--isik-ic), inset 0 0 0 1px var(--sinyal); }
-
-.dogrulama-cagrisi { margin-bottom: var(--b-2); }
-.dogrulama-cagrisi .ana-satir-govde b { white-space: normal; }
-.dogrulama-cagrisi .ana-satir-govde .soluk { white-space: normal; }
 
 /* ── Filtreler ──────────────────────────────────────────────────── */
 .notlar-filtre { display: grid; gap: var(--b-3); margin-bottom: var(--b-5); }
@@ -89,23 +84,6 @@
 .notlar-alt-filtre select { flex: 1; }
 
 /* ── Kartlar ────────────────────────────────────────────────────── */
-.not-listesi { display: grid; gap: var(--b-3); margin: 0 0 var(--b-5); padding: 0; list-style: none; }
-.not-iskelet { height: 96px; border-radius: var(--k-3); }
-
-.not-karti {
-  display: grid;
-  gap: 6px;
-  width: 100%;
-  padding: var(--b-4);
-  border-radius: var(--k-3);
-  background: var(--z-2);
-  box-shadow: var(--isik-ic), inset 0 0 0 1px var(--c-ince);
-  text-align: left;
-  transition: box-shadow var(--t-mikro) var(--e-dokunus), transform var(--t-mikro) var(--e-dokunus);
-}
-.not-karti:hover { box-shadow: var(--isik-ic), inset 0 0 0 1px var(--c-guclu); }
-.not-karti:active { transform: scale(0.99); }
-.not-karti-ust { display: flex; align-items: center; justify-content: space-between; gap: var(--b-2); }
 .not-tur {
   font-size: 10px;
   font-weight: var(--a-orta);
@@ -113,26 +91,9 @@
   text-transform: uppercase;
   color: var(--sinyal);
 }
-.not-karti[data-tur="cikmis_cozum"] .not-tur { color: var(--m-1); }
 .not-donem { font-size: var(--y-kucuk); color: var(--m-3); }
-.not-baslik { color: var(--m-1); font-weight: var(--a-orta); font-size: var(--y-govde); line-height: 1.3; }
-.not-ders { color: var(--m-2); font-size: var(--y-kucuk); }
-.not-meta { display: flex; flex-wrap: wrap; gap: 2px var(--b-3); color: var(--m-3); font-size: var(--y-kucuk); }
-.not-alt {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--b-2);
-  margin-top: var(--b-1);
-  padding-top: var(--b-2);
-  border-top: 1px solid var(--c-ince);
-  font-size: var(--y-kucuk);
-  color: var(--m-3);
-}
-.not-yazar { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .not-sayilar { display: inline-flex; align-items: center; gap: var(--b-3); flex: none; }
 .not-sayilar > span { display: inline-flex; align-items: center; gap: 3px; }
-.not-dosya { color: var(--m-4); }
 .not-xp { color: var(--sinyal); font-weight: var(--a-orta); }
 .not-durum { font-size: var(--y-kucuk); color: var(--m-3); }
 .not-durum.onayli { color: var(--sinyal); }
@@ -179,17 +140,6 @@
 .sponsorlu-metin span { color: var(--m-2); font-size: var(--y-kucuk); }
 .sponsorlu-metin small { color: var(--m-3); font-size: 11px; }
 .sponsorlu-kart[data-kademe="altin"] .sponsorlu-metin b { font-size: var(--y-govde); }
-
-.notlar-bos {
-  display: grid;
-  justify-items: center;
-  gap: var(--b-2);
-  padding: var(--b-7) var(--b-4);
-  text-align: center;
-  color: var(--m-3);
-}
-.notlar-bos b { color: var(--m-1); font-weight: var(--a-orta); }
-.notlar-bos .dugme { margin-top: var(--b-2); }
 
 /* ── Detay ──────────────────────────────────────────────────────── */
 .not-detay-baslik { font-size: var(--y-baslik); letter-spacing: var(--h-sik); line-height: 1.25; margin-bottom: var(--b-4); }
@@ -304,8 +254,6 @@ select.girdi.buyuk-secim { height: var(--d-buyuk); padding: 0 var(--b-3); font-s
 .kimlik-karti .dugmeler { display: flex; flex-wrap: wrap; gap: var(--b-2); }
 
 /* Ana ekranda sınav dönemi kartı. */
-.ana-sinav .ana-satir-ikon { color: var(--sinyal); }
-.ana-basi .ana-rehber-ac ~ .ana-hub-gecis { margin-left: 0; }
 .ana-profil {
   flex: none;
   display: grid;

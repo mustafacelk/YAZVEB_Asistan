@@ -183,7 +183,7 @@ export function kokenIzinli(koken: string | null, izinli: string[]): boolean {
 // gidilmez.
 
 export const YONLENDIRME_HEDEFLERI = [
-  "etkinlik", "tara", "odul", "oduller", "sponsorlar", "siralama", "topluluk", "sohbet",
+  "etkinlik", "tara", "odul", "oduller", "sponsorlar", "siralama", "topluluk", "sohbet", "akademi", "ben",
 ] as const;
 export type Yonlendirme = (typeof YONLENDIRME_HEDEFLERI)[number];
 
@@ -221,7 +221,7 @@ export function etkinlikSorusuMu(metin: string): boolean {
 export const YONLENDIRME_TALIMATI = `
 UYGULAMA İÇİ YÖNLENDİRME
 - Bu konuşma YAZVEB uygulamasının içinde geçiyor. Cevap kullanıcıyı uygulamadaki bir bölüme götürmeyi gerektiriyorsa cevabın EN SONUNA, ayrı bir satırda, tam olarak şu biçimde TEK bir etiket ekle: [[git:HEDEF]]
-- HEDEF yalnızca şunlardan biri olabilir: etkinlik (etkinlikler ve takvim), tara (QR okutma), odul (puan, seviye, ilerleme), oduller (kazanılmış ödülü kullanma), sponsorlar (sponsorlar ve kilitler), siralama (sıralama), topluluk (üyeler ve hesap), sohbet (genel sohbet).
+- HEDEF yalnızca şunlardan biri olabilir: etkinlik (etkinlikler ve takvim), tara (QR okutma), akademi (dersler, ders notları, çıkmış soru çözümleri, özetler), odul (puan, seviye, ilerleme), oduller (kazanılmış ödülü kullanma), sponsorlar (sponsorlar ve kilitler), siralama (sıralama), ben (hesap, profil, öğrenci doğrulama), topluluk (üyeler), sohbet (genel sohbet).
 - Etkinlik, takvim veya "ne zaman" sorularında cevabın sonuna her zaman [[git:etkinlik]] ekle. Gerek yoksa etiket ekleme. Etiketi cümle içinde kullanma ve açıklama.
 
 CANLI UYGULAMA VERİSİ

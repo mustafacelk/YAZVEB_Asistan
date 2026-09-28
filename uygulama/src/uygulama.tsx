@@ -1,24 +1,27 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { sorun, yapilandirildi } from "./veri/supabase";
+import { sorun, supabase, yapilandirildi, type Etkinlik } from "./veri/supabase";
 import { OturumSaglayici, useGorunum, useOturum } from "./veri/oturum";
 import { KipBaglami, kipOku, kipYaz, type GirisKipi } from "./veri/kip";
 import {
   GezinmeBaglami,
+  ODUL_DEGISTI,
   odulDegisti,
+  rotaAnahtari,
+  rotaKur,
   UST_SEKME,
   type Gezinme,
-  type Gorunum,
-  type OdulBolumu,
+  type Rota,
   type Sekme,
-  type YonetimBolumu,
 } from "./veri/gezinme";
+import { odul, sayi, type EtkinlikOzeti } from "./veri/odul";
+import { canliEtkinlik } from "./veri/bugun";
 import Giris from "./ekranlar/Giris";
 import Ana from "./ekranlar/Ana";
 import Sohbet from "./ekranlar/Sohbet";
 import Etkinlikler from "./ekranlar/Etkinlikler";
 import Topluluk from "./ekranlar/Topluluk";
 import Asistan from "./ekranlar/Asistan";
-import Oduller from "./ekranlar/Oduller";
+import Ben from "./ekranlar/Ben";
 import Tarayici from "./odul/Tarayici";
 import Simge, { type SimgeAdi } from "./tasarim/Simge";
 import { hubTercihi, hubTercihiYaz } from "./hub/veri";
@@ -32,49 +35,54 @@ const YonetimSayfasi = lazy(() => import("./yonetim/Yonetim"));
 const Perde = lazy(() => import("./yonetim/Perde"));
 // 3B HUB: Three.js yalnızca bu görünüm açılınca iner.
 const HubGorunumu = lazy(() => import("./hub/Hub"));
-// Notlar: dosya yükleme ve doğrulama pencereleriyle birlikte, sekme açılınca iner.
-const Notlar = lazy(() => import("./ekranlar/Notlar"));
+// Akademi: dosya yükleme ve doğrulama pencereleriyle birlikte, açılınca iner.
+const Akademi = lazy(() => import("./akademi/Akademi"));
 
 /** <site>/isletme — giriş istemez; kasadaki çalışan kendi telefonunda açar. */
 const ISLETME_SAYFASI =
   typeof location !== "undefined" && /^\/isletme\/?$/.test(location.pathname);
 
+type SekmeTanimi = { anahtar: Sekme; ad: string; simge: SimgeAdi };
+
 /**
- * Gezinme çubuğu: dört sekme, ortada tarama.
+ * Üye çubuğu: beş dünya (TASARIM.md §2). Asistan ve 3D HUB çubukta değil;
+ * Ana'dan girilen tam ekran deneyimler (masaüstü şeridinde "Deneyimler").
  *
- * Etkinlikte ayakta, tek elle, kalabalıkta QR okutan kişi için tarama her
- * ekrandan TEK dokunuş uzakta ve başparmağın doğal durduğu yerde: çubuğun
- * ortasında. Sekme değil, eylem: basınca tarayıcı açılır, bulunduğun ekran
- * değişmez.
+ * QR artık her ekranda duran bir düğme değil, BAĞLAMSAL: Etkinlikler'in
+ * birincil eylemi; bir etkinlik şu an sürüyor ve okutulmadıysa her ekranın
+ * altında tek satırlık şerit. Etkinlikteki kişi yine tek dokunuş uzakta.
  */
-const SEKMELER: { anahtar: Sekme; ad: string; simge: SimgeAdi }[] = [
+const SEKMELER: SekmeTanimi[] = [
   { anahtar: "ana", ad: "Ana", simge: "ev" },
+  { anahtar: "akademi", ad: "Akademi", simge: "kitap" },
   { anahtar: "etkinlik", ad: "Etkinlikler", simge: "etkinlik" },
-  { anahtar: "notlar", ad: "Notlar", simge: "kitap" },
-  { anahtar: "odul", ad: "Ödüller", simge: "odul" },
+  { anahtar: "topluluk", ad: "Topluluk", simge: "topluluk" },
+  { anahtar: "ben", ad: "Ben", simge: "kisi" },
 ];
 
 /**
- * Yönetim görünümünde çubuk: aynı dört yer, yöneticinin işine göre.
- * "Ana" yapılacaklar paneline, "Ödüller" yönetim ekranına dönüşür; ortada
- * tarama yerine PERDE QR — etkinlikte yöneticinin en sık yaptığı iş QR
- * göstermek, okutmak değil.
+ * Yönetim görünümünde çubuk: Panel · Etkinlikler · [Perde QR] · Yönetim ·
+ * Topluluk. Etkinlikte yöneticinin en sık yaptığı iş QR göstermek.
  */
-const SEKMELER_YONETIM: typeof SEKMELER = [
+const SEKMELER_YONETIM: SekmeTanimi[] = [
   { anahtar: "ana", ad: "Panel", simge: "grafik" },
   { anahtar: "etkinlik", ad: "Etkinlikler", simge: "etkinlik" },
-  { anahtar: "odul", ad: "Yönetim", simge: "ayar" },
+  { anahtar: "yonetim", ad: "Yönetim", simge: "ayar" },
   { anahtar: "topluluk", ad: "Topluluk", simge: "topluluk" },
 ];
 
-/** Çubuktaki sütun: tarama 2. sütunda. Sekme çubukta yoksa (üyede Topluluk) -1. */
-function sutun(sekmeler: typeof SEKMELER, s: Sekme) {
-  const i = sekmeler.findIndex((x) => x.anahtar === s);
-  return i < 0 ? -1 : i < 2 ? i : i + 1;
-}
-
 /** Eski ekranın geri çekilme süresi. temel.css → .sahne[data-asama="cik"] ile aynı. */
 const CIKIS_MS = 200;
+/** Canlı etkinlik şeridi: etkinlik başlayınca en geç bu kadar sonra görünür. */
+const CANLI_TAZELEME_MS = 60_000;
+
+/** Geçmiş yoksa (ilk açılış, yenileme) "geri" dünyanın girişine götürür. */
+function ustRota(r: Rota): Rota {
+  if (r.g === "ben" && r.ben) return { g: "ben" };
+  if (r.g === "akademi" && r.ders) return { g: "akademi" };
+  if (r.g === "sohbet") return { g: "topluluk" };
+  return { g: "ana" };
+}
 
 export default function Uygulama() {
   // Giriş türü (üye / yönetim / işletme) oturumdan ÖNCE seçilir; işletme
@@ -115,54 +123,86 @@ function Kabuk() {
 }
 
 /**
- * Sekmeler arası sinematik geçiş.
+ * Dünyalar arası geçiş.
  *
- * Gösterge yeni sekmeye HEMEN kayar (kullanıcı tıklamasının karşılığını
- * anında görsün); içerik ise önce geri çekilir, sonra yenisi öğelerini
- * sırayla getirir. Hızlı art arda tıklamada son tıklanan kazanır.
+ * Gösterge yeni sekmeye HEMEN kayar (dokunuşun karşılığı anında); içerik
+ * önce geri çekilir, sonra yenisi öğelerini sırayla getirir. Hızlı art arda
+ * dokunuşta son dokunulan kazanır. Her gidiş tarayıcı geçmişine yazılır:
+ * geri tuşu uygulamanın içinde geri gider.
  */
 function Ekranlar() {
   const { gorunum } = useGorunum();
   const yonetimde = gorunum === "yonetim";
-  const [hedef, setHedef] = useState<Gorunum>("ana");
-  const [gorunen, setGorunen] = useState<Gorunum>("ana");
+  const [rota, setRota] = useState<Rota>({ g: "ana" });
+  const [gorunen, setGorunen] = useState<Rota>({ g: "ana" });
   const [asama, setAsama] = useState<"gir" | "cik">("gir");
-  const [odulBolumu, setOdulBolumu] = useState<OdulBolumu | undefined>(undefined);
-  const [asistanSorusu, setAsistanSorusu] = useState<string | undefined>(undefined);
   const [tarama, setTarama] = useState(false);
   const [perde, setPerde] = useState(false);
   // HUB bir görünüm: açık bırakılırsa uygulama bir dahaki açılışta HUB'da açılır.
   const [hubAcik, setHubAcik] = useState(hubTercihi);
-  const [yonetimBolumu, setYonetimBolumu] = useState<YonetimBolumu>("ozet");
   const zamanlayici = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const gorunenRef = useRef<Rota>({ g: "ana" });
+  const yonetimdeRef = useRef(yonetimde);
+  /** Bu oturumda uygulamanın kendi yazdığı geçmiş kaydı sayısı. */
+  const derinlik = useRef(0);
 
-  // Zamanlayıcı içinden okunacak güncel görünüm (durum güncelleyicisinde yan etki olmasın).
-  const gorunenRef = useRef<Gorunum>("ana");
   useEffect(() => { gorunenRef.current = gorunen; }, [gorunen]);
+  useEffect(() => { yonetimdeRef.current = yonetimde; }, [yonetimde]);
 
-  const git = useCallback<Gezinme["git"]>((g, secenek) => {
-    setHedef(g);
-    if (g === "odul") {
-      setOdulBolumu(secenek?.bolum);
-      setYonetimBolumu(secenek?.yonetim ?? "ozet");
-    }
-    if (g === "asistan") setAsistanSorusu(secenek?.soru);
+  /** Ekranı değiştirir (geçmişe dokunmaz). */
+  const gec = useCallback((r: Rota) => {
+    setRota(r);
     if (zamanlayici.current) clearTimeout(zamanlayici.current);
-    if (gorunenRef.current === g) {
-      // Aynı ekran (belki yalnızca bölüm değişti) ya da çıkış yarıda kesildi.
+    if (rotaAnahtari(gorunenRef.current) === rotaAnahtari(r)) {
+      // Aynı ekran (belki yalnızca soru ya da yönetim bölümü değişti).
+      setGorunen(r);
       setAsama("gir");
       return;
     }
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setGorunen(g);
+      setGorunen(r);
       return;
     }
     setAsama("cik");
     zamanlayici.current = setTimeout(() => {
-      setGorunen(g);
+      setGorunen(r);
       setAsama("gir");
     }, CIKIS_MS);
   }, []);
+
+  const git = useCallback<Gezinme["git"]>((hedef, secenek) => {
+    const r = rotaKur(hedef, secenek, yonetimdeRef.current);
+    const simdiki = gorunenRef.current;
+    if (rotaAnahtari(r) !== rotaAnahtari(simdiki) || r.yonetim !== simdiki.yonetim) {
+      try {
+        history.pushState({ yazveb: r }, "");
+        derinlik.current += 1;
+      } catch { /* geçmiş API'si yoksa yalnızca ekran değişir */ }
+    }
+    gec(r);
+  }, [gec]);
+
+  const geri = useCallback(() => {
+    if (derinlik.current > 0) {
+      history.back();
+      return;
+    }
+    const ust = ustRota(gorunenRef.current);
+    try { history.replaceState({ yazveb: ust }, ""); } catch { /* yok */ }
+    gec(ust);
+  }, [gec]);
+
+  // Tarayıcının / Android'in geri tuşu: kayıtlı rotaya dön.
+  useEffect(() => {
+    try { history.replaceState({ yazveb: { g: "ana" } }, ""); } catch { /* yok */ }
+    const geriGeldi = (e: PopStateEvent) => {
+      const r = (e.state as { yazveb?: Rota } | null)?.yazveb ?? { g: "ana" };
+      derinlik.current = Math.max(0, derinlik.current - 1);
+      gec(r);
+    };
+    window.addEventListener("popstate", geriGeldi);
+    return () => window.removeEventListener("popstate", geriGeldi);
+  }, [gec]);
 
   const tara = useCallback(() => setTarama(true), []);
   const hubAc = useCallback(() => { hubTercihiYaz(true); setHubAcik(true); }, []);
@@ -174,37 +214,56 @@ function Ekranlar() {
     ilkGorunum.current = gorunum;
     git("ana");
   }, [gorunum, git]);
-  const gezinme = useMemo(() => ({ git, tara, hubAc }), [git, tara, hubAc]);
+  const gezinme = useMemo(() => ({ git, geri, tara, hubAc }), [git, geri, tara, hubAc]);
 
   useEffect(() => () => {
     if (zamanlayici.current) clearTimeout(zamanlayici.current);
   }, []);
 
-  const secili = UST_SEKME[hedef];
+  const canli = useCanliEtkinlik(!yonetimde);
+  const secili = UST_SEKME[rota.g];
   const sekmeler = yonetimde ? SEKMELER_YONETIM : SEKMELER;
+  const sira = sekmeler.findIndex((s) => s.anahtar === secili);
+  // Yönetimde Perde QR 3. sütunda: sonraki sekmeler bir kayar.
+  const sutun = sira < 0 ? -1 : yonetimde && sira >= 2 ? sira + 1 : sira;
+  const seritGoster = !!canli && !hubAcik && !tarama
+    && !["ana", "etkinlik", "asistan", "sohbet"].includes(gorunen.g);
 
   return (
     <GezinmeBaglami.Provider value={gezinme}>
-      <div className="kabuk">
-        <main className="sahne" data-asama={asama} key={gorunen}>
-          {gorunen === "ana" && (yonetimde
+      <div className="kabuk" data-gorunum={gorunum}>
+        <main className="sahne" data-asama={asama} key={rotaAnahtari(gorunen)}>
+          {gorunen.g === "ana" && (yonetimde
             ? <Suspense fallback={<Acilis />}><Panel /></Suspense>
             : <Ana />)}
-          {gorunen === "asistan" && <Asistan ilkSoru={asistanSorusu} onGeri={() => git("ana")} />}
-          {gorunen === "etkinlik" && <Etkinlikler />}
-          {gorunen === "odul" && (yonetimde
-            ? <Suspense fallback={<Acilis />}><YonetimSayfasi gomulu ilkBolum={yonetimBolumu} /></Suspense>
-            : <Oduller bolum={odulBolumu} />)}
-          {gorunen === "notlar" && <Suspense fallback={<Acilis />}><Notlar /></Suspense>}
-          {gorunen === "topluluk" && <Topluluk />}
-          {gorunen === "sohbet" && <Sohbet onGeri={() => git("topluluk")} />}
+          {gorunen.g === "akademi" && <Suspense fallback={<Acilis />}><Akademi ders={gorunen.ders} /></Suspense>}
+          {gorunen.g === "etkinlik" && <Etkinlikler />}
+          {gorunen.g === "topluluk" && <Topluluk />}
+          {gorunen.g === "sohbet" && <Sohbet onGeri={geri} />}
+          {gorunen.g === "ben" && <Ben bolum={gorunen.ben} />}
+          {gorunen.g === "asistan" && <Asistan ilkSoru={gorunen.soru} onGeri={geri} />}
+          {gorunen.g === "yonetim" && (
+            <Suspense fallback={<Acilis />}><YonetimSayfasi gomulu ilkBolum={gorunen.yonetim ?? "ozet"} /></Suspense>
+          )}
         </main>
+
+        {seritGoster && canli && (
+          <button className="canli-serit cam" onClick={tara}
+                  aria-label={`${canli.etkinlik.baslik} şu an sürüyor. QR'yi okut, ${canli.puan} XP kazan`}>
+            <i className="canli-nokta" aria-hidden="true" />
+            <span className="canli-serit-metin">
+              <b className="tek-satir">{canli.etkinlik.baslik}</b>
+              <small className="rakam">Şu an · +{sayi(canli.puan)} XP</small>
+            </span>
+            <span className="canli-serit-eylem"><Simge ad="tara" boyut={16} /> QR okut</span>
+          </button>
+        )}
 
         <nav
           className="gezinme cam"
           aria-label="Ana gezinme"
-          style={{ "--i": Math.max(0, sutun(sekmeler, secili)), "--adet": 5 } as CSSProperties}
-          data-gosterge={sutun(sekmeler, secili) < 0 ? "yok" : undefined}
+          data-gosterge={sutun < 0 ? "yok" : undefined}
+          style={{ "--i": Math.max(0, sutun), "--adet": 5 } as CSSProperties}
         >
           <span className="gezinme-gosterge" aria-hidden="true" />
           {/* Yalnızca masaüstü kenar çubuğunda görünür. */}
@@ -212,20 +271,41 @@ function Ekranlar() {
             <img src="/logo-128.webp" alt="" width={32} height={32} />
             <span><b>YAZVEB</b><small>Yapay Zekâ ve Veri Bilimi</small></span>
           </div>
-          {sekmeler.slice(0, 2).map((s) => <SekmeDugmesi key={s.anahtar} s={s} secili={secili} git={git} />)}
-          <button
-            className="gezinme-tara"
-            onClick={yonetimde ? () => setPerde(true) : tara}
-            aria-label={yonetimde ? "Perdeye QR yansıt" : "QR tara ya da kısa kod gir"}
-            data-ipucu={yonetimde ? "Perde QR" : "QR tara"}
-            data-ipucu-yon="sag"
-          >
-            <span className="gezinme-tara-yuz">
-              <Simge ad={yonetimde ? "qr" : "tara"} boyut={22} />
-              <span className="gezinme-tara-etiket">{yonetimde ? "Perde QR" : "QR tara"}</span>
-            </span>
-          </button>
-          {sekmeler.slice(2).map((s) => <SekmeDugmesi key={s.anahtar} s={s} secili={secili} git={git} />)}
+          {yonetimde ? (
+            <>
+              {sekmeler.slice(0, 2).map((s) => <SekmeDugmesi key={s.anahtar} s={s} secili={secili} git={git} />)}
+              <button
+                className="gezinme-tara"
+                onClick={() => setPerde(true)}
+                aria-label="Perdeye QR yansıt"
+                data-ipucu="Perde QR"
+                data-ipucu-yon="sag"
+              >
+                <span className="gezinme-tara-yuz">
+                  <Simge ad="qr" boyut={22} />
+                  <span className="gezinme-tara-etiket">Perde QR</span>
+                </span>
+              </button>
+              {sekmeler.slice(2).map((s) => <SekmeDugmesi key={s.anahtar} s={s} secili={secili} git={git} />)}
+            </>
+          ) : (
+            <>
+              {sekmeler.map((s) => <SekmeDugmesi key={s.anahtar} s={s} secili={secili} git={git} />)}
+              {/* Masaüstünde yer var: sürükleyici deneyimler şeridin altında. */}
+              <div className="gezinme-deneyimler" role="group" aria-label="Deneyimler">
+                <span className="etiket">Deneyimler</span>
+                <button className="gezinme-oge" onClick={() => git("asistan")}
+                        aria-current={secili === "ana" && rota.g === "asistan" ? "page" : undefined}>
+                  <Simge ad="asistan" />
+                  <span className="gezinme-etiket">Asistan</span>
+                </button>
+                <button className="gezinme-oge" onClick={hubAc}>
+                  <Simge ad="kup" />
+                  <span className="gezinme-etiket">3D HUB</span>
+                </button>
+              </div>
+            </>
+          )}
           <p className="gezinme-dip" aria-hidden="true">Selçuk Üniversitesi<br />Yapay Zekâ ve Veri Bilimi Topluluğu</p>
         </nav>
 
@@ -253,8 +333,47 @@ function Ekranlar() {
   );
 }
 
+/**
+ * Şu an süren, puanlı ve henüz okutulmamış etkinlik (varsa). Dakikada bir
+ * ve puan değişince tazelenir; sekme arka plandayken sormaz.
+ */
+function useCanliEtkinlik(acik: boolean) {
+  const [veri, setVeri] = useState<{ etkinlikler: Etkinlik[]; ozet: EtkinlikOzeti[] }>({ etkinlikler: [], ozet: [] });
+  const [simdi, setSimdi] = useState(Date.now());
+
+  useEffect(() => {
+    if (!acik) return;
+    let gecerli = true;
+    const yukle = async () => {
+      if (document.hidden) return;
+      const [liste, ozet] = await Promise.all([
+        supabase.from("etkinlikler").select("*")
+          .gte("baslangic", new Date(Date.now() - 12 * 3_600_000).toISOString())
+          .lte("baslangic", new Date(Date.now() + 3_600_000).toISOString())
+          .order("baslangic", { ascending: true }).limit(10),
+        odul.etkinlikOzeti().catch((): EtkinlikOzeti[] => []),
+      ]);
+      if (!gecerli) return;
+      setVeri({ etkinlikler: (liste.data as Etkinlik[] | null) ?? [], ozet });
+      setSimdi(Date.now());
+    };
+    yukle();
+    const z = setInterval(yukle, CANLI_TAZELEME_MS);
+    window.addEventListener(ODUL_DEGISTI, yukle);
+    document.addEventListener("visibilitychange", yukle);
+    return () => {
+      gecerli = false;
+      clearInterval(z);
+      window.removeEventListener(ODUL_DEGISTI, yukle);
+      document.removeEventListener("visibilitychange", yukle);
+    };
+  }, [acik]);
+
+  return acik ? canliEtkinlik(veri.etkinlikler, veri.ozet, simdi) : null;
+}
+
 function SekmeDugmesi({ s, secili, git }: {
-  s: (typeof SEKMELER)[number];
+  s: SekmeTanimi;
   secili: Sekme;
   git: Gezinme["git"];
 }) {

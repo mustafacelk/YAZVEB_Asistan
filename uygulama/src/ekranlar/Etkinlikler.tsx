@@ -4,8 +4,9 @@ import { supabase, type Etkinlik } from "../veri/supabase";
 import { useOturum } from "../veri/oturum";
 import Simge from "../tasarim/Simge";
 import { odul, sayi, type EtkinlikOzeti } from "../veri/odul";
-import { ODUL_DEGISTI } from "../veri/gezinme";
+import { ODUL_DEGISTI, useGezinme } from "../veri/gezinme";
 import { suruyorMu } from "../veri/bicim";
+import { DunyaBasi } from "../tasarim/Dunya";
 
 type Taslak = {
   id?: number;
@@ -22,6 +23,12 @@ const ONAY_MS = 3000;
 
 const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
 
+/** "Nasıl puan kazanılır?" ilk ziyarette açık gelir; kapatılınca kapalı kalır. */
+const REHBER_ANAHTARI = "yazveb:rehber-kapandi";
+function rehberKapandiMi() {
+  try { return localStorage.getItem(REHBER_ANAHTARI) === "1"; } catch { return false; }
+}
+
 /**
  * Etkinlik takvimi.
  *
@@ -36,9 +43,15 @@ const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
  * "Bu etkinliğe gelirsem ne olur?" — puan görevi olan etkinlikte kazanılacak
  * XP, katıldığın geçmiş etkinlikte "Katıldın" yazar. Katılmadığın geçmiş
  * etkinlikte hiçbir şey: kaçırdın demek yok.
+ *
+ * QR okutma bu dünyanın birincil eylemi (TASARIM.md §2, kural 4): başlıkta
+ * ve bir etkinlik sürüyorsa en üstte, kazanılacak puanla birlikte.
  */
 export default function Etkinlikler() {
   const { yetkiliMi, baskanMi } = useOturum();
+  const { tara } = useGezinme();
+  const [bolum, setBolum] = useState<"yaklasan" | "gecmis">("yaklasan");
+  const [rehberAcik, setRehberAcik] = useState(() => !rehberKapandiMi());
   const [ozet, setOzet] = useState<Map<number, EtkinlikOzeti>>(new Map());
   const [liste, setListe] = useState<Etkinlik[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
@@ -148,26 +161,33 @@ export default function Etkinlikler() {
   const gecmis = liste
     .filter((e) => new Date(e.baslangic).getTime() < simdi && !suruyorMu(e, simdi))
     .reverse();
+  const canliE = yaklasan.find((e) => suruyorMu(e, simdi));
+  const canliOzet = canliE ? ozet.get(canliE.id) : undefined;
+  const canli = canliE && canliOzet && canliOzet.puan > 0 && !canliOzet.katildi ? { etkinlik: canliE, puan: canliOzet.puan } : null;
+  const katildigi = [...ozet.values()].filter((o) => o.katildi).length;
 
   return (
     <div className="sayfa">
       <div className="sutun">
-        <header className="sayfa-basi">
-          <div>
-            <span className="etiket gir">Takvim</span>
-            <h1 className="gir" style={kademe(1)}>Etkinlikler</h1>
-            <p className="sayfa-aciklama gir" style={kademe(2)}>Katıldığın etkinlikte QR'yi okut, yanında yazan puanı kazan.</p>
-          </div>
-          <div className="sayfa-basi-eylem">
-            {yetkiliMi && (
-              // Yalnızca yetkiliye görünür ve ikincil: ekranın asıl işi takvimi görmek.
-              <button className="dugme cizgili gir" style={kademe(3)} onClick={() => { setHata(null); setTaslak({ ...BOS }); }}>
-                <Simge ad="arti" boyut={16} />
-                Yeni etkinlik
+        <DunyaBasi
+          etiket="Takvim"
+          baslik="Etkinlikler"
+          aciklama="Katıldığın etkinlikte QR'yi okut, yanında yazan puanı kazan."
+          eylem={
+            <>
+              {yetkiliMi && (
+                // Yetkiliye ikincil: ekranın asıl işi takvim ve katılım.
+                <button className="ikon-dugme" onClick={() => { setHata(null); setTaslak({ ...BOS }); }}
+                        aria-label="Yeni etkinlik" data-ipucu="Yeni etkinlik" data-ipucu-yon="alt">
+                  <Simge ad="arti" />
+                </button>
+              )}
+              <button className="dugme birincil" onClick={tara}>
+                <Simge ad="tara" boyut={16} /> QR okut
               </button>
-            )}
-          </div>
-        </header>
+            </>
+          }
+        />
 
         {hata && !taslak && <p className="bildirim" role="alert">{hata}</p>}
 
@@ -187,12 +207,40 @@ export default function Etkinlikler() {
           </div>
         )}
 
-        {yaklasan.length > 0 && (
+        {canli && (
+          <button className="canli-etkinlik gir" style={kademe(2)} onClick={tara}>
+            <i className="canli-nokta" aria-hidden="true" />
+            <span className="canli-etkinlik-metin">
+              <b>{canli.etkinlik.baslik}</b>
+              <span>Şu an sürüyor · QR'yi okut, <b className="rakam">+{sayi(canli.puan)} XP</b></span>
+            </span>
+            <span className="canli-etkinlik-eylem"><Simge ad="tara" boyut={18} /></span>
+          </button>
+        )}
+
+        {liste.length > 0 && (
+          <div className="secici bolum-secici gir" role="tablist" aria-label="Etkinlik bölümleri"
+               style={{ ...kademe(3), ["--secim" as string]: bolum === "yaklasan" ? 0 : 1, ["--adet" as string]: 2 }}>
+            <span className="secici-gosterge" aria-hidden="true" />
+            <button type="button" role="tab" aria-selected={bolum === "yaklasan"} onClick={() => setBolum("yaklasan")}>
+              Yaklaşan{yaklasan.length ? <span className="sayac rakam">{yaklasan.length}</span> : null}
+            </button>
+            <button type="button" role="tab" aria-selected={bolum === "gecmis"} onClick={() => setBolum("gecmis")}>
+              Geçmiş
+            </button>
+          </div>
+        )}
+
+        {bolum === "yaklasan" && !yukleniyor && liste.length > 0 && yaklasan.length === 0 && (
+          <div className="bos gir">
+            <Simge ad="etkinlik" boyut={28} />
+            <b>Yaklaşan etkinlik yok.</b>
+            <span>Yeni bir etkinlik eklendiğinde ilk burada görünür.</span>
+          </div>
+        )}
+
+        {bolum === "yaklasan" && yaklasan.length > 0 && (
           <section>
-            <div className="bolum-basi gir" style={kademe(2)}>
-              <span className="etiket">Yaklaşan</span>
-              <span className="etiket rakam">{yaklasan.length}</span>
-            </div>
             {yaklasan.map((e, i) => (
               <Satir
                 key={e.id}
@@ -208,12 +256,16 @@ export default function Etkinlikler() {
           </section>
         )}
 
-        {gecmis.length > 0 && (
+        {bolum === "gecmis" && (
           <section>
-            <div className="bolum-basi">
-              <span className="etiket">Geçmiş</span>
-              <span className="etiket rakam">{gecmis.length}</span>
-            </div>
+            {katildigi > 0 && (
+              <p className="gecmis-ozeti soluk gir">
+                <b className="rakam">{katildigi}</b> etkinliğe katıldın. Puanlarının dökümü: Ben › İlerleme ve puan geçmişi.
+              </p>
+            )}
+            {gecmis.length === 0 && (
+              <div className="bos gir"><Simge ad="etkinlik" boyut={28} /><b>Geçmiş etkinlik yok.</b></div>
+            )}
             {gecmis.map((e) => (
               <Satir
                 key={e.id}
@@ -226,6 +278,22 @@ export default function Etkinlikler() {
               />
             ))}
           </section>
+        )}
+        {bolum === "yaklasan" && !yukleniyor && (
+          <details className="rehber-acilir gir" open={rehberAcik}
+                   onToggle={(e) => {
+                     const acik = (e.currentTarget as HTMLDetailsElement).open;
+                     setRehberAcik(acik);
+                     if (!acik) { try { localStorage.setItem(REHBER_ANAHTARI, "1"); } catch { /* gizli sekme */ } }
+                   }}>
+            <summary><Simge ad="yildiz" boyut={16} /><span>Nasıl puan kazanılır?</span></summary>
+            <ol className="rehber-adimlari">
+              <li><b>Etkinliğe katıl</b><span>Yanında "+XP" yazan etkinlikler puan verir.</span></li>
+              <li><b>QR'yi okut</b><span>Buradaki "QR okut" ile. Kamera istemezsen kısa kodu yaz.</span></li>
+              <li><b>Puan topla</b><span>Seviyen yükselir, sponsor kilitleri açılır (Ben › Sponsorlar).</span></li>
+              <li><b>Ödülünü kullan</b><span>İşletmedeki QR'yi okut, çıkan ödülü kasada göster.</span></li>
+            </ol>
+          </details>
         )}
       </div>
 

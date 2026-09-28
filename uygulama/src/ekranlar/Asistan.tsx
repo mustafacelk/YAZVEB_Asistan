@@ -37,11 +37,13 @@ type Tur = {
  */
 const YONLENDIRMELER: Record<string, { etiket: string; ac: (g: Gezinme) => void }> = {
   etkinlik: { etiket: "Etkinlikler'i aç", ac: (g) => g.git("etkinlik") },
-  tara: { etiket: "QR tara", ac: (g) => g.tara() },
-  odul: { etiket: "Ödüller'i aç", ac: (g) => g.git("odul") },
-  oduller: { etiket: "Ödüllerim'i aç", ac: (g) => g.git("odul", { bolum: "oduller" }) },
-  sponsorlar: { etiket: "Sponsorları aç", ac: (g) => g.git("odul", { bolum: "sponsorlar" }) },
-  siralama: { etiket: "Sıralamayı aç", ac: (g) => g.git("odul", { bolum: "siralama" }) },
+  tara: { etiket: "QR okut", ac: (g) => g.tara() },
+  akademi: { etiket: "Dersleri aç", ac: (g) => g.git("akademi") },
+  odul: { etiket: "İlerlemeni aç", ac: (g) => g.git("ben", { bolum: "gecmis" }) },
+  oduller: { etiket: "Ödüllerim'i aç", ac: (g) => g.git("ben", { bolum: "oduller" }) },
+  sponsorlar: { etiket: "Sponsorları aç", ac: (g) => g.git("ben", { bolum: "sponsorlar" }) },
+  siralama: { etiket: "Sıralamayı aç", ac: (g) => g.git("ben", { bolum: "siralama" }) },
+  ben: { etiket: "Hesabını aç", ac: (g) => g.git("ben") },
   topluluk: { etiket: "Topluluğu aç", ac: (g) => g.git("topluluk") },
   sohbet: { etiket: "Genel sohbeti aç", ac: (g) => g.git("sohbet") },
 };

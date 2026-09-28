@@ -245,9 +245,17 @@ select reddedilmeli('bitişi başlangıçtan önce dönem', $$select public.pano
 reset role;
 set role authenticated;
 select test_kullanici('ayse');
+insert into p_r select 'ozet', public.pano_ozet();
 select bekle('ana ekran özeti: sınav + bölümündeki not sayısı',
-  (select o->'sinav'->>'ad' = 'Vize' and (o->>'dogrulandi')::boolean and (o->>'bu_hafta')::int >= 1
-   from (select public.pano_ozet() o) x));
+  (select v->'sinav'->>'ad' = 'Vize' and (v->>'dogrulandi')::boolean and v ? 'bu_hafta' from p_r where ad = 'ozet'));
+reset role;
+-- "Bu hafta" pazartesiden sayılır; testteki notlar 49 saat geriye çekildiği
+-- için sayı haftanın gününe bağlı. Beklenen değer aynı kuralla hesaplanır.
+select bekle('ana ekran özeti: bu haftaki not sayısı kurala uygun',
+  (select (v->>'bu_hafta')::int = (select count(*) from pano.notlar where durum = 'yayinda'
+     and kurum_alani = 'selcuk.edu.tr' and yayinlandi >= pano.hafta_basi()) from p_r where ad = 'ozet'));
+set role authenticated;
+select test_kullanici('ayse');
 select bekle('Selçuk öğrencisi: sınav yaklaşıyor, 10 gün',
   (select s->>'asama' = 'yaklasiyor' and (s->>'gun')::int = 10 and s->>'ad' = 'Vize' from (select public.pano_notlar()->'sinav' s) x));
 reset role;
@@ -436,6 +444,62 @@ select bekle('gizli profilin notu adsız görünür',
   (select bool_and(x->>'yazar' is null) from jsonb_array_elements(public.pano_notlar()->'liste') x where x->>'baslik' like '%not%'));
 reset role;
 update odul.hesaplar set gizli = false where kullanici = kim('ali');
+
+\echo ''
+\echo '═══ P10. AKADEMİ: DERSLER ═══'
+-- Kodsuz bir ders: aynı adı farklı yazan iki not tek ders sayılmalı.
+set role authenticated;
+select test_kullanici('ayse');
+insert into p_r select 'olas', public.pano_not_hazirla((p_kunye('Olasılık özeti', 80) - 'ders_kodu') || '{"ders_adi": "Olasılık"}');
+reset role;
+insert into storage.objects (bucket_id, name, owner, metadata)
+select 'notlar', v->>'yol', kim('ayse'), '{"mimetype": "application/pdf", "size": 500}' from p_r where ad = 'olas';
+set role authenticated;
+select test_kullanici('ayse');
+select public.pano_not_yayinla((v->>'id')::uuid) from p_r where ad = 'olas';
+insert into p_r select 'olas2', public.pano_not_hazirla((p_kunye('Olasılık çıkmışlar', 81) - 'ders_kodu') || '{"ders_adi": "OLASILIK", "tur": "cikmis_cozum"}');
+reset role;
+insert into storage.objects (bucket_id, name, owner, metadata)
+select 'notlar', v->>'yol', kim('ayse'), '{"mimetype": "application/pdf", "size": 500}' from p_r where ad = 'olas2';
+set role authenticated;
+select test_kullanici('ayse');
+select public.pano_not_yayinla((v->>'id')::uuid) from p_r where ad = 'olas2';
+create temporary table p_ders as select public.pano_dersler() as v;
+select bekle('iki ders: BM 203 ve Olasılık (kodsuz, adı farklı yazılmış iki not tek ders)',
+  (select jsonb_array_length(v->'dersler') = 2 from p_ders));
+reset role;
+select bekle('BM 203: yayındaki bütün notları sayar',
+  (select (d->>'not')::int = (select count(*) from pano.notlar where durum = 'yayinda' and ders_kodu = 'BM 203')
+   from p_ders, jsonb_array_elements(v->'dersler') d where d->>'kod' = 'BM 203'));
+select bekle('Olasılık: 2 not, 1 çıkmış, kodu yok, üniversite adıyla; eşitlikte düzgün yazım gösterilir',
+  (select (d->>'not')::int = 2 and (d->>'cikmis')::int = 1 and d->'kod' = 'null'::jsonb
+          and d->>'universite' = 'Selçuk Üniversitesi' and d->>'ad' = 'Olasılık'
+   from p_ders, jsonb_array_elements(v->'dersler') d where pano.ders_normal(d->>'ad') = 'olasilik'));
+set role authenticated;
+select test_kullanici('ayse');
+select bekle('ders listesiyle sponsorlu da gelir (giriş sayfası)', (select jsonb_typeof(v->'sponsorlu') = 'array' from p_ders));
+select bekle('ders sayfası: ada göre, büyük/küçük harf duyarsız → 2 not',
+  (select jsonb_array_length(public.pano_notlar('{"kurum":"tum","ders":{"kod":null,"ad":"olasılık","kurum":"selcuk.edu.tr"}}')->'liste') = 2));
+select bekle('ders sayfası: koda göre → yalnızca BM 203 notları',
+  (select bool_and(x->>'ders_kodu' = 'BM 203') and count(*) >= 1
+   from jsonb_array_elements(public.pano_notlar('{"kurum":"tum","ders":{"kod":"bm 203","ad":"x","kurum":"selcuk.edu.tr"}}')->'liste') x));
+select bekle('ders sayfasında sponsorlu yok',
+  (select jsonb_array_length(public.pano_notlar('{"kurum":"tum","ders":{"kod":"BM 203","ad":"x"}}')->'sponsorlu') = 0));
+select bekle('başka üniversitenin aynı kodu karışmaz',
+  (select jsonb_array_length(public.pano_notlar('{"kurum":"tum","ders":{"kod":"BM 203","ad":"x","kurum":"erbakan.edu.tr"}}')->'liste') = 0));
+select reddedilmeli('geçersiz ders sıralaması', $$select public.pano_dersler('{"sira":"rastgele"}')$$);
+reset role;
+set role authenticated;
+select test_kullanici('can');
+select bekle('Erbakan öğrencisi: kendi üniversitesinde ders yok, tümünde 2',
+  (select jsonb_array_length(public.pano_dersler()->'dersler') = 0
+      and jsonb_array_length(public.pano_dersler('{"kurum":"tum"}')->'dersler') = 2));
+select bekle('ders listesinde arama', (select jsonb_array_length(public.pano_dersler('{"kurum":"tum","ara":"olas"}')->'dersler') = 1));
+reset role;
+set role anon;
+select test_anonim();
+select reddedilmeli('anonim ders listesini göremez', $$select public.pano_dersler()$$);
+reset role;
 
 \echo ''
 \echo '═══ TÜM PANO TESTLERİ GEÇTİ ═══'

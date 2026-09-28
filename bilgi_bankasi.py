@@ -230,24 +230,26 @@ KAYITLAR: list[dict] = [
             "YAZVEB uygulaması, Selçuk Üniversitesi Yapay Zeka ve Veri Bilimi Topluluğu'nun resmî "
             "uygulamasıdır. Topluluğun etkinliklerini takip etmeyi, etkinliğe katılınca QR kodu "
             "okutarak puan (XP) kazanmayı, seviye atlamayı ve puanla sponsor işletmelerde ödül "
-            "açmayı sağlar. İçinde topluluk sohbeti, üye listesi ve topluluk hakkında her şeyi "
-            "sorabileceğin bu asistan da var. Amaç ekranda vakit geçirtmek değil: katıldıkça "
-            "ilerlemek, ilerledikçe gerçek ayrıcalık kazanmak."
+            "açmayı sağlar. Akademi bölümünde öğrenciler ders notlarını, çıkmış soru çözümlerini "
+            "ve özetlerini paylaşır. İçinde topluluk sohbeti, üye listesi, 3B YAZVEB HUB ve "
+            "topluluk hakkında her şeyi sorabileceğin bu asistan da var. Amaç ekranda vakit "
+            "geçirtmek değil: katıldıkça ilerlemek, ilerledikçe gerçek ayrıcalık kazanmak."
         ),
     },
     {
         "baslik": "Uygulamanın bölümleri",
         "kategori": "uygulama",
         "anahtar": ["menü", "sekme", "bölüm", "nerede", "nereden bakarım", "ana sayfa",
-                    "etkinlikler bölümü", "ödüller bölümü", "topluluk bölümü", "qr tara nerede"],
+                    "etkinlikler bölümü", "ödüller nerede", "topluluk bölümü", "qr tara nerede",
+                    "qr okut nerede", "akademi", "ben bölümü", "hesabım nerede"],
         "icerik": (
-            "Telefonda alt çubukta, bilgisayarda soldaki menüde beş öğe vardır. Ana: sıradaki "
-            "etkinlik, bir sonraki adımın ve bekleyen ödüllerin; asistana da buradan yazılır. "
-            "Etkinlikler: yaklaşan ve geçmiş etkinliklerin takvimi, her etkinlikte kazanılacak XP "
-            "ve katıldıklarında 'Katıldın' işareti. QR tara (telefonda ortadaki düğme): etkinlikte "
-            "ya da sponsor işletmede QR okutmak için. Ödüller: puanın, seviyen, sponsorlar, "
-            "kazandığın ödüller (Ödüllerim), sıralama ve puan geçmişi. Topluluk: genel sohbet, "
-            "üyeler ve sağ üstteki baş harflerinden açılan hesap ayarları."
+            "Telefonda alt çubukta, bilgisayarda soldaki menüde beş bölüm vardır. Ana: bugün "
+            "önemli olanlar (süren ya da yaklaşan etkinlik, bekleyen ödül, sınav dönemi), kısa "
+            "ilerleme ve asistana soru; 3B YAZVEB HUB'a da buradan girilir. Akademi: dersler, "
+            "ders notları, çıkmış soru çözümleri ve özetler. Etkinlikler: takvim, katılım ve QR "
+            "okutma ('QR okut' düğmesi bu bölümün başında; bir etkinlik sürerken her ekranın "
+            "altında da görünür). Topluluk: genel sohbet ve üyeler. Ben: hesabın, öğrenci "
+            "kimliğin, puanın ve seviyen, Ödüllerim, Sponsorlar, Sıralama ve puan geçmişi."
         ),
     },
     {
@@ -256,16 +258,18 @@ KAYITLAR: list[dict] = [
         "anahtar": ["puan nasıl kazanılır", "xp", "qr okutma", "qr nasıl okutulur", "kısa kod",
                     "yoklama", "katılım", "etkinliğe katıldım", "puanım gelmedi", "puan"],
         "icerik": (
-            "Puan etkinliklere katılarak kazanılır. Etkinlikte gösterilen YAZVEB QR kodunu QR tara "
-            "düğmesiyle okutursun; kamera kullanmak istemezsen QR'nin altındaki kısa kodu "
+            "Puan etkinliklere katılarak kazanılır. Etkinlikte gösterilen YAZVEB QR kodunu "
+            "Etkinlikler bölümündeki 'QR okut' düğmesiyle okutursun (etkinlik sürerken bu düğme "
+            "her ekranın altında da çıkar); kamera kullanmak istemezsen QR'nin altındaki kısa kodu "
             "yazabilirsin. Çoğu etkinlikte kod canlıdır: ekrandaki QR ve kısa kodun son dört harfi "
             "dakikada bir değişir, bu yüzden kodun tamamını yazman ve etkinlikte okutman gerekir; "
             "başkasının gönderdiği fotoğraf ya da kod birkaç dakika içinde geçersiz olur. "
             "Kazanılacak puan Etkinlikler bölümünde etkinliğin yanında '+XP' olarak "
             "yazar. Aynı görevin puanı bir kez alınır. Bazı görevler yalnızca etkinlik alanında "
             "tamamlanır; o zaman konum izni istenir, konum yalnızca kontrol edilir ve kaydedilmez. "
-            "Puanın görünmüyorsa Ödüller bölümündeki puan geçmişine bak; orada da yoksa etkinlikteki "
-            "görevliye veya yönetime söyle."
+            "Puanın görünmüyorsa Ben bölümündeki 'İlerleme ve puan geçmişi'ne bak; orada da "
+            "yoksa etkinlikteki görevliye veya yönetime söyle. Akademi'de paylaşılan notlar da "
+            "puan kazandırır."
         ),
     },
     {
@@ -275,9 +279,9 @@ KAYITLAR: list[dict] = [
                     "core", "elite", "sonraki seviye", "kaç puan lazım"],
         "icerik": (
             "Puan biriktikçe seviye atlanır. Seviyeler sırasıyla STARTER, EXPLORER, BUILDER, "
-            "CREATOR, CORE ve ELITE'tir; eşikleri yönetim belirler ve Ödüller bölümündeki seviye "
-            "yolunda görünür. Seviyeler ve puan sponsor kilitlerini açar. Ana ekrandaki 'bir "
-            "sonraki adım' cümlesi en yakın kazancın için kaç puan kaldığını söyler."
+            "CREATOR, CORE ve ELITE'tir; eşikleri yönetim belirler ve Ben bölümündeki 'İlerleme' "
+            "sayfasında seviye yolu olarak görünür. Seviyeler ve puan sponsor kilitlerini açar. Ana ekrandaki ilerleme "
+            "satırı en yakın kazancın için kaç puan kaldığını söyler."
         ),
     },
     {
@@ -288,9 +292,10 @@ KAYITLAR: list[dict] = [
         "icerik": (
             "Sponsorlar üyelere ayrıcalık sunan işletmelerdir. Her sponsorun bir kilidi vardır; "
             "belirli bir puana, seviyeye veya etkinlik sayısına ulaşınca açılır. Kilidi açılan "
-            "sponsorun işletmesinde kasadaki YAZVEB QR'sini okutursun ve ödülün o an açılır. Sürpriz "
+            "sponsorun işletmesinde, Ben › Sponsorlar'da o işletmeyi açıp kasadaki YAZVEB QR'sini "
+            "okutursun ve ödülün o an açılır. Sürpriz "
             "kampanyada olası ödüller ve gerçek kalan adetleri görünür; hangisinin çıkacağı "
-            "okuttuğunda belli olur. Kazandığın ödül Ödüller bölümündeki Ödüllerim'e düşer. "
+            "okuttuğunda belli olur. Kazandığın ödül Ben › Ödüllerim'e düşer. "
             "Kullanırken 'Ödülü göster' ekranını kasadaki çalışana gösterirsin; çalışan ekrandaki "
             "QR'yi ya da kodu kendi telefonundaki YAZVEB işletme sayfasıyla okutup işletme "
             "PIN'iyle onaylar. Onay çalışanın ekranında görünür, senin ekranın da kendiliğinden "
@@ -312,6 +317,41 @@ KAYITLAR: list[dict] = [
         ),
     },
     {
+        "baslik": "Akademi: ders notları, çıkmış sorular, özetler",
+        "kategori": "uygulama",
+        "anahtar": ["ders notu", "not paylaşma", "çıkmış soru", "çıkmışlar", "özet", "akademi",
+                    "derslerim", "not nasıl paylaşılır", "not bulamıyorum", "vize notu", "final notu"],
+        "icerik": (
+            "Akademi bölümünde öğrenciler ders notlarını, çıkmış soru çözümlerini ve özetlerini "
+            "paylaşır. Notlar derslere göre toplanır: Derslerim'de bölümünün ve sınıfının dersleri "
+            "ile yıldızladığın dersler, Tüm dersler'de arama ve bölüm, sınıf, üniversite süzgeci "
+            "vardır; bir derse girince notlar türe göre (ders notu, çıkmış, özet) ayrılır. "
+            "Notların var olduğunu herkes görür; açmak ve paylaşmak için üniversite e-postasıyla "
+            "öğrenci doğrulaması gerekir. Paylaşılan not 48 saat içinde şikayet gelmezse 20 XP "
+            "kazandırır; sınavdan önceki iki haftada 30 XP. Notu açıp işine yarayan her doğrulanmış "
+            "öğrencinin 'İşime yaradı'sı yazarına 3 XP daha verir; bir not en çok 60 XP, haftada en "
+            "çok 150 XP. Yalnızca kendi notun paylaşılır; hocanın slaytı ya da kitap sayfası "
+            "paylaşılmaz. Uygunsuz ya da telifli not şikayet edilebilir; birkaç doğrulanmış "
+            "öğrenci şikayet edince not incelemeye kadar gizlenir."
+        ),
+    },
+    {
+        "baslik": "Öğrenci doğrulama",
+        "kategori": "uygulama",
+        "anahtar": ["doğrulama", "öğrenci doğrulama", "e-posta doğrulama", "kod gelmedi",
+                    "doğrulama kodu", "ogr.selcuk.edu.tr", "öğrenci maili", "edu.tr"],
+        "icerik": (
+            "Notları açmak ve paylaşmak için bir kez üniversite e-postasıyla doğrulama yapılır: "
+            "Ben › Öğrenci kimliği ya da Akademi'deki 'Öğrenciliğini doğrula'. Selçuk'ta adres "
+            "öğrenci numarası@ogr.selcuk.edu.tr biçimindedir; diğer üniversitelerde .edu.tr ile "
+            "biten öğrenci adresi kullanılır. Adrese 6 haneli bir kod gelir, 30 dakika geçerlidir. "
+            "Kod birkaç dakika gecikebilir ve Gereksiz (Spam) klasörüne düşebilir; oraya "
+            "bakılmalı, 'Gereksiz değil' olarak işaretlenirse sonrakiler gelen kutusuna gelir. "
+            "E-posta adresi saklanmaz; yalnızca üniversite ve doğrulama tarihi kalır. Doğrulama "
+            "her yıl Ekim sonunda bir kodla yenilenir."
+        ),
+    },
+    {
         "baslik": "Uygulamada sorun yaşarsan",
         "kategori": "uygulama",
         "anahtar": ["kamera açılmıyor", "qr okumuyor", "kod geçersiz", "süresi doldu", "zaten alındı",
@@ -330,8 +370,8 @@ KAYITLAR: list[dict] = [
         "anahtar": ["hesap", "görünen ad", "isim değiştirme", "çıkış", "verilerim", "gizlilik",
                     "kamera kaydediliyor mu", "konum kaydediliyor mu", "hesabımı sil"],
         "icerik": (
-            "Görünen ad, Topluluk bölümünde sağ üstteki baş harflere dokunarak değiştirilir; çıkış "
-            "da oradadır. Aynı pencerede 'Verilerin nasıl kullanılıyor?' özeti bulunur: kamera "
+            "Görünen ad Ben › Profil'den değiştirilir; çıkış Ben bölümünün en altındadır. "
+            "Ben › Gizlilik ve veriler'de 'Verilerin nasıl kullanılıyor?' özeti bulunur: kamera "
             "görüntüsü telefonda işlenir ve kaydedilmez, konum yalnızca konum şartlı görevde "
             "kontrol edilir ve kaydedilmez, veriler satılmaz. Hesabın silinmesi için YAZVEB "
             "yönetimine yazılır."

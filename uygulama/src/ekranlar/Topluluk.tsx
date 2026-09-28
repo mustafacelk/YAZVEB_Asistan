@@ -1,20 +1,17 @@
-import { lazy, Suspense, useEffect, useState, type CSSProperties } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useState, type CSSProperties } from "react";
 import { supabase, ROL_ADI, type Mesaj, type Profil, type Rol } from "../veri/supabase";
-import { useGorunum, useOturum } from "../veri/oturum";
+import { useOturum } from "../veri/oturum";
 import { useGezinme } from "../veri/gezinme";
-import Simge from "../tasarim/Simge";
-import KimlikKarti from "../kimlik/KimlikKarti";
+import { bashar } from "../veri/bicim";
+import { Bolum, DunyaBasi, Satir, Satirlar } from "../tasarim/Dunya";
 
 const SIRA: Record<Rol, number> = { baskan: 0, yonetici: 1, uye: 2 };
-
-// Yalnızca yetkililer açtığında yüklenir.
-const Yonetim = lazy(() => import("../yonetim/Yonetim"));
 
 const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
 
 /**
- * Topluluk listesi ve rol yönetimi.
+ * Topluluk — insanlar: genel sohbet ve üyeler. (İleride duyurular, ilanlar,
+ * ev devri, 2. el bu dünyaya gelir.) Hesap ve yönetim Ben'de.
  *
  * Rol değiştirme seçicisi yalnızca başkana görünür. Görünmese bile kural
  * veritabanında: rol_degisimi_denetle tetikleyicisi başkan olmayan her
@@ -22,18 +19,13 @@ const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
  * engeller (topluluk başkansız kalmasın).
  */
 export default function Topluluk() {
-  const { profil, baskanMi, yetkiliMi, cikis, profiliTazele } = useOturum();
-  const { gorunum, gorunumSec } = useGorunum();
+  const { profil, baskanMi } = useOturum();
   const { git } = useGezinme();
   const [sonMesaj, setSonMesaj] = useState<Mesaj | null | undefined>(undefined);
-  const [yonetimAcik, setYonetimAcik] = useState(false);
-  const [hesapAcik, setHesapAcik] = useState(false);
   const [kisiler, setKisiler] = useState<Profil[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [hata, setHata] = useState<string | null>(null);
   const [islemde, setIslemde] = useState<string | null>(null);
-  const [adSoyad, setAdSoyad] = useState(profil?.ad_soyad ?? "");
-  const [kaydedildi, setKaydedildi] = useState(false);
 
   useEffect(() => {
     getir();
@@ -44,10 +36,6 @@ export default function Topluluk() {
       .limit(1)
       .then(({ data }) => setSonMesaj((data as Mesaj[] | null)?.[0] ?? null));
   }, []);
-
-  useEffect(() => {
-    setAdSoyad(profil?.ad_soyad ?? "");
-  }, [profil?.ad_soyad]);
 
   async function getir() {
     const { data, error } = await supabase.from("profiller").select("*");
@@ -79,190 +67,65 @@ export default function Topluluk() {
     getir();
   }
 
-  async function adiKaydet() {
-    if (!profil) return;
-    const { error } = await supabase
-      .from("profiller")
-      .update({ ad_soyad: adSoyad.trim() || null })
-      .eq("id", profil.id);
-    if (error) {
-      setHata(error.code === "23514"
-        ? "Görünen ad desteklenmeyen karakter içeriyor (60 karakter, görünmez karakter yok)."
-        : "Kaydedilemedi.");
-      return;
-    }
-    setKaydedildi(true);
-    setTimeout(() => setKaydedildi(false), 2000);
-    await profiliTazele();
-    getir();
-  }
-
-  const degisti = (adSoyad.trim() || null) !== (profil?.ad_soyad ?? null);
-
   return (
-    <div className="sayfa">
+    <div className="sayfa topluluk">
       <div className="sutun">
-        <header className="sayfa-basi">
-          <div>
-            <span className="etiket gir">YAZVEB</span>
-            <h1 className="gir" style={kademe(1)}>Topluluk</h1>
-            <p className="sayfa-aciklama gir" style={kademe(2)}>Sohbet ve üyeler.</p>
-          </div>
-          {/* Hesap ayarları sayfayı kalabalıklaştırmasın: tek dokunuşla açılan pencerede. */}
-          <button className="hesap-dugmesi gir" style={kademe(2)} onClick={() => setHesapAcik(true)}
-                  aria-label="Hesabım" data-ipucu="Hesabım">
-            <span className="monogram" aria-hidden="true">{bashar(profil?.ad_soyad || profil?.kullanici_adi)}</span>
-          </button>
-        </header>
+        <DunyaBasi etiket="YAZVEB" baslik="Topluluk" aciklama="Genel sohbet ve topluluğun üyeleri." />
 
-        {hata && !hesapAcik && <p className="bildirim" role="alert">{hata}</p>}
+        {hata && <p className="bildirim" role="alert">{hata}</p>}
 
-        <div className="satir-yigini">
-          <button className="ana-satir gir" style={kademe(2)} onClick={() => git("sohbet")}>
-            <span className="ana-satir-ikon"><Simge ad="sohbet" boyut={20} /></span>
-            <span className="ana-satir-govde">
-              <b>Genel sohbet</b>
-              <span className="soluk tek-satir">
-                {sonMesaj === undefined
-                  ? "\u00a0"
-                  : sonMesaj
-                    ? `${kisiAdi(kisiler, sonMesaj.yazar)}: ${sonMesaj.icerik}`
-                    : "Oda sessiz. İlk mesajı sen yaz."}
-              </span>
-            </span>
-            <Simge ad="ileri" boyut={16} />
-          </button>
+        <Satirlar className="gir">
+          <Satir
+            simge="sohbet"
+            baslik="Genel sohbet"
+            aciklama={<span className="tek-satir">{sonMesaj === undefined
+              ? "\u00a0"
+              : sonMesaj
+                ? `${kisiAdi(kisiler, sonMesaj.yazar)}: ${sonMesaj.icerik}`
+                : "Oda sessiz. İlk mesajı sen yaz."}</span>}
+            onClick={() => git("sohbet")}
+          />
+        </Satirlar>
 
-          {/* Yönetim görünümünde "Yönetim" zaten bir sekme; burada tekrar etmez. */}
-          {yetkiliMi && gorunum === "uye" && (
-            <button className="ana-satir gir" style={kademe(3)} onClick={() => setYonetimAcik(true)}>
-              <span className="ana-satir-ikon"><Simge ad="ayar" boyut={20} /></span>
-              <span className="ana-satir-govde">
-                <b>Ödül yönetimi</b>
-                <span className="soluk tek-satir">QR görevleri, sponsorlar, kampanyalar</span>
-              </span>
-              <Simge ad="ileri" boyut={16} />
-            </button>
+        <Bolum etiket="Üyeler" sag={<span className="etiket rakam">{kisiler.length || ""}</span>} sira={4}>
+          {yukleniyor ? (
+            <div className="yigin">
+              {[50, 38, 44].map((g, i) => (
+                <div key={i} className="iskelet" style={{ width: g + "%" }} />
+              ))}
+            </div>
+          ) : (
+            <ul className="kisiler">
+              {kisiler.map((k, i) => (
+                <li key={k.id} className="kisi gir" style={kademe(Math.min(i + 4, 10))}>
+                  <span className="monogram" aria-hidden="true">{bashar(k.ad_soyad || k.kullanici_adi)}</span>
+                  <div className="kisi-bilgi">
+                    <b>{k.ad_soyad || "@" + k.kullanici_adi}{k.id === profil?.id ? " · sen" : ""}</b>
+                    {k.ad_soyad && <span>@{k.kullanici_adi}</span>}
+                  </div>
+
+                  {/* Rol değiştirme yalnızca başkana ve kendisi dışındakilere */}
+                  {baskanMi && k.id !== profil?.id ? (
+                    <select
+                      className="girdi"
+                      value={k.rol}
+                      disabled={islemde === k.id}
+                      onChange={(e) => rolDegistir(k, e.target.value as Rol)}
+                      aria-label={`${k.kullanici_adi} rolü`}
+                    >
+                      <option value="uye">Üye</option>
+                      <option value="yonetici">Yönetici</option>
+                      <option value="baskan">Başkan</option>
+                    </select>
+                  ) : (
+                    k.rol !== "uye" && <span className={"rozet rol-" + k.rol}>{ROL_ADI[k.rol]}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
-        </div>
-
-        <div className="bolum-basi gir" style={kademe(4)}>
-          <span className="etiket">Üyeler</span>
-          <span className="etiket rakam">{kisiler.length || ""}</span>
-        </div>
-
-        {yukleniyor ? (
-          <div className="yigin">
-            {[50, 38, 44].map((g, i) => (
-              <div key={i} className="iskelet" style={{ width: g + "%" }} />
-            ))}
-          </div>
-        ) : (
-          <ul className="kisiler">
-            {kisiler.map((k, i) => (
-              <li key={k.id} className="kisi gir" style={kademe(Math.min(i + 4, 10))}>
-                <span className="monogram" aria-hidden="true">{bashar(k.ad_soyad || k.kullanici_adi)}</span>
-                <div className="kisi-bilgi">
-                  <b>{k.ad_soyad || "@" + k.kullanici_adi}</b>
-                  {k.ad_soyad && <span>@{k.kullanici_adi}</span>}
-                </div>
-
-                {/* Rol değiştirme yalnızca başkana ve kendisi dışındakilere */}
-                {baskanMi && k.id !== profil?.id ? (
-                  <select
-                    className="girdi"
-                    value={k.rol}
-                    disabled={islemde === k.id}
-                    onChange={(e) => rolDegistir(k, e.target.value as Rol)}
-                    aria-label={`${k.kullanici_adi} rolü`}
-                  >
-                    <option value="uye">Üye</option>
-                    <option value="yonetici">Yönetici</option>
-                    <option value="baskan">Başkan</option>
-                  </select>
-                ) : (
-                  k.rol !== "uye" && <span className={"rozet rol-" + k.rol}>{ROL_ADI[k.rol]}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+        </Bolum>
       </div>
-      {hesapAcik && createPortal(
-        <div className="katman" onClick={() => setHesapAcik(false)}>
-          <div className="pencere hesap-penceresi" role="dialog" aria-modal="true" aria-labelledby="hesap-baslik"
-               onClick={(e) => e.stopPropagation()}>
-            <div className="pencere-basi">
-              <div className="hesap-kimlik">
-                <span className="monogram buyuk" aria-hidden="true">
-                  {bashar(profil?.ad_soyad || profil?.kullanici_adi)}
-                </span>
-                <div className="hesap-ad">
-                  <h2 id="hesap-baslik">{profil?.ad_soyad || "@" + profil?.kullanici_adi}</h2>
-                  <p>
-                    @{profil?.kullanici_adi} ·{" "}
-                    <span className={"rozet rol-" + (profil?.rol ?? "uye")}>{ROL_ADI[profil?.rol ?? "uye"]}</span>
-                  </p>
-                </div>
-              </div>
-              <button className="ikon-dugme" onClick={() => setHesapAcik(false)} aria-label="Kapat"><Simge ad="kapat" /></button>
-            </div>
-
-            {hata && <p className="bildirim" role="alert">{hata}</p>}
-
-            <form className="hesap-form" onSubmit={(e) => { e.preventDefault(); adiKaydet(); }}>
-              <label className="alan">
-                <span className="etiket">Görünen ad</span>
-                <input
-                  className="girdi"
-                  value={adSoyad}
-                  onChange={(e) => setAdSoyad(e.target.value)}
-                  maxLength={60}
-                  placeholder="Ad soyad"
-                  autoComplete="name"
-                />
-              </label>
-              <button type="submit" className="dugme cizgili buyuk" disabled={!degisti && !kaydedildi}>
-                {kaydedildi ? "Kaydedildi" : "Kaydet"}
-              </button>
-            </form>
-
-            <div className="alan">
-              <span className="etiket">Öğrenci kimliği</span>
-              <KimlikKarti />
-            </div>
-
-            {yetkiliMi && (
-              <div className="alan">
-                <span className="etiket">Açılış görünümü</span>
-                <div className="secici" role="tablist" aria-label="Görünüm"
-                     style={{ "--secim": gorunum === "yonetim" ? 1 : 0 } as CSSProperties}>
-                  <span className="secici-gosterge" aria-hidden="true" />
-                  <button type="button" role="tab" aria-selected={gorunum === "uye"}
-                          onClick={() => { gorunumSec("uye"); setHesapAcik(false); }}>Üye</button>
-                  <button type="button" role="tab" aria-selected={gorunum === "yonetim"}
-                          onClick={() => { gorunumSec("yonetim"); setHesapAcik(false); }}>Yönetim</button>
-                </div>
-                <span className="soluk">Yetkin değişmez; yalnızca hangi ekranların önce geleceği.</span>
-              </div>
-            )}
-
-            <VeriOzeti />
-
-            <div className="pencere-dip">
-              <button className="dugme tehlike genis" onClick={cikis}>
-                <Simge ad="cikis" boyut={16} /> Çıkış yap
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
-      {yonetimAcik && (
-        <Suspense fallback={null}>
-          <Yonetim onKapat={() => setYonetimAcik(false)} />
-        </Suspense>
-      )}
     </div>
   );
 }
@@ -270,44 +133,4 @@ export default function Topluluk() {
 function kisiAdi(kisiler: Profil[], id: string) {
   const k = kisiler.find((x) => x.id === id);
   return k ? k.ad_soyad || "@" + k.kullanici_adi : "Üye";
-}
-
-/**
- * Verilerin nerede ve ne için — hukuk metni değil, düz cümleler.
- *
- * Buradaki her cümle koda karşı doğrulandı: kamera görüntüsü cihazda
- * çözülür (odul/qr.ts), konum yalnızca karşılaştırılır ve yazılmaz
- * (odul_gorev_tamamla), IP yalnızca kısaltılmış özet olarak ve hız sınırı
- * için tutulur (istek_ip_ozeti, 24 saat / 30 gün), asistan soruları
- * saklanmaz. Kod değişirse bu metin de değişmeli.
- */
-function VeriOzeti() {
-  return (
-    <details className="veri-ozeti">
-      <summary>
-        <Simge ad="kalkan" boyut={16} />
-        <span>Verilerin nasıl kullanılıyor?</span>
-      </summary>
-      <ul>
-        <li><b>Hesap:</b> kullanıcı adı, e-posta ve istersen görünen adın. Başka kişisel bilgi istemiyoruz.</li>
-        <li><b>Kamera:</b> QR kodu telefonunda okunur. Görüntü kaydedilmez, hiçbir yere gönderilmez.</li>
-        <li><b>Konum:</b> yalnızca konum şartlı bir görevde, o an etkinlik alanında olup olmadığını kontrol etmek için kullanılır. Kaydedilmez.</li>
-        <li><b>Puan ve ödüller:</b> kazandığın her puan ve ödül hesabında kayıtlı; Ödüller → Geçmiş'te hepsini görebilirsin. Ödülü onaylayan işletme çalışanı yalnızca ödülün kodunu ve adını görür; adın ve hesabın ona gösterilmez.</li>
-        <li><b>Sıralama:</b> yalnızca kullanıcı adın görünür. Gizli profili açarak tamamen çıkabilirsin.</li>
-        <li><b>Asistan:</b> sorun, yanıt üretmek için yapay zekâ servisine gönderilir; YAZVEB soruları saklamaz. Etkinlik sorarsan uygulamadaki yaklaşan etkinlikler, puanını sorarsan yalnızca puanın ve seviyen yanıta eklenir; adın ve e-postan gönderilmez. Sesli yanıt açıksa yanıt metni seslendirme servisine gider.</li>
-        <li><b>Sohbet:</b> genel sohbetteki mesajlar topluluk üyelerine görünür ve saklanır. Kendi mesajını silebilirsin. Birkaç üye şikayet ederse mesaj yönetim inceleyene kadar gizlenir.</li>
-        <li><b>Öğrenci doğrulama:</b> üniversite e-postan yalnızca kodu göndermek için kullanılır ve saklanmaz. Hesabında kalan: üniversiten (alan adından), doğrulama tarihi ve adresin geri çevrilemeyen bir özeti (aynı adres iki hesabı doğrulamasın diye). Bölüm ve sınıf senin beyanın. Hesabım → Öğrenci kimliği'nden doğrulamayı kaldırabilirsin.</li>
-        <li><b>Notlar:</b> paylaştığın dosya, künyesi ve kullanıcı adın (gizli profilde adsız) diğer üyelere görünür; dosyayı yalnızca doğrulanmış öğrenciler açabilir. Kimin hangi notu açtığı başkasına gösterilmez; yalnızca toplam sayı. Notunu kaldırınca dosya da silinir.</li>
-        <li><b>Güvenlik:</b> kötüye kullanımı sınırlamak için IP adresinin geri çevrilemeyen kısa bir özeti en fazla 30 gün tutulur.</li>
-      </ul>
-      <p className="soluk">Verilerini satmıyoruz, reklam için kullanmıyoruz. Hesabının silinmesini istersen YAZVEB yönetimine yaz.</p>
-    </details>
-  );
-}
-
-/** "Mustafa Çelik" → "MÇ", "mustafa" → "M". */
-function bashar(ad?: string | null) {
-  const parca = (ad ?? "").trim().split(/\s+/).filter(Boolean);
-  const harfler = parca.length > 1 ? parca[0][0] + parca[parca.length - 1][0] : (parca[0]?.[0] ?? "?");
-  return harfler.toLocaleUpperCase("tr");
 }

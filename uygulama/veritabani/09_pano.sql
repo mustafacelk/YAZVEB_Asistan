@@ -392,6 +392,60 @@ begin
 end $$;
 
 
+/**
+ * Bu kişiye gösterilecek sponsorlu kartlar (en fazla 6) ve gösterim kaydı.
+ * Kademe sırası, aynı kademede günlük dönüşüm (hep aynı sponsor üstte
+ * kalmasın). Hedefleme kişisel veriyle değil: üniversite ve sınav dönemi.
+ */
+create or replace function pano.sponsorlu_sec(p_kim uuid, p_benim text, p_sinav jsonb)
+returns jsonb language plpgsql volatile
+set search_path = pano
+as $$
+declare v jsonb;
+begin
+  with uygun as (
+    select sp.*, o.ad as sponsor_ad, o.logo as sponsor_logo
+    from pano.sponsorlu sp left join odul.sponsorlar o on o.id = sp.sponsor_id and o.aktif
+    where sp.aktif and now() between sp.baslangic and sp.bitis
+      and (sp.hedef_kurum is null or sp.hedef_kurum = p_benim)
+      and (sp.baglam = 'her_zaman' or (sp.baglam = 'sinav_donemi' and p_sinav is not null))
+    order by case sp.kademe when 'altin' then 0 when 'gumus' then 1 else 2 end,
+             md5(sp.id::text || pano.bugun()::text)
+    limit 6
+  ), kayit as (
+    insert into pano.sponsorlu_olaylari (sponsorlu_id, kullanici, tur)
+    select id, p_kim, 'gosterim' from uygun
+    on conflict do nothing
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'id', u.id, 'kademe', u.kademe, 'baslik', u.baslik, 'metin', u.metin, 'baglanti', u.baglanti,
+           'sponsor_id', case when u.sponsor_ad is not null then u.sponsor_id end,
+           'sponsor', u.sponsor_ad, 'logo', u.sponsor_logo, 'baglam', u.baglam)
+         order by case u.kademe when 'altin' then 0 when 'gumus' then 1 else 2 end,
+                  md5(u.id::text || pano.bugun()::text)), '[]')
+  into v from uygun u;
+  return v;
+end $$;
+
+/**
+ * Ders adını karşılaştırma için sadeleştirir. Türkçe I sorunu: veritabanı
+ * "OLASILIK"ı "olasilik"e, "Olasılık"ı "olasılık"a çevirir; aynı ders iki
+ * ders sayılırdı. i, ı, İ, I aynı harf sayılır; boşluklar teklenir.
+ */
+create or replace function pano.ders_normal(p text)
+returns text language sql immutable
+as $$ select translate(lower(translate(regexp_replace(btrim(coalesce(p, '')), '\s+', ' ', 'g'), 'İI', 'ii')), 'ı', 'i') $$;
+
+/** Bir notun dersi: kodu varsa kodla, yoksa adla (aynı üniversitede). */
+create or replace function pano.ders_uyar(n pano.notlar, p_ders jsonb)
+returns boolean language sql immutable
+as $$
+  select p_ders is null or (
+    (nullif(p_ders->>'kurum', '') is null or n.kurum_alani = p_ders->>'kurum')
+    and case when nullif(p_ders->>'kod', '') is not null then n.ders_kodu = upper(p_ders->>'kod')
+             else n.ders_kodu is null and pano.ders_normal(n.ders_adi) = pano.ders_normal(p_ders->>'ad') end)
+$$;
+
 -- ═══════════════════════════════════════════════════════════════════
 -- NOTLAR — üye API'si
 -- ═══════════════════════════════════════════════════════════════════
@@ -415,6 +469,8 @@ declare
   v_ara text := nullif(btrim(coalesce(p->>'ara', '')), '');
   v_sira text := coalesce(nullif(p->>'sira', ''), 'yeni');
   v_sayfa integer := greatest(0, least(coalesce((p->>'sayfa')::integer, 0), 200));
+  -- Akademi'de bir dersin sayfası: {kod, ad, kurum}.
+  v_ders jsonb := case when jsonb_typeof(p->'ders') = 'object' then p->'ders' end;
   v_sinav jsonb;
   v_liste jsonb;
   v_adet integer;
@@ -436,6 +492,7 @@ begin
       and (v_bolum is null or n.bolum ilike pano.desen(v_bolum))
       and (v_sinif is null or n.sinif = v_sinif)
       and (v_tur is null or n.tur = v_tur)
+      and pano.ders_uyar(n, v_ders)
       and (v_ara is null or n.baslik ilike pano.desen(v_ara) or n.ders_adi ilike pano.desen(v_ara)
            or coalesce(n.ders_kodu, '') ilike pano.desen(v_ara) or coalesce(n.hoca, '') ilike pano.desen(v_ara))
     order by case when v_sira = 'faydali' then n.yararli end desc nulls last, n.yayinlandi desc, n.id
@@ -449,30 +506,10 @@ begin
         from secilen s) x
   join pano.notlar n on n.id = x.id;
 
-  -- Sponsorlu kartlar yalnızca ilk sayfada; kademe sırası, aynı kademede
-  -- günlük dönüşüm (hep aynı sponsor en üstte kalmasın).
-  if v_sayfa = 0 then
-    with uygun as (
-      select sp.*, o.ad as sponsor_ad, o.logo as sponsor_logo
-      from pano.sponsorlu sp left join odul.sponsorlar o on o.id = sp.sponsor_id and o.aktif
-      where sp.aktif and now() between sp.baslangic and sp.bitis
-        and (sp.hedef_kurum is null or sp.hedef_kurum = benim)
-        and (sp.baglam = 'her_zaman' or (sp.baglam = 'sinav_donemi' and v_sinav is not null))
-      order by case sp.kademe when 'altin' then 0 when 'gumus' then 1 else 2 end,
-               md5(sp.id::text || pano.bugun()::text)
-      limit 6
-    ), kayit as (
-      insert into pano.sponsorlu_olaylari (sponsorlu_id, kullanici, tur)
-      select id, kim, 'gosterim' from uygun
-      on conflict do nothing
-    )
-    select coalesce(jsonb_agg(jsonb_build_object(
-             'id', u.id, 'kademe', u.kademe, 'baslik', u.baslik, 'metin', u.metin, 'baglanti', u.baglanti,
-             'sponsor_id', case when u.sponsor_ad is not null then u.sponsor_id end,
-             'sponsor', u.sponsor_ad, 'logo', u.sponsor_logo, 'baglam', u.baglam)
-           order by case u.kademe when 'altin' then 0 when 'gumus' then 1 else 2 end,
-                    md5(u.id::text || pano.bugun()::text)), '[]')
-    into v_sponsorlu from uygun u;
+  -- Sponsorlu kartlar yalnızca ilk sayfada ve bir dersin içinde değil:
+  -- ders okurken reklam yok (TASARIM.md §2, kural 1).
+  if v_sayfa = 0 and v_ders is null then
+    v_sponsorlu := pano.sponsorlu_sec(kim, benim, v_sinav);
   end if;
 
   return jsonb_build_object(
@@ -484,6 +521,77 @@ begin
     'daha', v_adet > 30,
     'sponsorlu', v_sponsorlu,
     -- Filtre çipleri: bu kurumda en çok not olan bölümler.
+    'bolumler', (select coalesce(jsonb_agg(b.bolum order by b.n desc, b.bolum), '[]') from (
+                   select bolum, count(*) as n from pano.notlar
+                   where durum = 'yayinda' and (v_kurum is null or kurum_alani = v_kurum)
+                   group by bolum order by count(*) desc limit 12) b),
+    'ayar', (select jsonb_build_object('taban_xp', taban_xp, 'oy_xp', oy_xp, 'not_tavan', not_tavan,
+               'haftalik_tavan', haftalik_tavan, 'sinav_carpani', sinav_carpani, 'onay_saat', onay_saat,
+               'sinav_oncesi_gun', sinav_oncesi_gun, 'azami_bayt', azami_bayt) from pano.ayarlar));
+end $$;
+
+/**
+ * Akademi: notlar DERS başına toplanmış. Ders kodu varsa kodla, yoksa adla
+ * (aynı üniversitede) tek ders sayılır. Ad, bölüm ve sınıf için en sık
+ * yazılan değer gösterilir (öğrenciler aynı dersi farklı yazabilir).
+ *   p: { kurum: 'benim' | 'tum' | '<alan>', bolum, sinif, ara, sira: 'yeni' | 'cok' }
+ */
+create or replace function public.pano_dersler(p jsonb default '{}'::jsonb)
+returns jsonb language plpgsql volatile security definer
+set search_path = public, pano
+as $$
+declare
+  kim uuid := pano.giris_olmali();
+  benim text := pano.kurumum(kim);
+  v_kurum text;
+  v_bolum text := nullif(btrim(coalesce(p->>'bolum', '')), '');
+  v_sinif text := nullif(p->>'sinif', '');
+  v_ara text := left(nullif(btrim(coalesce(p->>'ara', '')), ''), 60);
+  v_sira text := coalesce(nullif(p->>'sira', ''), 'yeni');
+  v_sinav jsonb;
+begin
+  perform pano.onaylari_isle();
+  v_kurum := case coalesce(nullif(p->>'kurum', ''), 'benim')
+               when 'benim' then benim
+               when 'tum' then null
+               else p->>'kurum' end;
+  if v_sira not in ('yeni', 'cok') then raise exception 'Geçersiz sıralama.' using errcode = '22023'; end if;
+  v_sinav := pano.sinav_durumu(benim);
+
+  return jsonb_build_object(
+    'ben', kimlik.ozet_json(kim),
+    'kurum', v_kurum,
+    'kurum_adi', case when v_kurum is not null then kimlik.universite_adi(v_kurum) end,
+    'sinav', v_sinav,
+    'dersler', (select coalesce(jsonb_agg(jsonb_build_object(
+        'kod', g.ders_kodu, 'ad', g.ders_adi, 'kurum', g.kurum_alani, 'universite', kimlik.universite_adi(g.kurum_alani),
+        'bolum', g.bolum, 'sinif', g.sinif, 'not', g.adet, 'ders_notu', g.ders_notu, 'cikmis', g.cikmis, 'ozet', g.ozet,
+        'yararli', g.yararli, 'son', g.son)
+        order by case when v_sira = 'cok' then g.adet end desc nulls last, g.son desc, g.ders_adi), '[]')
+      from (
+        select n.kurum_alani, n.ders_kodu,
+               -- En sık yazım; eşitlikte tamamı büyük harf olmayan ("Olasılık", "OLASILIK" değil).
+               (select a from unnest(array_agg(n.ders_adi)) a group by a order by count(*) desc, (a = upper(a)), a limit 1) as ders_adi,
+               (select a from unnest(array_agg(n.bolum)) a group by a order by count(*) desc, (a = upper(a)), a limit 1) as bolum,
+               mode() within group (order by n.sinif) as sinif,
+               count(*) as adet,
+               count(*) filter (where n.tur = 'ders_notu') as ders_notu,
+               count(*) filter (where n.tur = 'cikmis_cozum') as cikmis,
+               count(*) filter (where n.tur = 'ozet') as ozet,
+               sum(n.yararli) as yararli,
+               max(n.yayinlandi) as son
+        from pano.notlar n
+        where n.durum = 'yayinda'
+          and (v_kurum is null or n.kurum_alani = v_kurum)
+          and (v_bolum is null or n.bolum ilike pano.desen(v_bolum))
+          and (v_sinif is null or n.sinif = v_sinif)
+          and (v_ara is null or n.ders_adi ilike pano.desen(v_ara) or coalesce(n.ders_kodu, '') ilike pano.desen(v_ara)
+               or coalesce(n.hoca, '') ilike pano.desen(v_ara) or n.baslik ilike pano.desen(v_ara))
+        group by n.kurum_alani, n.ders_kodu, case when n.ders_kodu is null then pano.ders_normal(n.ders_adi) end
+        order by case when v_sira = 'cok' then count(*) end desc nulls last, max(n.yayinlandi) desc
+        limit 200
+      ) g),
+    'sponsorlu', pano.sponsorlu_sec(kim, benim, v_sinav),
     'bolumler', (select coalesce(jsonb_agg(b.bolum order by b.n desc, b.bolum), '[]') from (
                    select bolum, count(*) as n from pano.notlar
                    where durum = 'yayinda' and (v_kurum is null or kurum_alani = v_kurum)

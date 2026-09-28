@@ -14,3 +14,10 @@ export function suruyorMu(e: { baslangic: string; bitis: string | null }, simdi 
   const son = e.bitis ? new Date(e.bitis).getTime() : bas + 3 * 3_600_000;
   return bas <= simdi && simdi < son;
 }
+
+/** Profil fotoğrafı yerine baş harfler: "Mustafa Çelik" → "MÇ", "mustafa" → "M". */
+export function bashar(ad?: string | null) {
+  const parca = (ad ?? "").trim().split(/\s+/).filter(Boolean);
+  const harfler = parca.length > 1 ? parca[0][0] + parca[parca.length - 1][0] : (parca[0]?.[0] ?? "?");
+  return harfler.toLocaleUpperCase("tr");
+}

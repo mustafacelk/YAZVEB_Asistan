@@ -29,7 +29,7 @@ export type Kilit = {
   eksik_etkinlik: number;
 };
 
-export type PuanIslemi = { miktar: number; tur: "gorev" | "seri_bonusu" | "yonetici"; aciklama: string; zaman: string };
+export type PuanIslemi = { miktar: number; tur: "gorev" | "seri_bonusu" | "yonetici" | "not"; aciklama: string; zaman: string };
 
 export type Profil = {
   xp: number;
@@ -251,7 +251,7 @@ export const GOREV_MESAJI: Record<Exclude<GorevDurumu, "tamam">, string> = {
   konum_uzak: "Etkinlik alanının dışında görünüyorsun. Kapalı alanda konum sapabilir; açık bir yere yaklaşıp tekrar dene.",
   sinir: "Kısa sürede çok deneme yapıldı. Birkaç dakika sonra tekrar dene.",
   kimliksiz: "Oturumun sona ermiş. Devam etmek için tekrar giriş yap.",
-  sponsor_qr: "Bu bir sponsor QR'si. Ödüller'de ilgili sponsoru açıp oradan okut.",
+  sponsor_qr: "Bu bir sponsor QR'si. Ben › Sponsorlar'da ilgili işletmeyi açıp oradan okut.",
   canli_kod_eksik: "Bu etkinliğin kodu canlı: ekrandaki kısa kodun sonundaki dört harfle birlikte, kodun tamamını gir.",
   canli_kod_eskidi: "Bu kodun süresi geçmiş; etkinlikteki kod dakikada bir değişiyor. Ekranda şu an görünen kodu okut.",
 };
@@ -277,7 +277,7 @@ export const SPONSOR_MESAJI: Record<Exclude<SponsorSonucu["durum"], "tamam" | "k
   tukendi: "Bu kampanyanın ödülleri bitti. Yeni kampanya açıldığında burada görünür.",
   sinir: "Kısa sürede çok deneme yapıldı. Birkaç dakika sonra tekrar dene.",
   kimliksiz: "Oturumun sona ermiş. Devam etmek için tekrar giriş yap.",
-  gorev_qr: "Bu bir etkinlik QR'si. Alttaki tarama düğmesiyle okut.",
+  gorev_qr: "Bu bir etkinlik QR'si. Etkinlikler'deki \"QR okut\" ile okut.",
 };
 
 /** Çalışanın ekranı: ne oldu ve şimdi ne yapmalı. Ödülü vermek mi, vermemek mi? */

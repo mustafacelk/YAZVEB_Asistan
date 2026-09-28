@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import { createPortal } from "react-dom";
+import { type CSSProperties } from "react";
+import { useSayac } from "../veri/sayac";
 import Simge, { odulIkonu } from "../tasarim/Simge";
 import {
-  odul,
-  OdulHatasi,
   sayi,
   seviyeIlerlemesi,
   sonKullanimEtiketi,
@@ -14,169 +12,17 @@ import {
   type KazanimOzeti,
   type Liderlik,
   type Profil,
-  type Sponsor,
 } from "../veri/odul";
-import { ODUL_DEGISTI, type OdulBolumu } from "../veri/gezinme";
-import Tarayici, { type TaramaModu } from "../odul/Tarayici";
-import OdulGoster from "../odul/OdulGoster";
-import { SponsorDetay, SponsorKarti } from "../odul/SponsorKarti";
 
-type Bolum = OdulBolumu;
-const BOLUMLER: { anahtar: Bolum; ad: string }[] = [
-  { anahtar: "sponsorlar", ad: "Sponsorlar" },
-  { anahtar: "oduller", ad: "Ödüllerim" },
-  { anahtar: "siralama", ad: "Sıralama" },
-];
+/**
+ * Ben dünyasının cüzdan parçaları: ilerleme ayrıntısı, ödüllerim, sıralama,
+ * puan geçmişi. Eskiden ayrı bir "Ödüller" sekmesiydi; artık kişinin kendi
+ * alanında, ihtiyaç duyulunca açılan alt sayfalar (TASARIM.md §2).
+ */
 
 const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
 
-/**
- * Ödüller — kullanıcının YAZVEB içindeki ilerleme profili.
- *
- * İlk bakışta üç şey görünür: kaç puanın var, hangi seviyedesin, bir sonraki
- * adımın ne. Tarama gezinme çubuğunun ortasında; burada tekrarlanmaz.
- * Geri kalan her şey sekmelerde; ekran bağırmaz.
- */
-export default function Oduller({ bolum: istenenBolum }: { bolum?: OdulBolumu }) {
-  const [profil, setProfil] = useState<Profil | null>(null);
-  const [sponsorlar, setSponsorlar] = useState<Sponsor[] | null>(null);
-  const [cuzdan, setCuzdan] = useState<KazanimOzeti[] | null>(null);
-  const [liderlik, setLiderlik] = useState<Liderlik | null>(null);
-  const [bolum, setBolum] = useState<Bolum>(istenenBolum ?? "sponsorlar");
-  const [donem, setDonem] = useState<Donem>("hafta");
-  const [hata, setHata] = useState<string | null>(null);
-  const [tarama, setTarama] = useState<TaramaModu | null>(null);
-  const [detay, setDetay] = useState<Sponsor | null>(null);
-  const [gosterilen, setGosterilen] = useState<string | null>(null);
-  const [gecmisAcik, setGecmisAcik] = useState(false);
-
-  const tazele = useCallback(async () => {
-    try {
-      const [p, s, c] = await Promise.all([odul.profil(), odul.sponsorlar(), odul.cuzdan()]);
-      setProfil(p);
-      setSponsorlar(s);
-      setCuzdan(c);
-      setHata(null);
-    } catch (h) {
-      setHata(h instanceof OdulHatasi ? h.message : "Yüklenemedi.");
-    }
-  }, []);
-
-  useEffect(() => {
-    tazele();
-    window.addEventListener(ODUL_DEGISTI, tazele);
-    return () => window.removeEventListener(ODUL_DEGISTI, tazele);
-  }, [tazele]);
-
-  // Başka ekrandan belirli bir bölüme gelindi (ör. Ana → bekleyen ödüller).
-  useEffect(() => { if (istenenBolum) setBolum(istenenBolum); }, [istenenBolum]);
-
-  useEffect(() => {
-    if (bolum !== "siralama") return;
-    odul.liderlik(donem).then(setLiderlik).catch(() => setLiderlik({ acik: false }));
-  }, [bolum, donem, profil?.xp, profil?.gizli]);
-
-  const sira = BOLUMLER.findIndex((b) => b.anahtar === bolum);
-  const aktifOdul = cuzdan?.filter((z) => z.durum === "aktif").length ?? 0;
-
-  return (
-    <div className="sayfa oduller">
-      <div className="sutun">
-        <header className="sayfa-basi">
-          <div>
-            <span className="etiket gir">İlerleme</span>
-            <h1 className="gir" style={kademe(1)}>Ödüller</h1>
-            <p className="sayfa-aciklama gir" style={kademe(2)}>Puanın, açtığın sponsorlar ve kazandığın ödüller.</p>
-          </div>
-        </header>
-
-        {hata && <p className="bildirim" role="alert">{hata}</p>}
-
-        {!profil ? (
-          <div className="yigin" aria-label="Yükleniyor">
-            <div className="iskelet" style={{ width: "40%", height: 48 }} />
-            <div className="iskelet" style={{ width: "100%" }} />
-          </div>
-        ) : (
-          <IlerlemeKarti profil={profil} onGecmis={() => setGecmisAcik(true)} />
-        )}
-
-        <div className="secici bolum-secici gir" role="tablist" aria-label="Ödül bölümleri"
-             style={{ ...kademe(5), ["--secim" as string]: sira, ["--adet" as string]: BOLUMLER.length }}>
-          <span className="secici-gosterge" aria-hidden="true" />
-          {BOLUMLER.map((b) => (
-            <button key={b.anahtar} type="button" role="tab" aria-selected={bolum === b.anahtar}
-                    onClick={() => setBolum(b.anahtar)}>
-              {b.ad}{b.anahtar === "oduller" && aktifOdul > 0 ? <span className="sayac rakam">{aktifOdul}</span> : null}
-            </button>
-          ))}
-        </div>
-
-        {bolum === "sponsorlar" && (
-          sponsorlar === null ? (!hata && (
-            <div className="sponsor-izgara" aria-label="Yükleniyor">
-              {[0, 1].map((i) => <div key={i} className="iskelet" style={{ height: 150 }} />)}
-            </div>
-          )) : sponsorlar.length === 0 ? (
-            <div className="bos gir">
-              <Simge ad="kilit" boyut={28} />
-              <b>Sponsor ağı hazırlanıyor.</b>
-              <span>İlk sponsorlar eklendiğinde kilitlerini burada açacaksın.</span>
-            </div>
-          ) : (
-            <div className="sponsor-izgara">
-              {sponsorlar.map((s, i) => (
-                <SponsorKarti key={s.id} sponsor={s} sira={i} onAc={() => setDetay(s)} />
-              ))}
-            </div>
-          )
-        )}
-
-        {bolum === "oduller" && (
-          <Cuzdan liste={cuzdan} onGoster={setGosterilen} onKesfet={() => setBolum("sponsorlar")} />
-        )}
-        {bolum === "siralama" && profil && (
-          <Siralama veri={liderlik} donem={donem} onDonem={setDonem} gizli={profil.gizli} onGizlilik={async (g) => {
-            await odul.gizlilik(g).catch(() => {});
-            tazele();
-          }} />
-        )}
-      </div>
-
-      {detay && (
-        <SponsorDetay
-          sponsor={detay}
-          onKapat={() => setDetay(null)}
-          onTara={(s) => { setDetay(null); setTarama({ tur: "sponsor", sponsor: s }); }}
-        />
-      )}
-      {tarama && (
-        <Tarayici
-          mod={tarama}
-          onKapat={() => setTarama(null)}
-          onDegisti={tazele}
-          onOdulGoster={(id) => setGosterilen(id)}
-        />
-      )}
-      {gosterilen && <OdulGoster kazanimId={gosterilen} onKapat={() => setGosterilen(null)} onDegisti={tazele} />}
-      {gecmisAcik && profil && createPortal(
-        <div className="katman" onClick={() => setGecmisAcik(false)}>
-          <div className="pencere" role="dialog" aria-modal="true" aria-labelledby="gecmis-baslik"
-               onClick={(e) => e.stopPropagation()}>
-            <div className="pencere-basi">
-              <h2 id="gecmis-baslik">Puan geçmişi</h2>
-              <button className="ikon-dugme" onClick={() => setGecmisAcik(false)} aria-label="Kapat"><Simge ad="kapat" /></button>
-            </div>
-            <Gecmis profil={profil} />
-          </div>
-        </div>,
-        document.body,
-      )}
-    </div>
-  );
-}
-
-function IlerlemeKarti({ profil, onGecmis }: { profil: Profil; onGecmis: () => void }) {
+export function IlerlemeAyrinti({ profil }: { profil: Profil }) {
   const { seviye, xp } = profil;
   const oran = seviyeIlerlemesi(xp, seviye);
   const adim = sonrakiAdim(profil);
@@ -238,36 +84,11 @@ function IlerlemeKarti({ profil, onGecmis }: { profil: Profil; onGecmis: () => v
         <div><b className="rakam">{profil.aktif_odul}</b><span className="etiket">Bekleyen</span></div>
       </div>
 
-      {/* Her puanın nereden geldiği: sistemin adil olduğunun kanıtı. */}
-      <button className="metin-dugme gecmis-dugmesi" onClick={onGecmis}>
-        <Simge ad="liste" boyut={16} /> Puan geçmişi
-      </button>
     </section>
   );
 }
 
-/** Sayı değişince yumuşakça sayar (az hareket tercihinde anında). */
-function useSayac(hedef: number) {
-  const [deger, setDeger] = useState(hedef);
-  const onceki = useRef(hedef);
-  useEffect(() => {
-    const bas = onceki.current;
-    onceki.current = hedef;
-    if (bas === hedef || matchMedia("(prefers-reduced-motion: reduce)").matches) { setDeger(hedef); return; }
-    const t0 = performance.now();
-    let kare = 0;
-    const adim = (an: number) => {
-      const t = Math.min(1, (an - t0) / 700);
-      setDeger(Math.round(bas + (hedef - bas) * (1 - Math.pow(1 - t, 3))));
-      if (t < 1) kare = requestAnimationFrame(adim);
-    };
-    kare = requestAnimationFrame(adim);
-    return () => cancelAnimationFrame(kare);
-  }, [hedef]);
-  return deger;
-}
-
-function Cuzdan({ liste, onGoster, onKesfet }: {
+export function Cuzdan({ liste, onGoster, onKesfet }: {
   liste: KazanimOzeti[] | null;
   onGoster: (id: string) => void;
   onKesfet: () => void;
@@ -327,7 +148,7 @@ function Cuzdan({ liste, onGoster, onKesfet }: {
   );
 }
 
-function Siralama({ veri, donem, onDonem, gizli, onGizlilik }: {
+export function Siralama({ veri, donem, onDonem, gizli, onGizlilik }: {
   veri: Liderlik | null;
   donem: Donem;
   onDonem: (d: Donem) => void;
@@ -397,7 +218,7 @@ function Siralama({ veri, donem, onDonem, gizli, onGizlilik }: {
   );
 }
 
-function Gecmis({ profil }: { profil: Profil }) {
+export function Gecmis({ profil }: { profil: Profil }) {
   if (profil.islemler.length === 0) {
     return <div className="bos gir"><Simge ad="liste" boyut={28} /><b>Macera burada başlıyor.</b><span>Kazandığın her puan burada listelenir.</span></div>;
   }
@@ -406,7 +227,7 @@ function Gecmis({ profil }: { profil: Profil }) {
       {profil.islemler.map((i, n) => (
         <li key={n} className="gir" style={kademe(Math.min(n, 8))}>
           <span className="gecmis-tur" data-tur={i.tur}>
-            <Simge ad={i.tur === "seri_bonusu" ? "alev" : i.tur === "yonetici" ? "kalkan" : "qr"} boyut={16} />
+            <Simge ad={i.tur === "seri_bonusu" ? "alev" : i.tur === "yonetici" ? "kalkan" : i.tur === "not" ? "kitap" : "qr"} boyut={16} />
           </span>
           <div>
             <b>{i.aciklama}</b>

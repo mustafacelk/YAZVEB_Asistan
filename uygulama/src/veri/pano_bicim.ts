@@ -159,3 +159,90 @@ export const BOLUM_ONERILERI = [
   "Matematik Öğretmenliği", "Rehberlik ve Psikolojik Danışmanlık", "İletişim", "Gazetecilik", "Radyo, Televizyon ve Sinema",
   "Ziraat Mühendisliği", "Gıda Mühendisliği", "Spor Bilimleri", "Güzel Sanatlar",
 ];
+
+// ── Akademi: dersler ──────────────────────────────────────────────
+
+/** Ders listesinde bir ders: notları toplanmış hâli (sunucu: pano_dersler). */
+export type DersOzeti = {
+  kod: string | null;
+  ad: string;
+  kurum: string;
+  universite: string;
+  bolum: string;
+  sinif: Sinif;
+  not: number;
+  ders_notu: number;
+  cikmis: number;
+  ozet: number;
+  yararli: number;
+  son: string;
+};
+
+/**
+ * Ders adını karşılaştırma için sadeleştirir (sunucudaki pano.ders_normal ile
+ * aynı): i, ı, İ, I aynı harf; "OLASILIK" = "Olasılık" = "olasilik".
+ */
+export function dersNormal(ad: string) {
+  return ad.trim().replace(/\s+/g, " ").replace(/[İI]/g, "i").toLowerCase().replace(/ı/g, "i");
+}
+
+/** Dersin kimliği: kodu varsa kodu (büyük harf), yoksa sadeleştirilmiş adı; üniversiteyle birlikte. */
+export function dersKimligi(d: { kod: string | null; ad: string; kurum?: string | null }) {
+  const k = d.kod?.trim().replace(/\s+/g, " ").toUpperCase();
+  return `${d.kurum ?? ""}|${k ? "kod:" + k : "ad:" + dersNormal(d.ad)}`;
+}
+
+type NotBenzeri = {
+  ders_kodu: string | null; ders_adi: string; kurum_alani: string; universite: string;
+  bolum: string; sinif: Sinif; tur: NotTuru; yararli: number; yayinlandi: string;
+};
+
+/** Bu not bu derse mi ait? (Eski veritabanı ders filtresini bilmezse istemcide süzülür.) */
+export function dersUyar(n: Pick<NotBenzeri, "ders_kodu" | "ders_adi" | "kurum_alani">, d: { kod: string | null; ad: string; kurum?: string | null }) {
+  return dersKimligi({ kod: n.ders_kodu, ad: n.ders_adi, kurum: d.kurum ? n.kurum_alani : null })
+    === dersKimligi({ ...d, kurum: d.kurum ?? null });
+}
+
+/** En sık yazım; eşitlikte tamamı büyük harf olmayan (sunucuyla aynı kural). */
+function enSik(dizi: string[]): string {
+  const say = new Map<string, number>();
+  for (const x of dizi) say.set(x, (say.get(x) ?? 0) + 1);
+  return [...say.entries()].sort((a, b) =>
+    b[1] - a[1]
+    || Number(a[0] === a[0].toUpperCase()) - Number(b[0] === b[0].toUpperCase())
+    || (a[0] < b[0] ? -1 : 1))[0][0];
+}
+
+/**
+ * Notları derslere toplar — sunucudaki pano_dersler ile aynı kural. Yalnızca
+ * veritabanı henüz güncellenmemişse (fonksiyon yoksa) yedek olarak kullanılır.
+ */
+export function dersleriGrupla(notlar: NotBenzeri[]): DersOzeti[] {
+  const gruplar = new Map<string, NotBenzeri[]>();
+  for (const n of notlar) {
+    const k = dersKimligi({ kod: n.ders_kodu, ad: n.ders_adi, kurum: n.kurum_alani });
+    gruplar.set(k, [...(gruplar.get(k) ?? []), n]);
+  }
+  return [...gruplar.values()].map((g) => ({
+    kod: g[0].ders_kodu,
+    ad: enSik(g.map((n) => n.ders_adi)),
+    kurum: g[0].kurum_alani,
+    universite: g[0].universite,
+    bolum: enSik(g.map((n) => n.bolum)),
+    sinif: enSik(g.map((n) => n.sinif)) as Sinif,
+    not: g.length,
+    ders_notu: g.filter((n) => n.tur === "ders_notu").length,
+    cikmis: g.filter((n) => n.tur === "cikmis_cozum").length,
+    ozet: g.filter((n) => n.tur === "ozet").length,
+    yararli: g.reduce((t, n) => t + n.yararli, 0),
+    son: g.map((n) => n.yayinlandi).sort().at(-1) ?? "",
+  })).sort((a, b) => b.son.localeCompare(a.son) || a.ad.localeCompare(b.ad, "tr"));
+}
+
+/** "12 not · 3 çıkmış" gibi kısa sayım. */
+export function dersSayimi(d: Pick<DersOzeti, "not" | "cikmis" | "ozet">) {
+  const parca = [`${d.not} not`];
+  if (d.cikmis) parca.push(`${d.cikmis} çıkmış`);
+  if (d.ozet) parca.push(`${d.ozet} özet`);
+  return parca.join(" · ");
+}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { supabase, ROL_ADI, type Etkinlik } from "../veri/supabase";
 import { useGorunum, useOturum } from "../veri/oturum";
 import { ODUL_DEGISTI, useGezinme } from "../veri/gezinme";
-import { selamAdi } from "../veri/bicim";
+import { bashar, selamAdi } from "../veri/bicim";
 import { sayi, tarihSaat } from "../veri/odul";
 import Simge from "../tasarim/Simge";
 import AlintiKarti from "../tasarim/AlintiKarti";
@@ -87,9 +87,13 @@ export default function Panel() {
             <h1 className="gir" style={kademe(1)}>{ad ? `Merhaba, ${ad}.` : "Yönetim paneli"}</h1>
             <p className="sayfa-aciklama gir" style={kademe(2)}>Topluluğun bugünkü durumu ve yapılacaklar.</p>
           </div>
-          <button className="dugme cizgili gir" style={kademe(2)} onClick={() => gorunumSec("uye")}>
-            Üye görünümü
-          </button>
+          <div className="sayfa-basi-eylem gir" style={kademe(2)}>
+            <button className="dugme cizgili" onClick={() => gorunumSec("uye")}>Üye görünümü</button>
+            {/* Hesap (profil, öğrenci kimliği, çıkış) Ben'de; yönetim çubuğunda yok. */}
+            <button className="ana-profil" onClick={() => git("ben")} aria-label="Hesabım" data-ipucu="Hesabım" data-ipucu-yon="alt">
+              {bashar(profil?.ad_soyad || profil?.kullanici_adi)}
+            </button>
+          </div>
         </header>
 
         <AlintiKarti set="yonetim" className="gir" style={kademe(2)} />

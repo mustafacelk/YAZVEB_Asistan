@@ -584,12 +584,6 @@
   padding-bottom: var(--b-6);
   border-bottom: 1px solid var(--c-ince);
 }
-.hesap-kimlik { display: flex; align-items: center; gap: var(--b-4); }
-.hesap-kimlik h2 { font-size: var(--y-baslik); letter-spacing: var(--h-sik); }
-.hesap-kimlik p { color: var(--m-3); font-size: var(--y-kucuk); margin-top: var(--b-1); }
-.hesap-form { display: flex; gap: var(--b-2); align-items: flex-end; }
-.hesap-form .alan { flex: 1; }
-.hesap-ad { flex: 1; min-width: 0; }
 .dugme.buyuk { height: var(--d-buyuk); }
 .kisi select.girdi { width: auto; }
 
@@ -740,7 +734,6 @@ code { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace; 
   letter-spacing: var(--h-sik);
   text-wrap: balance;
 }
-.ana-tanitim { margin-top: var(--b-3); max-width: 42ch; color: var(--m-2); }
 
 .asistana-sor {
   display: grid;
@@ -783,25 +776,6 @@ code { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace; 
 .asistana-sor .gonder-dugme:active { transform: scale(0.92); }
 
 .ana-bolum .bolum-basi { margin: var(--b-6) 0 var(--b-2); }
-.ana-bos { padding: var(--b-4) 0; border-top: 1px solid var(--c-ince); color: var(--m-3); }
-
-.ana-etkinlik { display: grid; gap: var(--b-3); padding-top: var(--b-4); border-top: 1px solid var(--c-ince); }
-.ana-etkinlik-govde {
-  display: grid;
-  grid-template-columns: var(--b-7) 1fr auto;
-  align-items: start;
-  gap: var(--b-4);
-  width: 100%;
-  text-align: left;
-}
-.ana-etkinlik-bilgi { display: grid; gap: var(--b-2); min-width: 0; }
-.ana-etkinlik-bilgi b { color: var(--m-1); font-size: var(--y-okuma); font-weight: var(--a-orta); }
-.ana-etkinlik[data-suruyor="true"] .etkinlik-tarih b { color: var(--sinyal); }
-
-.ana-adim { display: grid; gap: var(--b-2); width: 100%; padding-top: var(--b-4); border-top: 1px solid var(--c-ince); text-align: left; }
-.ana-adim-metin { color: var(--m-1); font-size: var(--y-okuma); }
-.ana-adim .soluk { font-size: var(--y-kucuk); }
-.ana-adim .ilerleme-cubugu { display: block; margin-top: var(--b-2); }
 
 .ana-satir {
   display: grid;
@@ -850,7 +824,6 @@ code { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace; 
 .xp-cipi.katildi { color: var(--m-2); box-shadow: inset 0 0 0 1px var(--c-orta); }
 
 /* ── Topluluk: sohbet girişi, veriler ─────────────────────────────── */
-.sohbet-girisi { margin-bottom: var(--b-5); }
 
 .veri-ozeti { margin-top: var(--b-5); padding-top: var(--b-3); border-top: 1px solid var(--c-ince); }
 .veri-ozeti summary {
@@ -892,20 +865,7 @@ code { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace; 
 /* Her ana ekranın başlığında ne işe yaradığı, tek satır. */
 .sayfa-aciklama { margin-top: var(--b-2); max-width: 44ch; color: var(--m-3); font-size: var(--y-kucuk); }
 
-.ana-rehber-ac { margin-left: auto; }
-
 /* İlk açılış rehberi: ekranın içinde, kapatılabilir. */
-.rehber {
-  display: grid;
-  gap: var(--b-4);
-  margin-top: var(--b-5);
-  padding: var(--b-5);
-  border-radius: var(--k-3);
-  background: var(--z-2);
-  box-shadow: var(--isik-ic), inset 0 0 0 1px var(--sinyal-cizgi);
-}
-.rehber-basi { display: flex; align-items: center; justify-content: space-between; gap: var(--b-3); }
-.rehber-basi h2 { font-size: var(--y-okuma); }
 .rehber-adimlari { counter-reset: adim; list-style: none; margin: 0; padding: 0; display: grid; gap: var(--b-3); }
 .rehber-adimlari li {
   counter-increment: adim;
@@ -929,12 +889,8 @@ code { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace; 
 }
 .rehber-adimlari b { color: var(--m-1); font-weight: var(--a-orta); }
 .rehber-adimlari span { color: var(--m-3); font-size: var(--y-kucuk); }
-.rehber-not { font-size: var(--y-kucuk); }
-.rehber .dugme { justify-self: start; }
 
 /* Ana ekranda puan: bir bakışta okunan büyük sayı. */
-.ana-xp { color: var(--m-1); font-size: var(--y-buyuk); font-weight: var(--a-kalin); letter-spacing: var(--h-sik); line-height: 1; }
-.ana-xp small { margin-left: var(--b-1); color: var(--sinyal); font-size: var(--y-kucuk); font-weight: var(--a-orta); letter-spacing: 0; }
 
 /* Şu an süren etkinlik: tek anlamlı nabız (canlı durum). */
 .canli-etiket { display: inline-flex; align-items: center; gap: var(--b-2); color: var(--sinyal); }
@@ -945,25 +901,9 @@ code { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace; 
   background: var(--sinyal);
   animation: durum-nabiz 1.4s var(--e-sinema) infinite alternate;
 }
-.ana-etkinlik[data-suruyor="true"] {
-  margin-inline: calc(var(--b-4) * -1);
-  padding: var(--b-4);
-  border-top: 0;
-  border-radius: var(--k-3);
-  background: var(--z-2);
-  box-shadow: var(--isik-ic), inset 0 0 0 1px var(--sinyal-cizgi);
-}
 
 /* Topluluk: satırlar ve hesap düğmesi. */
 .satir-yigini { display: grid; gap: var(--b-2); }
-.hesap-dugmesi { border-radius: var(--k-tam); transition: transform var(--t-mikro) var(--e-dokunus); }
-.hesap-dugmesi .monogram { width: var(--d-buyuk); height: var(--d-buyuk); }
-.hesap-dugmesi:hover .monogram { box-shadow: var(--isik-ic), inset 0 0 0 1px var(--c-guclu); }
-.hesap-dugmesi:active { transform: scale(0.95); }
-.hesap-penceresi { display: grid; gap: var(--b-4); }
-.hesap-penceresi .pencere-basi { margin-bottom: 0; }
-.hesap-penceresi .veri-ozeti { margin-top: 0; }
-.hesap-penceresi .pencere-dip { margin-top: 0; }
 
 /* ═══════════════════════════════════════════════════════════════════
    İNCE AYAR — dış değerlendirme sonrası
@@ -972,8 +912,6 @@ code { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace; 
 /* Bölüm başlığı ve bağlantısı yan yana: göz iki uç arasında köprü kurmasın. */
 .bolum-basi.yakin { justify-content: flex-start; align-items: center; gap: var(--b-3); }
 .bolum-basi.yakin .metin-dugme { margin-block: calc(var(--b-3) * -1); padding-left: 0; }
-
-.ana-xp-satiri { display: flex; align-items: center; gap: var(--b-3); }
 
 /* Masaüstünde marka zaten kenar çubuğunda. */
 @media (min-width: 900px) {
@@ -1000,14 +938,6 @@ code { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace; 
 .yz-yonlendirme:active { transform: scale(0.97); }
 
 /* ── Giriş türü ─────────────────────────────────────────────────── */
-.tur-secimi { display: grid; gap: var(--b-2); }
-.tur-karti .ana-satir-govde b { white-space: normal; }
-.tur-cipi {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--b-3);
-  margin-bottom: var(--b-4); padding: var(--b-2) var(--b-3);
-  border-radius: var(--k-2); background: var(--z-2); box-shadow: inset 0 0 0 1px var(--c-ince);
-  color: var(--m-2); font-size: var(--y-kucuk);
-}
 .metin-dugme.satir-ici { display: inline; padding: 0; height: auto; min-height: 0; vertical-align: baseline; font-size: inherit; }
 
 /* ── Yönetim paneli ─────────────────────────────────────────────── */
@@ -1107,6 +1037,3 @@ code { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace; 
 }
 
 /* ── HUB girişi (Ana) ───────────────────────────────────────────── */
-.ana-hub { background: linear-gradient(120deg, rgba(140, 207, 226, 0.12), rgba(184, 156, 255, 0.08) 60%, transparent), var(--z-2); }
-.ana-hub .ana-satir-ikon { background: rgba(140, 207, 226, 0.16); }
-.ana-basi .ana-hub-gecis { margin-left: auto; }

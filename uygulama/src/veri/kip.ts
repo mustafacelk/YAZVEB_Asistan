@@ -10,7 +10,7 @@ import type { Rol } from "./supabase";
  *
  * Girişte sorulmaz: herkes aynı girişi kullanır, arayüzü BAŞKANIN VERDİĞİ
  * ROL belirler. Burada saklanan tek şey yetkilinin kendi tercihidir
- * (Hesabım → Açılış görünümü) ve işletme ekranı seçimi (girişteki bağlantı).
+ * (Ben › Profil › Açılış görünümü) ve işletme ekranı seçimi (girişteki bağlantı).
  *
  * SEÇİM YETKİ VERMEZ
  * ──────────────────

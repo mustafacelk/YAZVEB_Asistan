@@ -1,7 +1,11 @@
 import { supabase } from "./supabase";
 import { OdulHatasi } from "./odul";
 import type { KimlikDurumu } from "./kimlik";
-import { MIME, type DosyaTuru, type Kademe, type Kunye, type NotTuru, type PuanAyari, type SinavDurumu, type Sinif } from "./pano_bicim";
+import type { DersAnahtari } from "./gezinme";
+import {
+  dersleriGrupla, dersUyar, MIME,
+  type DersOzeti, type DosyaTuru, type Kademe, type Kunye, type NotTuru, type PuanAyari, type SinavDurumu, type Sinif,
+} from "./pano_bicim";
 
 /**
  * Notlar (ilk Pano modülü). Kurallar veritabanında ve Storage'ın satır
@@ -75,7 +79,19 @@ export type NotFiltresi = {
   ara?: string;
   sira?: "yeni" | "faydali";
   sayfa?: number;
+  /** Akademi'de bir dersin sayfası. */
+  ders?: DersAnahtari;
 };
+
+export type DersFiltresi = {
+  kurum?: "benim" | "tum" | string;
+  bolum?: string;
+  sinif?: Sinif | "";
+  ara?: string;
+  sira?: "yeni" | "cok";
+};
+
+export type DersListesi = Omit<NotListesi, "liste" | "daha"> & { dersler: DersOzeti[] };
 
 export type Notlarim = { liste: BenimNotum[]; hafta: { kazanilan: number; tavan: number }; toplam: number };
 
@@ -119,7 +135,36 @@ export type PanoOzeti = {
 export const pano = {
   /** Ana ekran: sınav dönemi ve bölümündeki not sayısı (liste yüklemez). */
   ozet: () => cagir<PanoOzeti>("pano_ozet"),
-  notlar: (f: NotFiltresi = {}) => cagir<NotListesi>("pano_notlar", { p: f }),
+  /**
+   * Bir dersin notları ya da genel liste. Veritabanı ders filtresini henüz
+   * bilmiyorsa (09 eski sürüm) istemci de süzer: sonuç her iki durumda aynı.
+   */
+  notlar: async (f: NotFiltresi = {}) => {
+    const v = await cagir<NotListesi>("pano_notlar", { p: f });
+    return f.ders ? { ...v, liste: v.liste.filter((n) => dersUyar(n, f.ders!)), sponsorlu: [] } : v;
+  },
+
+  /**
+   * Akademi'nin ders listesi. 09_pano.sql güncellenmeden yeni istemci yayına
+   * çıkarsa pano_dersler yoktur: ilk 150 not istemcide derslere toplanır.
+   */
+  dersler: async (f: DersFiltresi = {}): Promise<DersListesi> => {
+    const { data, error } = await supabase.rpc("pano_dersler", { p: f });
+    if (!error) return data as DersListesi;
+    if (error.code !== "PGRST202") return cagir<DersListesi>("pano_dersler", { p: f });
+    const sayfalar: NotListesi[] = [];
+    for (let s = 0; s < 5; s++) {
+      const v = await cagir<NotListesi>("pano_notlar", { p: { kurum: f.kurum, bolum: f.bolum, sinif: f.sinif, ara: f.ara, sayfa: s } });
+      sayfalar.push(v);
+      if (!v.daha) break;
+    }
+    const { ben, kurum, kurum_adi, sinav, sponsorlu, bolumler, ayar } = sayfalar[0];
+    const dersler = dersleriGrupla(sayfalar.flatMap((v) => v.liste));
+    return {
+      ben, kurum, kurum_adi, sinav, sponsorlu, bolumler, ayar,
+      dersler: f.sira === "cok" ? [...dersler].sort((a, b) => b.not - a.not) : dersler,
+    };
+  },
   notlarim: () => cagir<Notlarim>("pano_notlarim"),
 
   /** Künye → depoya yükleme → yayın. Yarıda kalırsa depodaki dosya temizlenir. */

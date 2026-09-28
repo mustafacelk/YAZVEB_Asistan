@@ -210,14 +210,18 @@ src/
   veri/supabase.ts     bağlantı ve tipler
   veri/oturum.tsx      kim giriş yapmış, rolü ne
   veri/transkript.ts   konuşma tanıma parçalarını tekrarsız birleştirir
-  veri/gezinme.ts      sekmeler, alt görünümler, "ödül değişti" olayı
+  veri/gezinme.ts      dünyalar, rota (geri tuşu), "ödül değişti" olayı
+  veri/bugun.ts        Ana'nın "Bugün"ü: en fazla üç öncelikli satır, canlı etkinlik
   ekranlar/
-    Ana.tsx            açılış: sıradaki etkinlik, bir sonraki adım, bekleyen ödül
+    Ana.tsx            yön verir: durum, Asistan'a sor, Bugün, ilerleme, HUB geçidi
     Asistan.tsx        küre, sesli/yazılı asistan (Ana'dan açılır)
     Giris.tsx          giriş ve kayıt
     Sohbet.tsx         genel sohbet, anlık (Topluluk'tan açılır)
-    Etkinlikler.tsx    takvim, etkinlik başına XP / katılım, rol kısıtlı düzenleme
-    Topluluk.tsx       sohbet girişi, hesap, verilerin nasıl kullanıldığı, üyeler
+    Etkinlikler.tsx    takvim, QR okut, Yaklaşan/Geçmiş, nasıl puan kazanılır
+    Topluluk.tsx       genel sohbet ve üyeler
+    Ben.tsx            kimlik, ilerleme, Ödüllerim, Sponsorlar, Sıralama, hesap
+  akademi/             Dersler → ders → notlar → not (lazy)
+  ben/                 Ben'in parçaları: cüzdan, hesap, ilerleme satırı
   canli/
     sahne.ts           WebGL parçacık küresi (durumlar, sönümlü hareket)
     olcer.ts           mikrofon ve yanıt sesinden gerçek genlik
@@ -234,10 +238,11 @@ src/
   yonetim/
     Yonetim.tsx        ödül yönetim paneli (lazy yüklenir)
     QrKod.tsx          QR penceresi, yazdırma, canlı kodlu perde ekranı
-  ekranlar/Oduller.tsx ilerleme profili: puan, seviye, sponsorlar, cüzdan, sıralama
   tasarim/
-    jetonlar.css       TEK KAYNAK: renk, boşluk, yazı, hareket, katman
+    jetonlar.css       TEK KAYNAK: renk, boşluk, tip ölçeği (--t-*), hareket, katman
     temel.css          zemin, kontroller, gezinme, sahne geçişi
+    Dunya.tsx          ortak yapı taşları: dünya/alt sayfa başlığı, bölüm, satır, boş durum
+    dunyalar.css       yapı taşları ve beş dünyanın düzeni
     ekranlar.css       ekran düzenleri
     Simge.tsx          ikon seti (24 ızgara, 1.5 çizgi)
   hub/                 YAZVEB HUB — 3B görünüm (lazy; Three.js yalnızca açılınca iner)
@@ -247,7 +252,6 @@ src/
     katalog.ts         renkler, adlar, hediye emojileri (sunucu kataloğuyla aynı kimlikler)
     veri.ts            hub_* çağrıları, tipler, "HUB açık kalsın" tercihi
     HubSiniri.tsx      HUB çökerse uygulama değil yalnızca HUB kapanır
-  ekranlar/Notlar.tsx  notlar: keşfet, paylaş, aç, "işime yaradı", şikayet, Notlarım
   kimlik/
     Dogrulama.tsx      üniversite e-postasıyla öğrenci doğrulama (e-posta → kod → bölüm)
     KimlikKarti.tsx    hesap penceresinde öğrenci kimliği, doğrulamayı kaldırma
@@ -277,14 +281,15 @@ supabase/functions/
 npm run test:guvenlik      # girdi doğrulama, istem ayrımı, çıktı süzgeci, CORS (67)
 npm run test:transkript    # mikrofon parçalarını birleştirme (12)
 npm run test:notlar        # künye, sponsorlu yerleşimi, doğrulama e-postası (46)
+npm run test:gezinme       # rotalar, "Bugün" önceliği, QR şeridi, Türkçe I ile ders eşleşmesi (35)
 npm run lint               # CI'da da çalışır; hata varsa APK derlenmez
 npm run yayina-hazir       # derleme + paket taraması (sır, kaynak haritası, CSP)
 ```
 
-Veritabanı testleri (486) — Docker gerekir. Yetki ve güvenlik (86) + ödül iş
+Veritabanı testleri (499) — Docker gerekir. Yetki ve güvenlik (86) + ödül iş
 mantığı, canlı kod, sıralama ve saldırı senaryoları (141) + işletme
 doğrulaması (27) + YAZVEB HUB ekonomisi (74) + öğrenci doğrulama (50) +
-notlar, depo kuralları, puan ve moderasyon (108) tek paket hâlinde çalışır:
+notlar, dersler, depo kuralları, puan ve moderasyon (121) tek paket hâlinde çalışır:
 
 ```bash
 docker run -d --name yz-test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=yazveb \
@@ -408,12 +413,20 @@ işletmede "Ödülü göster" → çalışan **kendi telefonunda** `/isletme`
 sayfasıyla QR'yi okutup PIN'ini girer → öğrencinin ekranı "Kullanıldı" olur →
 sıradaki etkinlik.
 
-### Gezinme
+### Gezinme — beş dünya
 
-Çubukta dört sekme ve ortada tarama: **Ana · Etkinlikler · [Tara] · Notlar ·
-Ödüller**. Tarama her ekrandan tek dokunuş. Asistan Ana'dan açılır; Topluluk
-(genel sohbet, hesap, üyeler) Ana'nın sağ üstündeki profil düğmesinden. Çubuk
-beş öğeyi geçmez. Yönetim görünümünde çubuk değişmez (Topluluk orada sekme).
+Bilgi mimarisinin tamamı ve kararların gerekçesi: **[TASARIM.md](TASARIM.md)**.
+
+Üye çubuğu: **Ana · Akademi · Etkinlikler · Topluluk · Ben**. Asistan ve 3D
+HUB çubukta değil; Ana'dan girilen tam ekran deneyimler (masaüstü şeridinde
+"Deneyimler"). QR okutma Etkinlikler'in birincil eylemi; bir etkinlik şu an
+sürüyor ve okutulmadıysa her ekranın altında tek satırlık şerit çıkar, yani
+etkinlikteki kişi yine tek dokunuş uzakta. Ödüller, sponsorlar, sıralama,
+puan geçmişi ve hesap **Ben**'de. Her gidiş tarayıcı geçmişine yazılır:
+telefonun ve tarayıcının geri tuşu uygulamanın içinde geri gider.
+
+Yönetim görünümünün çubuğu: Panel · Etkinlikler · [Perde QR] · Yönetim ·
+Topluluk; hesap Panel'in sağ üstündeki baş harflerden.
 
 ### Role göre arayüz
 
