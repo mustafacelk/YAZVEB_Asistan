@@ -8,7 +8,8 @@ import {
   odulDegisti,
   rotaAnahtari,
   rotaKur,
-  UST_SEKME,
+  seciliSekme,
+  ustRota,
   type Gezinme,
   type Rota,
   type Sekme,
@@ -22,6 +23,7 @@ import Etkinlikler from "./ekranlar/Etkinlikler";
 import Topluluk from "./ekranlar/Topluluk";
 import Asistan from "./ekranlar/Asistan";
 import Ben from "./ekranlar/Ben";
+import Oduller from "./ekranlar/Oduller";
 import Tarayici from "./odul/Tarayici";
 import Simge, { type SimgeAdi } from "./tasarim/Simge";
 import { hubTercihi, hubTercihiYaz } from "./hub/veri";
@@ -45,8 +47,10 @@ const ISLETME_SAYFASI =
 type SekmeTanimi = { anahtar: Sekme; ad: string; simge: SimgeAdi };
 
 /**
- * Üye çubuğu: beş dünya (TASARIM.md §2). Asistan ve 3D HUB çubukta değil;
- * Ana'dan girilen tam ekran deneyimler (masaüstü şeridinde "Deneyimler").
+ * Üye çubuğu: beş dünya (TASARIM.md §2). Ödüller kendi sekmesinde: eskiden
+ * Ben'in içinde iki satırdı ve bulunmuyordu. Topluluk (genel sohbet,
+ * üyeler) telefonda Ana'dan, masaüstünde şeridin "Keşfet" grubundan açılır.
+ * Asistan ve 3D HUB çubukta değil; Ana'dan girilen tam ekran deneyimler.
  *
  * QR artık her ekranda duran bir düğme değil, BAĞLAMSAL: Etkinlikler'in
  * birincil eylemi; bir etkinlik şu an sürüyor ve okutulmadıysa her ekranın
@@ -56,7 +60,7 @@ const SEKMELER: SekmeTanimi[] = [
   { anahtar: "ana", ad: "Ana", simge: "ev" },
   { anahtar: "akademi", ad: "Akademi", simge: "kitap" },
   { anahtar: "etkinlik", ad: "Etkinlikler", simge: "etkinlik" },
-  { anahtar: "topluluk", ad: "Topluluk", simge: "topluluk" },
+  { anahtar: "odul", ad: "Ödüller", simge: "hediye" },
   { anahtar: "ben", ad: "Ben", simge: "kisi" },
 ];
 
@@ -75,14 +79,6 @@ const SEKMELER_YONETIM: SekmeTanimi[] = [
 const CIKIS_MS = 200;
 /** Canlı etkinlik şeridi: etkinlik başlayınca en geç bu kadar sonra görünür. */
 const CANLI_TAZELEME_MS = 60_000;
-
-/** Geçmiş yoksa (ilk açılış, yenileme) "geri" dünyanın girişine götürür. */
-function ustRota(r: Rota): Rota {
-  if (r.g === "ben" && r.ben) return { g: "ben" };
-  if (r.g === "akademi" && r.ders) return { g: "akademi" };
-  if (r.g === "sohbet") return { g: "topluluk" };
-  return { g: "ana" };
-}
 
 export default function Uygulama() {
   // Giriş türü (üye / yönetim / işletme) oturumdan ÖNCE seçilir; işletme
@@ -221,8 +217,8 @@ function Ekranlar() {
   }, []);
 
   const canli = useCanliEtkinlik(!yonetimde);
-  const secili = UST_SEKME[rota.g];
   const sekmeler = yonetimde ? SEKMELER_YONETIM : SEKMELER;
+  const secili = seciliSekme(rota.g, sekmeler.map((s) => s.anahtar));
   const sira = sekmeler.findIndex((s) => s.anahtar === secili);
   // Yönetimde Perde QR 3. sütunda: sonraki sekmeler bir kayar.
   const sutun = sira < 0 ? -1 : yonetimde && sira >= 2 ? sira + 1 : sira;
@@ -240,6 +236,7 @@ function Ekranlar() {
           {gorunen.g === "etkinlik" && <Etkinlikler />}
           {gorunen.g === "topluluk" && <Topluluk />}
           {gorunen.g === "sohbet" && <Sohbet onGeri={geri} />}
+          {gorunen.g === "odul" && <Oduller bolum={gorunen.odul} />}
           {gorunen.g === "ben" && <Ben bolum={gorunen.ben} />}
           {gorunen.g === "asistan" && <Asistan ilkSoru={gorunen.soru} onGeri={geri} />}
           {gorunen.g === "yonetim" && (
@@ -291,11 +288,16 @@ function Ekranlar() {
           ) : (
             <>
               {sekmeler.map((s) => <SekmeDugmesi key={s.anahtar} s={s} secili={secili} git={git} />)}
-              {/* Masaüstünde yer var: sürükleyici deneyimler şeridin altında. */}
-              <div className="gezinme-deneyimler" role="group" aria-label="Deneyimler">
-                <span className="etiket">Deneyimler</span>
+              {/* Masaüstünde yer var: Topluluk ve sürükleyici deneyimler şeridin altında. */}
+              <div className="gezinme-deneyimler" role="group" aria-label="Keşfet">
+                <span className="etiket">Keşfet</span>
+                <button className="gezinme-oge" onClick={() => git("topluluk")}
+                        aria-current={rota.g === "topluluk" || rota.g === "sohbet" ? "page" : undefined}>
+                  <Simge ad="topluluk" />
+                  <span className="gezinme-etiket">Topluluk</span>
+                </button>
                 <button className="gezinme-oge" onClick={() => git("asistan")}
-                        aria-current={secili === "ana" && rota.g === "asistan" ? "page" : undefined}>
+                        aria-current={rota.g === "asistan" ? "page" : undefined}>
                   <Simge ad="asistan" />
                   <span className="gezinme-etiket">Asistan</span>
                 </button>
@@ -374,7 +376,7 @@ function useCanliEtkinlik(acik: boolean) {
 
 function SekmeDugmesi({ s, secili, git }: {
   s: SekmeTanimi;
-  secili: Sekme;
+  secili: Sekme | null;
   git: Gezinme["git"];
 }) {
   return (

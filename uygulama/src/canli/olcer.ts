@@ -60,22 +60,38 @@ export function sesiUyandir() {
   hazirla();
 }
 
+/** Paylaşılan ses bağlamı (askıda olabilir; kayıt çözmek için yeter). */
+export function sesBaglami(): AudioContext | null {
+  hazirla();
+  return baglam;
+}
+
 /** Eski kaynağı bırakır. Birden fazla kaynak aynı anda ölçülmez. */
 export function kaynagiBirak() {
   kaynak?.birak();
   kaynak = null;
 }
 
-/** Mikrofonu ölçmeye başlar. Başarısız olursa sessizce `false` döner. */
-export async function mikrofonuOlc(): Promise<boolean> {
-  if (!mikrofonOlculebilir) return false;
+/**
+ * Mikrofonu açar ve ölçmeye başlar; akışı döndürür (kayıt da aynı akıştan
+ * yapılır). Başarısız olursa `null`.
+ *
+ * `zorla`: Android'de konuşma tanıma YOKSA mikrofonu tek başına kullanmak
+ * sorun değil (çakışacak bir tanıma yok); o durumda da açılır.
+ */
+export async function mikrofonuOlc(zorla = false): Promise<MediaStream | null> {
+  if (!mikrofonOlculebilir && !zorla) return null;
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) return null;
   const a = hazirla();
-  if (!a || !baglam) return false;
   try {
     const akis = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     });
     kaynagiBirak();
+    if (!a || !baglam) {
+      kaynak = { tur: "mikrofon", birak: () => akis.getTracks().forEach((t) => t.stop()) };
+      return akis;
+    }
     const dugum = baglam.createMediaStreamSource(akis);
     dugum.connect(a);          // hoparlöre bağlanmaz — yankı olmasın
     kaynak = {
@@ -85,10 +101,50 @@ export async function mikrofonuOlc(): Promise<boolean> {
         akis.getTracks().forEach((t) => t.stop());   // mikrofon ışığı sönsün
       },
     };
-    return true;
+    return akis;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/**
+ * Yanıtı Web Audio ile çalmak için: açık bağlam ve kürenin de duyduğu
+ * çıkış düğümü. Parçalar bu düğüme bağlanır, arka arkaya boşluksuz çalar
+ * ve hangi saniyede olunduğu kesin bilinir (metin senkronu bununla).
+ * Bağlam açık değilse (dokunuş olmadan açılmış ekran) `null`.
+ */
+export function yanitCikisi(): { baglam: AudioContext; giris: AudioNode } | null {
+  const a = hazirla();
+  if (!a || !baglam || baglam.state !== "running") return null;
+  try {
+    kaynagiBirak();
+    const b = baglam;
+    const kazanc = b.createGain();
+    kazanc.connect(a);
+    a.connect(b.destination);
+    kaynak = {
+      tur: "yanit",
+      birak: () => {
+        kazanc.disconnect();
+        try { a.disconnect(b.destination); } catch { /* zaten ayrık */ }
+      },
+    };
+    return { baglam: b, giris: kazanc };
+  } catch {
+    return null;
+  }
+}
+
+/** Yalnızca mikrofonun ölçülen seviyesi (0..1); darbe katılmaz. Konuşma algılama için. */
+export function mikrofonSeviyesi(): number {
+  if (kaynak?.tur !== "mikrofon" || !analiz || !tampon) return 0;
+  analiz.getByteTimeDomainData(tampon);
+  let toplam = 0;
+  for (let i = 0; i < tampon.length; i++) {
+    const v = (tampon[i] - 128) / 128;
+    toplam += v * v;
+  }
+  return Math.min(1, Math.sqrt(Math.sqrt(toplam / tampon.length) * 3.2));
 }
 
 /** Çalan yanıt sesini ölçer; ses hoparlöre de gitmeye devam eder. */

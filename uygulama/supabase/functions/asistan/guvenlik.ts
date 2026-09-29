@@ -87,6 +87,9 @@ export function modelGovdesi(
   talimat: string,
   istek: Istek,
   enFazlaJeton: number,
+  /** Düşünme ayarı (model.ts → dusunmeAyari). Varsa bütçeye düşünme payı eklenir. */
+  dusunme: Record<string, unknown> | null = null,
+  dusunmePayi = 0,
 ) {
   const contents = [
     ...istek.gecmis.map((t) => ({
@@ -98,7 +101,9 @@ export function modelGovdesi(
   return {
     systemInstruction: { parts: [{ text: talimat }] },
     contents,
-    generationConfig: { maxOutputTokens: enFazlaJeton },
+    generationConfig: dusunme
+      ? { maxOutputTokens: enFazlaJeton + dusunmePayi, thinkingConfig: dusunme }
+      : { maxOutputTokens: enFazlaJeton + dusunmePayi },
   };
 }
 

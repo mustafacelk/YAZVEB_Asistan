@@ -4,19 +4,13 @@ import { useOturum } from "../veri/oturum";
 import { hizliCevap } from "../veri/hizli";
 import { HATA_CEVABI } from "../veri/sohbet_kaliplari";
 import { apiAdresi } from "../veri/api";
-import { birlestir, oturumMetni } from "../veri/transkript";
 import { selamAdi } from "../veri/bicim";
 import { useGezinme, type Gezinme } from "../veri/gezinme";
 import Kure from "../canli/Kure";
 import type { Durum } from "../canli/sahne";
-import {
-  darbeVer,
-  kaynagiBirak,
-  mikrofonOlculebilir,
-  mikrofonuOlc,
-  sesiUyandir,
-  yanitiOlc,
-} from "../canli/olcer";
+import { sesiUyandir } from "../canli/olcer";
+import { Konusma } from "../canli/konusma";
+import { sesliSoruDesteklenir, useDinleyici } from "../canli/dinleyici";
 import Simge from "../tasarim/Simge";
 
 type Tur = {
@@ -26,6 +20,11 @@ type Tur = {
   hata?: boolean;
   /** Cevabın götürdüğü uygulama bölümü (sunucu ve burada izin listesiyle süzülür). */
   git?: string;
+  /**
+   * Sesli yanıtta metnin görünen kısmı (karakter). 0: ses henüz gelmedi,
+   * tur gizli. Tanımsız: tamamı görünür. Bkz. canli/konusma.ts.
+   */
+  gorunen?: number;
 };
 
 /**
@@ -39,20 +38,16 @@ const YONLENDIRMELER: Record<string, { etiket: string; ac: (g: Gezinme) => void 
   etkinlik: { etiket: "Etkinlikler'i aç", ac: (g) => g.git("etkinlik") },
   tara: { etiket: "QR okut", ac: (g) => g.tara() },
   akademi: { etiket: "Dersleri aç", ac: (g) => g.git("akademi") },
-  odul: { etiket: "İlerlemeni aç", ac: (g) => g.git("ben", { bolum: "gecmis" }) },
-  oduller: { etiket: "Ödüllerim'i aç", ac: (g) => g.git("ben", { bolum: "oduller" }) },
-  sponsorlar: { etiket: "Sponsorları aç", ac: (g) => g.git("ben", { bolum: "sponsorlar" }) },
-  siralama: { etiket: "Sıralamayı aç", ac: (g) => g.git("ben", { bolum: "siralama" }) },
+  odul: { etiket: "İlerlemeni aç", ac: (g) => g.git("odul", { odul: "gecmis" }) },
+  oduller: { etiket: "Ödüllerini aç", ac: (g) => g.git("odul", { odul: "cuzdan" }) },
+  sponsorlar: { etiket: "Sponsorları aç", ac: (g) => g.git("odul") },
+  siralama: { etiket: "Sıralamayı aç", ac: (g) => g.git("odul", { odul: "siralama" }) },
   ben: { etiket: "Hesabını aç", ac: (g) => g.git("ben") },
   topluluk: { etiket: "Topluluğu aç", ac: (g) => g.git("topluluk") },
   sohbet: { etiket: "Genel sohbeti aç", ac: (g) => g.git("sohbet") },
 };
 const yonlendirmeMi = (h: unknown): h is string =>
   typeof h === "string" && Object.prototype.hasOwnProperty.call(YONLENDIRMELER, h);
-
-// Son kesin sonuçtan sonra beklenen sessizlik. Kısa olursa cümle ortasındaki
-// nefeste gönderir, uzun olursa kullanıcı bekler.
-const SESSIZLIK_MS = 900;
 
 /** Hata durumunda kürenin içe çekilip toparlanma süresi. */
 const HATA_ANI_MS = 1100;
@@ -83,9 +78,11 @@ const DURUM_ADI: Record<Durum, string> = {
  *
  * SES
  * ───
- * Seslendirme sitenin kendi sunucusundan gelir (neural Türkçe ses). Konuşma
- * tanıma tarayıcıda kalır. Mikrofonla sorulan soru, ses düğmesi kapalı olsa
- * bile sesli yanıtlanır: konuşarak soran kişi ekrana bakmıyor olabilir.
+ * Seslendirme sitenin kendi sunucusundan gelir (neural Türkçe ses). Sesli
+ * yanıtta metin sesle BİRLİKTE, okunduğu yere kadar belirir (canli/konusma.ts).
+ * Mikrofonla sorulan soru, ses düğmesi kapalı olsa bile sesli yanıtlanır:
+ * konuşarak soran kişi ekrana bakmıyor olabilir. Konuşma tarayıcıda tanınır;
+ * tanıma metin vermezse kayıt sunucuda yazıya dökülür (canli/dinleyici.ts).
  *
  * KÜRE
  * ────
@@ -98,60 +95,68 @@ export default function Asistan({ onGeri, ilkSoru }: { onGeri?: () => void; ilkS
   const [turlar, setTurlar] = useState<Tur[]>([]);
   const [taslak, setTaslak] = useState("");
   const [bekliyor, setBekliyor] = useState(false);
-  const [dinliyor, setDinliyor] = useState(false);
+  /** Cevap hazır, sesi yolda: metin sesle birlikte görünecek. */
+  const [sesBekliyor, setSesBekliyor] = useState(false);
   const [konusulan, setKonusulan] = useState<number | null>(null);
   const [hataAni, setHataAni] = useState(false);
   const [sesliCevap, setSesliCevap] = useState(false);
   const [bildirim, setBildirim] = useState<string | null>(null);
+  const [tekrar, setTekrar] = useState<string | null>(null);
 
   const akisRef = useRef<HTMLDivElement | null>(null);
   const girdiRef = useRef<HTMLInputElement | null>(null);
-  const taniyiciRef = useRef<Taniyici | null>(null);
-  const sessizlikRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hataRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const kesinRef = useRef("");            // bu dinlemede birikmiş kesin metin
-  const oncekiRef = useRef("");           // yeniden başlatmadan önceki oturumların metni
-  const kapaniyorRef = useRef(false);     // kullanıcı mı durdurdu, tarayıcı mı
-  const calanRef = useRef<HTMLAudioElement | null>(null);
+  const konusmaRef = useRef<Konusma | null>(null);
   const istekRef = useRef(0);             // yeni konuşmada eski yanıt geri gelmesin
-
-  const mikVar =
-    typeof window !== "undefined" &&
-    ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
-
-  const kip = turlar.length ? "sohbet" : "ev";
-  const durum: Durum = hataAni
-    ? "hata"
-    : dinliyor
-      ? "dinliyor"
-      : bekliyor
-        ? "dusunuyor"
-        : konusulan !== null
-          ? "konusuyor"
-          : "bosta";
-
-  // Yeni tur gelince akışı yumuşakça dibe indir.
-  useEffect(() => {
-    const el = akisRef.current;
-    if (!el || !turlar.length) return;
-    requestAnimationFrame(() => el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }));
-  }, [turlar.length]);
-
-  const sesiKes = useCallback(() => {
-    const a = calanRef.current;
-    if (a) {
-      a.pause();
-      if (a.src.startsWith("blob:")) URL.revokeObjectURL(a.src);
-      calanRef.current = null;
-    }
-    kaynagiBirak();
-    setKonusulan(null);
-  }, []);
 
   const hataGoster = useCallback(() => {
     setHataAni(true);
     if (hataRef.current) clearTimeout(hataRef.current);
     hataRef.current = setTimeout(() => setHataAni(false), HATA_ANI_MS);
+  }, []);
+
+  // Tanımanın olayları dinleme başladığı andaki `sor`u yakalar; her zaman
+  // en güncelini çağırsın diye bir referanstan okunur.
+  const sorRef = useRef<(metin: string, sesle?: boolean) => void>(() => {});
+
+  const dinleyici = useDinleyici({
+    onMetin: (m) => sorRef.current(m, true),
+    onTaslak: setTaslak,
+    onBildirim: setBildirim,
+    onHata: hataGoster,
+    yaziyaDok: async (veri) => {
+      const { data, error } = await supabase.functions.invoke("asistan", {
+        body: { ses: { veri, tur: "audio/wav" } },
+      });
+      if (error) throw error;
+      return typeof data?.metin === "string" ? data.metin : null;
+    },
+  });
+
+  const kip = turlar.length ? "sohbet" : "ev";
+  const durum: Durum = hataAni
+    ? "hata"
+    : dinleyici.dinliyor
+      ? "dinliyor"
+      : bekliyor || sesBekliyor || dinleyici.isleniyor
+        ? "dusunuyor"
+        : konusulan !== null
+          ? "konusuyor"
+          : "bosta";
+
+  // Yeni tur gelince (ya da gizli tur sesle birlikte göründüğünde) akışı dibe indir.
+  const gorunenTur = turlar.filter((t) => t.gorunen !== 0).length;
+  useEffect(() => {
+    const el = akisRef.current;
+    if (!el || !gorunenTur) return;
+    requestAnimationFrame(() => el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }));
+  }, [gorunenTur]);
+
+  const sesiKes = useCallback(() => {
+    konusmaRef.current?.durdur();
+    konusmaRef.current = null;
+    setKonusulan(null);
+    setSesBekliyor(false);
   }, []);
 
   // Bildirim kendiliğinden kaybolur; kalıcı uyarı metni yorar.
@@ -161,56 +166,56 @@ export default function Asistan({ onGeri, ilkSoru }: { onGeri?: () => void; ilkS
     return () => clearTimeout(z);
   }, [bildirim]);
 
-  // Ekrandan çıkarken her şeyi bırak: ses, mikrofon, zamanlayıcılar.
+  // Ekrandan çıkarken her şeyi bırak: ses, zamanlayıcılar (mikrofonu dinleyici kendisi bırakır).
   useEffect(() => () => {
-    sesiKes();
-    if (sessizlikRef.current) clearTimeout(sessizlikRef.current);
+    konusmaRef.current?.durdur();
     if (hataRef.current) clearTimeout(hataRef.current);
-    kapaniyorRef.current = true;
-    try { taniyiciRef.current?.abort(); } catch { /* önemsiz */ }
-  }, [sesiKes]);
+  }, []);
 
   /**
-   * Cevabı sunucuda seslendirip çalar.
-   *
-   * Metin ekranda zaten görünüyor; ses gecikse de okumayı engellemez.
-   * Seslendirme başarısız olursa sessizce geçilir — asistanın susması,
-   * hata mesajı göstermesinden iyidir.
+   * Metni sunucuda seslendirir. Seslendirme Supabase'de DEĞİL, sitenin kendi
+   * sunucusunda: protokol WebSocket istiyor ve Supabase'in kenar ortamı ham
+   * soket açtırmıyor. Başarısızsa null — asistanın susması, hata mesajı
+   * göstermesinden iyidir.
    */
-  const seslendir = useCallback(async (metin: string, sira: number) => {
+  const sentezle = useCallback(async (metin: string): Promise<Blob | null> => {
+    const { data: oturum } = await supabase.auth.getSession();
+    const jeton = oturum.session?.access_token;
+    if (!jeton) return null;
+    const yanit = await fetch(apiAdresi("/api/seslendir"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${jeton}` },
+      body: JSON.stringify({ metin }),
+    });
+    if (!yanit.ok) return null;
+    const blob = await yanit.blob();
+    return blob.size < 500 ? null : blob;   // hata gövdesi, ses değil
+  }, []);
+
+  /** `sira`daki turu sesle birlikte, okundukça gösterir. */
+  const konus = useCallback((metin: string, sira: number) => {
     sesiKes();
     const istek = istekRef.current;
-    try {
-      // Seslendirme Supabase'de DEĞİL, sitenin kendi sunucusunda çalışıyor:
-      // protokol WebSocket istiyor ve Supabase'in kenar ortamı ham soket
-      // açtırmıyor (fonksiyon orada bir saniyede 502 veriyordu).
-      const { data: oturum } = await supabase.auth.getSession();
-      const jeton = oturum.session?.access_token;
-      if (!jeton) return;
-
-      const yanit = await fetch(apiAdresi("/api/seslendir"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${jeton}`,
-        },
-        body: JSON.stringify({ metin }),
-      });
-      if (!yanit.ok || istek !== istekRef.current) return;
-
-      const blob = await yanit.blob();
-      if (blob.size < 500 || istek !== istekRef.current) return;   // hata gövdesi, ses değil
-      const ses = new Audio(URL.createObjectURL(blob));
-      calanRef.current = ses;
-      ses.onended = () => sesiKes();
-      ses.onerror = () => sesiKes();
-      yanitiOlc(ses);
-      setKonusulan(sira);
-      await ses.play().catch(() => sesiKes());
-    } catch {
-      /* ses yoksa sessiz kal */
-    }
-  }, [sesiKes]);
+    const gorunen = (n: number | undefined) =>
+      setTurlar((t) => t.map((x, i) => (i === sira ? { ...x, gorunen: n } : x)));
+    setSesBekliyor(true);
+    const k = new Konusma(metin, sentezle, {
+      gorunen: (n) => { if (istek === istekRef.current) gorunen(n >= metin.length ? undefined : n); },
+      basladi: (sesli) => {
+        if (istek !== istekRef.current) return;
+        setSesBekliyor(false);
+        if (sesli) setKonusulan(sira);
+      },
+      bitti: () => {
+        if (konusmaRef.current === k) konusmaRef.current = null;
+        setSesBekliyor(false);
+        setKonusulan((c) => (c === sira ? null : c));
+        if (istek === istekRef.current) gorunen(undefined);
+      },
+    });
+    konusmaRef.current = k;
+    k.baslat();
+  }, [sesiKes, sentezle]);
 
   // Ana ekrandaki kutuya yazılan soru: ekran açılır açılmaz bir kez sorulur.
   // Zamanlayıcı, StrictMode'un çift efekt çalıştırmasında ikinci kez sormasın diye.
@@ -224,16 +229,22 @@ export default function Asistan({ onGeri, ilkSoru }: { onGeri?: () => void; ilkS
     const oncekiler = turlar;
     const sesliYanit = sesliCevap || sesle;
     const istek = ++istekRef.current;
+    const sira = oncekiler.length + 1;
+    sesiKes();
     setTurlar((t) => [...t, { rol: "user", icerik: soru, zaman: Date.now() }]);
+
+    /** Cevabı ekler; sesliyse gizli başlar ve sesle birlikte görünür. */
+    const cevapla = (tur: Omit<Tur, "rol" | "zaman">) => {
+      setTurlar((t) => [...t, { rol: "assistant", zaman: Date.now(), ...tur, gorunen: sesliYanit ? 0 : undefined }]);
+      if (sesliYanit) konus(tur.icerik, sira);
+    };
 
     // Hızlı yol: ağa çıkmadan, anında.
     const hazir = hizliCevap(soru);
-    if (hazir) {
-      const sira = oncekiler.length + 1;
-      setTurlar((t) => [...t, { rol: "assistant", icerik: hazir, zaman: Date.now() }]);
-      if (sesliYanit) seslendir(hazir, sira);
-      return;
-    }
+    if (hazir) { cevapla({ icerik: hazir }); return; }
+
+    // Model düşünürken seslendirme sunucusu uyansın: ilk ses daha çabuk gelir.
+    if (sesliYanit) fetch(apiAdresi("/api/seslendir"), { method: "OPTIONS" }).catch(() => {});
 
     setBekliyor(true);
     try {
@@ -247,7 +258,7 @@ export default function Asistan({ onGeri, ilkSoru }: { onGeri?: () => void; ilkS
         },
       });
       if (istek !== istekRef.current) return;     // bu arada yeni konuşma başladı
-      const basarili = !error && typeof data?.cevap === "string";
+      const basarili = !error && typeof data?.cevap === "string" && !data?.hata;
       const durumKodu = (error as { context?: { status?: number } } | null)?.context?.status;
       const cevap = basarili
         ? duzenle(String(data.cevap))
@@ -256,19 +267,20 @@ export default function Asistan({ onGeri, ilkSoru }: { onGeri?: () => void; ilkS
           : durumKodu === 401
             ? "Oturumun sona ermiş görünüyor. Çıkış yapıp tekrar giriş yap."
             : HATA_CEVABI;
-      const sira = oncekiler.length + 1;
       const git = basarili && yonlendirmeMi(data?.yonlendirme) ? data.yonlendirme : undefined;
-      setTurlar((t) => [...t, { rol: "assistant", icerik: cevap, zaman: Date.now(), hata: !basarili, git }]);
       if (!basarili) hataGoster();
-      if (sesliYanit) seslendir(cevap, sira);
+      setBekliyor(false);
+      cevapla({ icerik: cevap, hata: !basarili, git });
     } catch {
       if (istek !== istekRef.current) return;
-      setTurlar((t) => [...t, { rol: "assistant", icerik: HATA_CEVABI, zaman: Date.now(), hata: true }]);
+      setBekliyor(false);
       hataGoster();
+      cevapla({ icerik: HATA_CEVABI, hata: true });
     } finally {
       if (istek === istekRef.current) setBekliyor(false);
     }
-  }, [bekliyor, turlar, sesliCevap, seslendir, hataGoster]);
+  }, [bekliyor, turlar, sesliCevap, sesiKes, konus, hataGoster]);
+  sorRef.current = sor;
 
   useEffect(() => {
     const soru = ilkSoruRef.current;
@@ -277,124 +289,31 @@ export default function Asistan({ onGeri, ilkSoru }: { onGeri?: () => void; ilkS
     return () => clearTimeout(z);
   }, [sor]);
 
-  // Tanıyıcının olayları dinleme başladığı andaki `sor`u yakalar; her zaman
-  // en güncelini çağırsın diye bir referanstan okunur.
-  const sorRef = useRef(sor);
-  sorRef.current = sor;
+  // "Tekrar sor": başarısız tur çifti kaldırıldıktan SONRA (yeni geçmişle) sorulur.
+  useEffect(() => {
+    if (tekrar === null) return;
+    setTekrar(null);
+    sor(tekrar);
+  }, [tekrar, sor]);
 
-  /**
-   * Konuşma tanıma.
-   *
-   * NEDEN `continuous = true`
-   * ─────────────────────────
-   * Kapalıyken tarayıcı ilk kısa duraklamada tanımayı bitiriyor ve cümlenin
-   * yarısı gidiyordu. Açıkken parçalar birikir; gönderim, konuşma gerçekten
-   * bittiğinde yapılır.
-   *
-   * TEKRAR EDEN KELİMELER
-   * ─────────────────────
-   * Android aynı cümleyi birikimli olarak defalarca "kesin" diye yolluyor;
-   * yeniden başlatmada da son parça bir kez daha geliyor. Parçalar artık uç
-   * uca eklenmiyor, örtüşme farkında birleştiriliyor (veri/transkript.ts).
-   *
-   * YENİDEN BAŞLATMA
-   * ────────────────
-   * Chrome sessizlikte tanımayı kendiliğinden kapatır. Sürekli dinleme ancak
-   * `onend` içinde yeniden başlatılarak elde edilir.
-   */
-  function dinlemeyiDurdur() {
-    kapaniyorRef.current = true;
-    if (sessizlikRef.current) clearTimeout(sessizlikRef.current);
-    try { taniyiciRef.current?.stop(); } catch { /* zaten durmuş */ }
-    kaynagiBirak();
-    setDinliyor(false);
+  function tekrarSor(i: number) {
+    const soru = turlar[i - 1];
+    if (!soru || soru.rol !== "user" || bekliyor) return;
+    sesiUyandir();
+    setTurlar((t) => t.slice(0, i - 1));
+    setTekrar(soru.icerik);
   }
 
   function dinle() {
-    if (!mikVar) return;
     sesiUyandir();
-    if (dinliyor) { dinlemeyiDurdur(); return; }
+    if (dinleyici.dinliyor) { dinleyici.durdur(); return; }
     sesiKes();   // asistan konuşurken söz kesilebilir
-
-    const Tanima = window.SpeechRecognition ?? window.webkitSpeechRecognition;
-    if (!Tanima) return;
-    const t = new Tanima();
-    t.lang = "tr-TR";
-    t.continuous = true;
-    t.interimResults = true;
-    t.maxAlternatives = 1;
-
-    kapaniyorRef.current = false;
-    kesinRef.current = "";
-    oncekiRef.current = "";
-
-    const gonder = () => {
-      const metin = kesinRef.current.trim();
-      kesinRef.current = "";
-      oncekiRef.current = "";
-      if (!metin) return;
-      dinlemeyiDurdur();
-      sorRef.current(metin, true);
-    };
-
-    t.onsoundstart = () => darbeVer(0.35);
-
-    t.onresult = (o) => {
-      // Liste her olayda baştan okunur; resultIndex'e Android'de güvenilmez.
-      const { kesin, ara } = oturumMetni(o.results);
-      kesinRef.current = birlestir(oncekiRef.current, kesin);
-      setTaslak(birlestir(kesinRef.current, ara, true));
-      if (!mikrofonOlculebilir) darbeVer(0.6);
-
-      if (sessizlikRef.current) clearTimeout(sessizlikRef.current);
-      if (kesinRef.current) {
-        sessizlikRef.current = setTimeout(gonder, SESSIZLIK_MS);
-      }
-    };
-
-    t.onerror = (o) => {
-      // "no-speech" ve "aborted" normal akışın parçası.
-      if (o.error === "no-speech" || o.error === "aborted") return;
-      dinlemeyiDurdur();
-      // Sessizce sönen bir düğme "bozuk" gibi görünür; nedeni söylenir.
-      if (o.error === "not-allowed" || o.error === "service-not-allowed") {
-        setBildirim("Mikrofon izni verilmedi. Tarayıcı ayarlarından izin verebilirsin.");
-      } else if (o.error === "audio-capture") {
-        setBildirim("Mikrofon bulunamadı.");
-      } else if (o.error === "network") {
-        setBildirim("Ses tanıma için internet bağlantısı gerekiyor.");
-        hataGoster();
-      } else {
-        hataGoster();
-      }
-    };
-
-    t.onend = () => {
-      if (kapaniyorRef.current) { setDinliyor(false); return; }
-      // Elde birikmiş kesin metin varsa onu gönder, yoksa dinlemeye devam et.
-      if (kesinRef.current.trim()) { gonder(); return; }
-      oncekiRef.current = kesinRef.current;
-      try { t.start(); } catch { setDinliyor(false); kaynagiBirak(); }
-    };
-
-    taniyiciRef.current = t;
-    setDinliyor(true);
-    try {
-      t.start();
-      // Masaüstünde genlik mikrofondan okunur; Android'de tanıma olaylarından.
-      mikrofonuOlc().then((acildi) => {
-        // İzin penceresi açıkken kullanıcı dinlemeyi bitirmiş olabilir;
-        // o durumda akış açık kalmasın (mikrofon ışığı yanık kalırdı).
-        if (acildi && kapaniyorRef.current) kaynagiBirak();
-      });
-    } catch {
-      setDinliyor(false);
-    }
+    dinleyici.baslat();
   }
 
   function yeniKonusma() {
     istekRef.current++;
-    if (dinliyor) dinlemeyiDurdur();
+    dinleyici.iptal();
     sesiKes();
     setBekliyor(false);
     setTurlar([]);
@@ -479,7 +398,7 @@ export default function Asistan({ onGeri, ilkSoru }: { onGeri?: () => void; ilkS
       </section>
 
       <div className="akis" ref={akisRef} aria-live="polite" aria-relevant="additions">
-        {turlar.map((t, i) => (
+        {turlar.map((t, i) => t.gorunen === 0 ? null : (
           <article
             key={t.zaman + "-" + i}
             className={"tur " + (t.rol === "user" ? "sen" : "yz") + (t.hata ? " hatali" : "")}
@@ -489,8 +408,20 @@ export default function Asistan({ onGeri, ilkSoru }: { onGeri?: () => void; ilkS
               {konusulan === i && <span className="canli-isaret" aria-label="konuşuyor" />}
               <time dateTime={new Date(t.zaman).toISOString()}>{saat(t.zaman)}</time>
             </div>
-            <p>{t.icerik}</p>
-            {t.git && yonlendirmeMi(t.git) && (
+            {t.gorunen === undefined ? <p>{t.icerik}</p> : (
+              // Okunan kısım görünür; kalanı yer tutar ki balon zıplamasın. Ekran
+              // okuyucu metnin tamamını bir kez okur.
+              <p aria-label={t.icerik}>
+                <span aria-hidden="true">{t.icerik.slice(0, t.gorunen)}</span>
+                <span className="okunacak" aria-hidden="true">{t.icerik.slice(t.gorunen)}</span>
+              </p>
+            )}
+            {t.hata && t.rol === "assistant" && turlar[i - 1]?.rol === "user" && (
+              <button className="yz-yonlendirme" onClick={() => tekrarSor(i)} disabled={bekliyor}>
+                <Simge ad="yeni" boyut={14} /> Tekrar sor
+              </button>
+            )}
+            {t.git && yonlendirmeMi(t.git) && t.gorunen === undefined && (
               <button className="yz-yonlendirme" onClick={() => YONLENDIRMELER[t.git!].ac(gezinme)}>
                 {YONLENDIRMELER[t.git].etiket} <Simge ad="ileri" boyut={14} />
               </button>
@@ -509,20 +440,21 @@ export default function Asistan({ onGeri, ilkSoru }: { onGeri?: () => void; ilkS
         onSubmit={(e) => {
           e.preventDefault();
           sesiUyandir();
-          if (dinliyor) dinlemeyiDurdur();
+          if (dinleyici.dinliyor) dinleyici.iptal();
           sor(taslak);
         }}
       >
-        {mikVar ? (
+        {sesliSoruDesteklenir ? (
           <button
             type="button"
             className="mik-dugme"
             onClick={dinle}
-            aria-pressed={dinliyor}
-            aria-label={dinliyor ? "Dinlemeyi durdur" : "Konuşarak sor"}
-            data-ipucu={dinliyor ? "Durdur" : "Konuşarak sor"}
+            disabled={dinleyici.isleniyor}
+            aria-pressed={dinleyici.dinliyor}
+            aria-label={dinleyici.dinliyor ? "Dinlemeyi bitir" : "Konuşarak sor"}
+            data-ipucu={dinleyici.dinliyor ? "Bitir ve gönder" : "Konuşarak sor"}
           >
-            <Simge ad={dinliyor ? "durdur" : "mikrofon"} />
+            <Simge ad={dinleyici.dinliyor ? "durdur" : "mikrofon"} />
           </button>
         ) : (
           <span />
@@ -531,7 +463,7 @@ export default function Asistan({ onGeri, ilkSoru }: { onGeri?: () => void; ilkS
           ref={girdiRef}
           value={taslak}
           onChange={(e) => setTaslak(e.target.value)}
-          placeholder={dinliyor ? "Dinliyorum…" : "Bir şey sor"}
+          placeholder={dinleyici.dinliyor ? "Dinliyorum…" : dinleyici.isleniyor ? "Sesin yazıya dökülüyor…" : "Bir şey sor"}
           maxLength={1000}
           aria-label="Soru"
           enterKeyHint="send"

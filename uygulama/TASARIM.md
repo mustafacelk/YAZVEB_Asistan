@@ -18,10 +18,10 @@ Bu belge 2026-09-28'deki yeniden yapılanmanın kararlarını tutar. Yeni bir
 | Etkinlik takvimi | Ne, nerede, kaç XP | Herkes | Çubukta "Etkinlikler" | **REFINE** — QR ve katılım geçmişi bu dünyaya |
 | QR okutma | Etkinlikte puan | Katılımcı | Çubuğun ortasında, her ekranda | **RESTRUCTURE** → Etkinlikler'in birincil eylemi + etkinlik canlıyken her ekranda bağlamsal şerit |
 | XP, seviye, sonraki adım | İlerleme | Herkes | Ödüller'in tepesinde büyük kart; Ana'da kart | **RESTRUCTURE** → görünmez altyapı: Ana'da tek satır, Ben'de ayrıntı |
-| Sponsorlar ve kilitler | Yerel işletme ödülleri | Herkes | Ödüller › Sponsorlar | **RESTRUCTURE** → Ben › Sponsorlar |
-| Ödüllerim (cüzdan) | Kazanılan ödülü kullanma | Kazanan | Ödüller › Ödüllerim + Ana'da kart | **RESTRUCTURE** → Ben › Ödüllerim; Ana'da yalnızca bekleyen varsa bir satır |
-| Sıralama | Haftalık rekabet | Herkes | Ödüller › Sıralama | **RESTRUCTURE** → Ben › Sıralama |
-| Puan geçmişi | Şeffaflık | Herkes | Ödüller'de pencere | **RESTRUCTURE** → Ben › Puan geçmişi |
+| Sponsorlar ve kilitler | Yerel işletme ödülleri | Herkes | Ödüller › Sponsorlar | **REFINE** → Ödüller dünyasının gövdesi (önce Ben'e taşınmıştı, bulunmuyordu) |
+| Ödüllerim (cüzdan) | Kazanılan ödülü kullanma | Kazanan | Ödüller › Ödüllerim + Ana'da kart | **REFINE** → Ödüller'in en üstünde "Göster" ile; tümü alt sayfada; Ana'da yalnızca bekleyen varsa bir satır |
+| Sıralama | Haftalık rekabet | Herkes | Ödüller › Sıralama | **REFINE** → Ödüller › Sıralama |
+| Puan geçmişi | Şeffaflık | Herkes | Ödüller'de pencere | **RESTRUCTURE** → Ödüller › İlerleme ve puan geçmişi |
 | Genel sohbet | Topluluk konuşması | Üye | Topluluk › satır | **KEEP** (Topluluk dünyası) |
 | Üyeler ve roller | Kim kim, rol dağıtımı | Başkan | Topluluk | **KEEP** |
 | Hesap (ad, görünüm, veriler, çıkış) | Hesap yönetimi | Herkes | Topluluk'ta açılır pencere | **RESTRUCTURE** → Ben |
@@ -34,21 +34,30 @@ Bu belge 2026-09-28'deki yeniden yapılanmanın kararlarını tutar. Yeni bir
 | İşletme onay sayfası | Kasada ödül onayı | Çalışan | /isletme | **KEEP** |
 
 **Kaldırılan:** Ana'daki "3D HUB" başlık düğmesi (portal ile tekrar), Ana'daki
-büyük ilerleme kartı (Ben'de), Ödüller'in ayrı sekme olması (Ben'e katıldı),
-Topluluk'taki hesap penceresi (Ben'e taşındı), çubuğun ortasındaki her ekranda
-duran QR (bağlamsal hâle geldi).
+büyük ilerleme kartı, Topluluk'taki hesap penceresi (Ben'e taşındı), çubuğun
+ortasındaki her ekranda duran QR (bağlamsal hâle geldi).
+
+**Geri alınan karar (2026-09-29):** Ödüller ilk düzenlemede Ben'e katılmıştı;
+kullanıcılar ödülleri ve sponsorları bulamadı. Sponsorlar topluluğun geliri,
+ödüller üyenin puan toplama sebebi: ikisi de kendi sekmesini hak ediyor.
+Ödüller yeniden sekme oldu (bekleyen ödül "Göster" düğmesiyle en üstte,
+sponsorlar hemen altında); çubuktaki yeri için Topluluk telefonda Ana'ya,
+masaüstünde şeridin "Keşfet" grubuna geçti.
 
 ---
 
-## 2. Bilgi mimarisi: beş dünya, iki sürükleyici deneyim
+## 2. Bilgi mimarisi: beş sekme, iki sürükleyici deneyim
 
 ```
-ANA ─────────── yön verir: durum cümlesi, Asistan'a sor, BUGÜN (≤3), ilerleme satırı, HUB portalı
+ANA ─────────── yön verir: durum cümlesi, Asistan'a sor, BUGÜN (≤3), ilerleme satırı,
+                Topluluk kapısı, HUB portalı
 AKADEMİ ─────── Derslerim / Tüm dersler / Notlarım → Ders → Notlar (tür) → Not → Aç / İşime yaradı
 ETKİNLİKLER ─── [QR okut] · Yaklaşan / Katıldıklarım · Nasıl puan kazanılır?
-TOPLULUK ────── Genel sohbet · Üyeler (ileride: duyurular, ilanlar, ev, 2. el)
-BEN ─────────── kimlik + ilerleme → Ödüllerim · Sponsorlar · Sıralama · Puan geçmişi
-                · Öğrenci kimliği · Profil · Gizlilik ve veriler · (Yönetim) · Çıkış
+ÖDÜLLER ─────── ilerleme · bekleyen ödüller [Göster] · Sponsorlar (kilit ilerlemesi)
+                → Ödüllerim (tümü) · Sıralama · İlerleme ve puan geçmişi
+BEN ─────────── kimlik + ilerleme · Ödüller'e tek satır · Öğrenci kimliği · Profil
+                · Gizlilik ve veriler · (Yönetim) · Çıkış
+  └ TOPLULUK ── Genel sohbet · Üyeler (ileride: duyurular, ilanlar, ev, 2. el) ← Ana, masaüstünde Keşfet
 
 ASİSTAN (tam ekran)  ← Ana'daki "Asistana sor"
 3D HUB (ayrı dünya)  ← Ana'daki portal; içinde karakter, oda, çarşı, çark, ziyaret
@@ -71,7 +80,7 @@ Kurallar:
 
 | | Telefon | Masaüstü |
 | --- | --- | --- |
-| Üye | Altta 5 sekme: Ana · Akademi · Etkinlikler · Topluluk · Ben | Solda şerit: aynı 5 dünya + "Deneyimler": Asistan, 3D HUB |
+| Üye | Altta 5 sekme: Ana · Akademi · Etkinlikler · Ödüller · Ben (Topluluk Ana'dan) | Solda şerit: aynı 5 dünya + "Keşfet": Topluluk, Asistan, 3D HUB |
 | Yönetim görünümü | Panel · Etkinlikler · [Perde QR] · Yönetim · Topluluk | Aynısı, solda |
 
 ---

@@ -42,8 +42,24 @@ import {
   YONLENDIRME_TALIMATI,
   yonlendirmeAyikla,
 } from "./guvenlik.ts";
+import {
+  cevapMetni,
+  DUSUNME_PAYI,
+  dusunmeAyari,
+  ENGEL_CEVABI,
+  ModelHatasi,
+  SES_SINIR,
+  sesIstegiDogrula,
+  transkriptGovdesi,
+  transkriptTemizle,
+  yarisliSor,
+  type SesIstegi,
+} from "./model.ts";
 
 const MODEL = Deno.env.get("YAZVEB_MODEL") ?? "gemini-3.5-flash-lite";
+// Birincil kota/yoğunluk hatası verince geçilen model. Ayrı kotası var;
+// "-latest" takma adı Google'ın güncel Flash-Lite'ına gider. Boş bırakılırsa yedek yok.
+const YEDEK_MODEL = (Deno.env.get("YAZVEB_YEDEK_MODEL") ?? "gemini-flash-lite-latest").trim() || null;
 const ANAHTAR = Deno.env.get("GOOGLE_API_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const KOKENLER = (Deno.env.get("IZINLI_KOKENLER") ?? "")
@@ -51,14 +67,15 @@ const KOKENLER = (Deno.env.get("IZINLI_KOKENLER") ?? "")
 const IZINLI = KOKENLER.length ? KOKENLER : VARSAYILAN_KOKENLER;
 
 // Ölçüm (33 çağrı): model ya ~1,2 saniyede dönüyor ya da ~20 saniye takılıyor.
-// Takılan isteği beklemek yerine yanına ikincisini atıp ilk döneni almak,
-// kuyruk gecikmesini saniyelerce kısaltıyor. Kotada TEK istek sayılır;
-// kullanıcı başına en fazla 3 model çağrısı demektir, sınırlar buna göre.
+// Takılan isteğin yanına bir kez daha atılır; kota ya da yoğunluk hatasında
+// ise aynı modele yüklenilmez, yedek modele geçilir (bkz. model.ts). Kotada
+// TEK istek sayılır.
 const IKINCI_ATIS_MS = 3000;
-const SON_BEKLEME_MS = 12000;
-const DENEME = 3;
-const MODEL_ZAMAN_ASIMI_MS = 20000;   // tek model çağrısı
+const YEDEK_ATIS_MS = 6500;
+const TOPLAM_SURE_MS = 16000;
 const KOTA_ZAMAN_ASIMI_MS = 5000;
+/** Düşünme ayarını reddeden modeller: sıcak örnek yaşadıkça bir daha denenmez. */
+const AYARSIZLAR = new Set<string>();
 
 // Canlı etkinlik listesi okunacak kadar pay; sesli okunduğu için yine kısa.
 const EN_FAZLA_JETON = 220;
@@ -69,7 +86,7 @@ const BAGLAM_ZAMAN_ASIMI_MS = 2500;
 // SISTEM_TALIMATI'nı kullanıyor ve orada "[[git:...]]" etiketi yüksek sesle okunurdu.
 const SABIT_TALIMAT = `${SISTEM_TALIMATI}\n\n${YONLENDIRME_TALIMATI}\n\n${GUVENLIK_TALIMATI}`;
 
-type Olay = "yetkisiz" | "kota" | "kota_denetimi_yok" | "gecersiz_girdi" | "govde_buyuk" | "koken_red" | "cikti_suzuldu" | "model_hatasi";
+type Olay = "yetkisiz" | "kota" | "kota_denetimi_yok" | "gecersiz_girdi" | "govde_buyuk" | "koken_red" | "cikti_suzuldu" | "model_hatasi" | "model_denemesi" | "transkript_hatasi";
 
 /**
  * Güvenlik olayı günlüğü. Supabase fonksiyon günlüklerine yapılandırılmış
@@ -195,10 +212,10 @@ async function uygulamaBaglami(jeton: string, apikey: string, metin: string): Pr
 }
 
 /** Gövdeyi okur ama sınırı aşan baytta keser: 1 GB'lık gövde belleğe alınmaz. */
-async function govdeyiOku(istek: Request): Promise<string | null> {
+async function govdeyiOku(istek: Request, sinir: number): Promise<{ metin: string; bayt: number } | null> {
   const bildirilen = Number(istek.headers.get("content-length") ?? "0");
-  if (bildirilen > SINIR.govdeBayt) return null;
-  if (!istek.body) return "";
+  if (bildirilen > sinir) return null;
+  if (!istek.body) return { metin: "", bayt: 0 };
   const okuyucu = istek.body.getReader();
   const parcalar: Uint8Array[] = [];
   let toplam = 0;
@@ -206,7 +223,7 @@ async function govdeyiOku(istek: Request): Promise<string | null> {
     const { done, value } = await okuyucu.read();
     if (done) break;
     toplam += value.byteLength;
-    if (toplam > SINIR.govdeBayt) {
+    if (toplam > sinir) {
       await okuyucu.cancel();
       return null;
     }
@@ -215,50 +232,64 @@ async function govdeyiOku(istek: Request): Promise<string | null> {
   const birlesik = new Uint8Array(toplam);
   let konum = 0;
   for (const p of parcalar) { birlesik.set(p, konum); konum += p.byteLength; }
-  return new TextDecoder().decode(birlesik);
+  return { metin: new TextDecoder().decode(birlesik), bayt: toplam };
 }
 
-/** Modeli sorar; takılırsa beklemek yerine ikinci bir istek atar. */
-async function modeliSor(govde: unknown): Promise<string> {
+/** Tek model çağrısı. Anahtar başlıkta; URL'de olsaydı ara sunucu günlüklerine düşebilirdi. */
+async function modelCagir(model: string, govde: unknown, ms: number): Promise<string> {
   const adres =
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`;
-  const metin = JSON.stringify(govde);
-
-  const cagir = () =>
-    sureli(adres, {
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+  const baslangic = Date.now();
+  try {
+    const y = await sureli(adres, {
       method: "POST",
-      // Anahtar başlıkta; URL'de olsaydı ara sunucu günlüklerine düşebilirdi.
       headers: { "x-goog-api-key": ANAHTAR, "Content-Type": "application/json" },
-      body: metin,
-    }, MODEL_ZAMAN_ASIMI_MS)
-      .then((y) => (y.ok ? y.json() : Promise.reject(new Error(`model HTTP ${y.status}`))))
-      .then((v) => {
-        const cevap = v?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (typeof cevap !== "string" || !cevap.trim()) throw new Error("boş cevap");
-        return cevap.trim();
-      });
-
-  const ucanlar: Promise<string>[] = [];
-  let sonHata: unknown = null;
-
-  for (let atis = 0; atis < DENEME; atis++) {
-    ucanlar.push(cagir());
-    const sonuncu = atis === DENEME - 1;
-    const bekleme = sonuncu ? SON_BEKLEME_MS : IKINCI_ATIS_MS;
-
-    const sonuc = await Promise.race([
-      Promise.any(ucanlar).then((d) => ({ tur: "cevap" as const, d })).catch((h) => {
-        sonHata = h;
-        return { tur: "hata" as const };
-      }),
-      new Promise<{ tur: "sure" }>((c) => setTimeout(() => c({ tur: "sure" }), bekleme)),
-    ]);
-
-    if (sonuc.tur === "cevap") return sonuc.d;
-    if (sonuc.tur === "hata" && sonuncu) break;
+      body: JSON.stringify(govde),
+    }, ms);
+    if (!y.ok) {
+      await y.body?.cancel();
+      throw new ModelHatasi(`model HTTP ${y.status}`, y.status);
+    }
+    return cevapMetni(await y.json());
+  } catch (h) {
+    // Hangi modelin, neden, ne kadar sürede düştüğü: "bazen cevap gelmiyor"
+    // şikâyetinin nedeni günlükten okunabilsin. Soru metni yazılmaz.
+    olay("model_denemesi", { model, ms: Date.now() - baslangic, neden: String(h).slice(0, 100) });
+    throw h;
   }
+}
 
-  throw sonHata ?? new Error("model yanıt vermedi");
+/** Cevabı yedekli yarışla ister (bkz. model.ts → yarisliSor). */
+function modeliSor(talimat: string, istek: Parameters<typeof modelGovdesi>[1]): Promise<string> {
+  const bitis = Date.now() + TOPLAM_SURE_MS;
+  return yarisliSor({
+    birincil: MODEL,
+    yedek: YEDEK_MODEL,
+    ikinciAtisMs: IKINCI_ATIS_MS,
+    yedekAtisMs: YEDEK_ATIS_MS,
+    toplamMs: TOPLAM_SURE_MS,
+    ayarsizlar: AYARSIZLAR,
+    cagir: (model, dusunmeli) => {
+      const dusunme = dusunmeli ? dusunmeAyari(model) : null;
+      const govde = modelGovdesi(talimat, istek, EN_FAZLA_JETON, dusunme, DUSUNME_PAYI);
+      return modelCagir(model, govde, Math.max(1000, bitis - Date.now()));
+    },
+  });
+}
+
+/** Sesli soruyu yazıya döker. Konuşma yoksa boş metin. */
+function yaziyaDok(ses: SesIstegi): Promise<string> {
+  const bitis = Date.now() + TOPLAM_SURE_MS;
+  return yarisliSor({
+    birincil: MODEL,
+    yedek: YEDEK_MODEL,
+    ikinciAtisMs: 5000,
+    yedekAtisMs: 7000,
+    toplamMs: TOPLAM_SURE_MS,
+    ayarsizlar: AYARSIZLAR,
+    cagir: (model, dusunmeli) =>
+      modelCagir(model, transkriptGovdesi(ses, dusunmeli ? dusunmeAyari(model) : null), Math.max(1000, bitis - Date.now())),
+  }).then((m) => (m === ENGEL_CEVABI ? "" : transkriptTemizle(m)));
 }
 
 Deno.serve(async (istek) => {
@@ -292,7 +323,9 @@ Deno.serve(async (istek) => {
     return yanit({ hata: "giriş gerekli" }, 401, koken);
   }
 
-  const ham = await govdeyiOku(istek);
+  // Sesli soru kaydı büyük olabilir; üst sınır onun sınırı. Yazılı soru
+  // okunduktan sonra kendi (çok daha küçük) sınırıyla ayrıca denetlenir.
+  const ham = await govdeyiOku(istek, SES_SINIR.govdeBayt);
   if (ham === null) {
     olay("govde_buyuk");
     return yanit({ hata: "istek çok büyük" }, 413, koken);
@@ -300,10 +333,32 @@ Deno.serve(async (istek) => {
 
   let json: unknown;
   try {
-    json = JSON.parse(ham);
+    json = JSON.parse(ham.metin);
   } catch {
     olay("gecersiz_girdi", { neden: "JSON bozuk" });
     return yanit({ hata: "bozuk istek" }, 400, koken);
+  }
+
+  // ── Sesli soru: yalnızca yazıya dökülür; cevap sonra yazılı yoldan istenir.
+  if (typeof json === "object" && json !== null && !Array.isArray(json) && "ses" in json) {
+    const ses = sesIstegiDogrula((json as Record<string, unknown>).ses);
+    if (!ses.tamam) {
+      olay("gecersiz_girdi", { neden: ses.neden });
+      return yanit({ hata: "geçersiz istek" }, 400, koken);
+    }
+    const engel = await kotaDenetimi(jeton, apikey, koken);
+    if (engel) return engel;
+    try {
+      return yanit({ metin: await yaziyaDok(ses.deger) }, 200, koken);
+    } catch (hata) {
+      olay("transkript_hatasi", { neden: String(hata).slice(0, 120) });
+      return yanit({ metin: null }, 200, koken);
+    }
+  }
+
+  if (ham.bayt > SINIR.govdeBayt) {
+    olay("govde_buyuk");
+    return yanit({ hata: "istek çok büyük" }, 413, koken);
   }
 
   const dogrulama = istegiDogrula(json);
@@ -313,7 +368,54 @@ Deno.serve(async (istek) => {
   }
 
   // Kota, doğrulamadan SONRA: bozuk istek kullanıcının kotasını yemesin.
+  const engel = await kotaDenetimi(jeton, apikey, koken);
+  if (engel) return engel;
+
+  const bugun = new Date().toLocaleDateString("tr-TR", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+    timeZone: "Europe/Istanbul",
+  });
+  // "Peki ne zaman?" gibi eksiltili sorularda konu önceki turdadır.
+  const sonKullaniciTuru = [...dogrulama.deger.gecmis].reverse().find((t) => t.rol === "user")?.icerik ?? "";
+  const baglam = await uygulamaBaglami(jeton, apikey, `${dogrulama.deger.soru}\n${sonKullaniciTuru}`);
+
+  const talimat =
+    `${SABIT_TALIMAT}\n\n════════ KURUMSAL HAFIZA ════════\n${KURUMSAL_HAFIZA}\n\n` +
+    `════════ ARAÇ NOTLARI ════════\nBugünün tarihi: ${bugun}` +
+    (baglam ? `\n${baglam}` : "");
+
+  try {
+    const modelCevabi = await modeliSor(talimat, dogrulama.deger);
+    const { metin, yonlendirme } = yonlendirmeAyikla(modelCevabi);
+    // Sızıntı süzgeci yalnızca davranış talimatına bakar. Kurumsal hafızadaki
+    // bilgiyi aynen aktarmak meşru bir cevaptır.
+    const suzulmus = ciktiyiSuz(metin, SABIT_TALIMAT);
+    if (!suzulmus.guvenli) olay("cikti_suzuldu");
+    // Model etiketi unutsa bile etkinlik sorusu takvime götürür.
+    const hedef = suzulmus.guvenli
+      ? yonlendirme ?? (etkinlikSorusuMu(dogrulama.deger.soru) ? "etkinlik" : null)
+      : null;
+    return yanit(hedef ? { cevap: suzulmus.metin, yonlendirme: hedef } : { cevap: suzulmus.metin }, 200, koken);
+  } catch (hata) {
+    // Ayrıntı yalnızca sunucu günlüğüne; istemciye genel cümle.
+    olay("model_hatasi", { neden: String(hata).slice(0, 120) });
+    // `hata` işareti: istemci bu cevabı hatalı tur olarak gösterir ve
+    // "Tekrar sor" sunar; geçmişe de koymaz.
+    return yanit({ cevap: HATA_CEVABI, hata: "model" }, 200, koken);
+  }
+});
+
+/**
+ * Kimlik + kota. Sorun varsa gönderilecek yanıtı, yoksa null döner.
+ * Kota sistemine ulaşılamıyorsa KAPALI başarısız olunur: denetimsiz istek modele gitmez.
+ */
+async function kotaDenetimi(jeton: string, apikey: string, koken: string | null): Promise<Response | null> {
   const kota = await kotaHarca(jeton, apikey);
+  if (kota === "tamam") {
+    if (ANAHTAR) return null;
+    console.error("[asistan] model anahtarı tanımlı değil");
+    return yanit({ cevap: HATA_CEVABI, hata: "yapilandirma" }, 503, koken);
+  }
   if (kota === "kimliksiz") {
     olay("yetkisiz", { neden: "jeton geçersiz" });
     return yanit({ hata: "giriş gerekli" }, 401, koken);
@@ -330,46 +432,6 @@ Deno.serve(async (istek) => {
       },
     });
   }
-  if (kota !== "tamam") {
-    // Kota sistemine ulaşılamıyorsa KAPALI başarısız ol: denetimsiz istek
-    // modele gitmesin.
-    olay("kota_denetimi_yok");
-    return yanit({ cevap: HATA_CEVABI }, 503, koken);
-  }
-
-  if (!ANAHTAR) {
-    console.error("[asistan] model anahtarı tanımlı değil");
-    return yanit({ cevap: HATA_CEVABI }, 503, koken);
-  }
-
-  const bugun = new Date().toLocaleDateString("tr-TR", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric",
-    timeZone: "Europe/Istanbul",
-  });
-  // "Peki ne zaman?" gibi eksiltili sorularda konu önceki turdadır.
-  const sonKullaniciTuru = [...dogrulama.deger.gecmis].reverse().find((t) => t.rol === "user")?.icerik ?? "";
-  const baglam = await uygulamaBaglami(jeton, apikey, `${dogrulama.deger.soru}\n${sonKullaniciTuru}`);
-
-  const talimat =
-    `${SABIT_TALIMAT}\n\n════════ KURUMSAL HAFIZA ════════\n${KURUMSAL_HAFIZA}\n\n` +
-    `════════ ARAÇ NOTLARI ════════\nBugünün tarihi: ${bugun}` +
-    (baglam ? `\n${baglam}` : "");
-
-  try {
-    const modelCevabi = await modeliSor(modelGovdesi(talimat, dogrulama.deger, EN_FAZLA_JETON));
-    const { metin, yonlendirme } = yonlendirmeAyikla(modelCevabi);
-    // Sızıntı süzgeci yalnızca davranış talimatına bakar. Kurumsal hafızadaki
-    // bilgiyi aynen aktarmak meşru bir cevaptır.
-    const suzulmus = ciktiyiSuz(metin, SABIT_TALIMAT);
-    if (!suzulmus.guvenli) olay("cikti_suzuldu");
-    // Model etiketi unutsa bile etkinlik sorusu takvime götürür.
-    const hedef = suzulmus.guvenli
-      ? yonlendirme ?? (etkinlikSorusuMu(dogrulama.deger.soru) ? "etkinlik" : null)
-      : null;
-    return yanit(hedef ? { cevap: suzulmus.metin, yonlendirme: hedef } : { cevap: suzulmus.metin }, 200, koken);
-  } catch (hata) {
-    // Ayrıntı yalnızca sunucu günlüğüne; istemciye genel cümle.
-    olay("model_hatasi", { neden: String(hata).slice(0, 120) });
-    return yanit({ cevap: HATA_CEVABI }, 200, koken);
-  }
-});
+  olay("kota_denetimi_yok");
+  return yanit({ cevap: HATA_CEVABI, hata: "kota_denetimi" }, 503, koken);
+}

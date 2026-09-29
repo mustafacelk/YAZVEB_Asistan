@@ -133,9 +133,17 @@ export default function Ana() {
 
         {profil && (
           <Bolum etiket="İlerlemen" sira={4}>
-            <IlerlemeSatiri profil={profil} onAc={() => git("ben", { bolum: "gecmis" })} />
+            <IlerlemeSatiri profil={profil} onAc={() => git("odul", { odul: "gecmis" })} />
           </Bolum>
         )}
+
+        {/* Topluluk çubukta değil (Ödüller'e yer açtı); telefonda kapısı burası. */}
+        <Bolum etiket="Topluluk" sira={4} className="ana-topluluk">
+          <Satirlar>
+            <Satir simge="sohbet" baslik="Genel sohbet" aciklama="Topluluğun ortak odası" onClick={() => git("sohbet")} />
+            <Satir simge="topluluk" baslik="Üyeler" aciklama="Topluluğu oluşturanlar" onClick={() => git("topluluk")} />
+          </Satirlar>
+        </Bolum>
 
         {/* 3D HUB: bir kart değil, başka bir dünyaya geçit. */}
         <button className="hub-portal gir" style={kademe(5)} onClick={hubAc}>
@@ -195,7 +203,7 @@ function BugunSatiri({ oge: o, onTara }: { oge: BugunOgesi; onTara: () => void }
         simge="hediye"
         baslik={o.aktif.length === 1 ? `${ilk.sponsor}: ${ilk.baslik}` : `${o.aktif.length} ödülün kullanılmayı bekliyor`}
         aciklama={sonKullanimEtiketi(ilk.son_kullanma) ?? "İşletmede göstererek kullanabilirsin."}
-        onClick={() => git("ben", { bolum: "oduller" })}
+        onClick={() => git("odul")}
       />
     );
   }

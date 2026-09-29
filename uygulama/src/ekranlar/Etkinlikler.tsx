@@ -260,7 +260,7 @@ export default function Etkinlikler() {
           <section>
             {katildigi > 0 && (
               <p className="gecmis-ozeti soluk gir">
-                <b className="rakam">{katildigi}</b> etkinliğe katıldın. Puanlarının dökümü: Ben › İlerleme ve puan geçmişi.
+                <b className="rakam">{katildigi}</b> etkinliğe katıldın. Puanlarının dökümü: Ödüller › İlerleme ve puan geçmişi.
               </p>
             )}
             {gecmis.length === 0 && (
@@ -290,7 +290,7 @@ export default function Etkinlikler() {
             <ol className="rehber-adimlari">
               <li><b>Etkinliğe katıl</b><span>Yanında "+XP" yazan etkinlikler puan verir.</span></li>
               <li><b>QR'yi okut</b><span>Buradaki "QR okut" ile. Kamera istemezsen kısa kodu yaz.</span></li>
-              <li><b>Puan topla</b><span>Seviyen yükselir, sponsor kilitleri açılır (Ben › Sponsorlar).</span></li>
+              <li><b>Puan topla</b><span>Seviyen yükselir, sponsor kilitleri açılır (Ödüller sekmesi).</span></li>
               <li><b>Ödülünü kullan</b><span>İşletmedeki QR'yi okut, çıkan ödülü kasada göster.</span></li>
             </ol>
           </details>

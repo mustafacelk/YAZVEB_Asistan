@@ -281,7 +281,8 @@ supabase/functions/
 npm run test:guvenlik      # girdi doğrulama, istem ayrımı, çıktı süzgeci, CORS (67)
 npm run test:transkript    # mikrofon parçalarını birleştirme (12)
 npm run test:notlar        # künye, sponsorlu yerleşimi, doğrulama e-postası (46)
-npm run test:gezinme       # rotalar, "Bugün" önceliği, QR şeridi, Türkçe I ile ders eşleşmesi (35)
+npm run test:gezinme       # rotalar, "Bugün" önceliği, QR şeridi, Türkçe I ile ders eşleşmesi (43)
+npm run test:asistan       # model cevabı okuma, yedek modelle yarış, sesli soru, seslendirme parçaları (37)
 npm run lint               # CI'da da çalışır; hata varsa APK derlenmez
 npm run yayina-hazir       # derleme + paket taraması (sır, kaynak haritası, CSP)
 ```
@@ -413,17 +414,18 @@ işletmede "Ödülü göster" → çalışan **kendi telefonunda** `/isletme`
 sayfasıyla QR'yi okutup PIN'ini girer → öğrencinin ekranı "Kullanıldı" olur →
 sıradaki etkinlik.
 
-### Gezinme — beş dünya
+### Gezinme — beş sekme
 
 Bilgi mimarisinin tamamı ve kararların gerekçesi: **[TASARIM.md](TASARIM.md)**.
 
-Üye çubuğu: **Ana · Akademi · Etkinlikler · Topluluk · Ben**. Asistan ve 3D
-HUB çubukta değil; Ana'dan girilen tam ekran deneyimler (masaüstü şeridinde
-"Deneyimler"). QR okutma Etkinlikler'in birincil eylemi; bir etkinlik şu an
-sürüyor ve okutulmadıysa her ekranın altında tek satırlık şerit çıkar, yani
-etkinlikteki kişi yine tek dokunuş uzakta. Ödüller, sponsorlar, sıralama,
-puan geçmişi ve hesap **Ben**'de. Her gidiş tarayıcı geçmişine yazılır:
-telefonun ve tarayıcının geri tuşu uygulamanın içinde geri gider.
+Üye çubuğu: **Ana · Akademi · Etkinlikler · Ödüller · Ben**. Topluluk (genel
+sohbet, üyeler) telefonda Ana'dan, masaüstünde şeridin "Keşfet" grubundan
+açılır. Asistan ve 3D HUB çubukta değil; Ana'dan girilen tam ekran deneyimler.
+QR okutma Etkinlikler'in birincil eylemi; bir etkinlik şu an sürüyor ve
+okutulmadıysa her ekranın altında tek satırlık şerit çıkar, yani etkinlikteki
+kişi yine tek dokunuş uzakta. **Ödüller**'de bekleyen ödüller ("Göster"),
+sponsorlar, sıralama ve puan geçmişi; hesap **Ben**'de. Her gidiş tarayıcı
+geçmişine yazılır: telefonun ve tarayıcının geri tuşu uygulamanın içinde geri gider.
 
 Yönetim görünümünün çubuğu: Panel · Etkinlikler · [Perde QR] · Yönetim ·
 Topluluk; hesap Panel'in sağ üstündeki baş harflerden.

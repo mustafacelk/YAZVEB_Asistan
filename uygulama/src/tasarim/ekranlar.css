@@ -936,6 +936,12 @@ code { font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace; 
 }
 .yz-yonlendirme:hover { background: var(--sinyal-soluk); }
 .yz-yonlendirme:active { transform: scale(0.97); }
+.yz-yonlendirme:disabled { opacity: 0.5; pointer-events: none; }
+.yz-yonlendirme + .yz-yonlendirme { margin-left: var(--b-2); }
+
+/* Sesli yanıt: henüz okunmamış kısım yer tutar (balon büyüyüp zıplamasın)
+   ama görünmez; ses ilerledikçe sözcükler görünen kısma geçer. */
+.tur .okunacak { opacity: 0; }
 
 /* ── Giriş türü ─────────────────────────────────────────────────── */
 .metin-dugme.satir-ici { display: inline; padding: 0; height: auto; min-height: 0; vertical-align: baseline; font-size: inherit; }

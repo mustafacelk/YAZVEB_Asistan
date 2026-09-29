@@ -245,11 +245,13 @@ KAYITLAR: list[dict] = [
         "icerik": (
             "Telefonda alt çubukta, bilgisayarda soldaki menüde beş bölüm vardır. Ana: bugün "
             "önemli olanlar (süren ya da yaklaşan etkinlik, bekleyen ödül, sınav dönemi), kısa "
-            "ilerleme ve asistana soru; 3B YAZVEB HUB'a da buradan girilir. Akademi: dersler, "
-            "ders notları, çıkmış soru çözümleri ve özetler. Etkinlikler: takvim, katılım ve QR "
-            "okutma ('QR okut' düğmesi bu bölümün başında; bir etkinlik sürerken her ekranın "
-            "altında da görünür). Topluluk: genel sohbet ve üyeler. Ben: hesabın, öğrenci "
-            "kimliğin, puanın ve seviyen, Ödüllerim, Sponsorlar, Sıralama ve puan geçmişi."
+            "ilerleme, asistana soru ve Topluluk (genel sohbet, üyeler); 3B YAZVEB HUB'a da "
+            "buradan girilir. Akademi: dersler, ders notları, çıkmış soru çözümleri ve özetler. "
+            "Etkinlikler: takvim, katılım ve QR okutma ('QR okut' düğmesi bu bölümün başında; bir "
+            "etkinlik sürerken her ekranın altında da görünür). Ödüller: bekleyen ödüllerin "
+            "('Göster' düğmesiyle), sponsorlar ve kilitleri, sıralama, ilerleme ve puan geçmişi. "
+            "Ben: hesabın, öğrenci kimliğin ve profilin. Bilgisayarda Topluluk soldaki menüde "
+            "'Keşfet' altında da vardır."
         ),
     },
     {
@@ -267,7 +269,7 @@ KAYITLAR: list[dict] = [
             "Kazanılacak puan Etkinlikler bölümünde etkinliğin yanında '+XP' olarak "
             "yazar. Aynı görevin puanı bir kez alınır. Bazı görevler yalnızca etkinlik alanında "
             "tamamlanır; o zaman konum izni istenir, konum yalnızca kontrol edilir ve kaydedilmez. "
-            "Puanın görünmüyorsa Ben bölümündeki 'İlerleme ve puan geçmişi'ne bak; orada da "
+            "Puanın görünmüyorsa Ödüller bölümündeki 'İlerleme ve puan geçmişi'ne bak; orada da "
             "yoksa etkinlikteki görevliye veya yönetime söyle. Akademi'de paylaşılan notlar da "
             "puan kazandırır."
         ),
@@ -279,7 +281,7 @@ KAYITLAR: list[dict] = [
                     "core", "elite", "sonraki seviye", "kaç puan lazım"],
         "icerik": (
             "Puan biriktikçe seviye atlanır. Seviyeler sırasıyla STARTER, EXPLORER, BUILDER, "
-            "CREATOR, CORE ve ELITE'tir; eşikleri yönetim belirler ve Ben bölümündeki 'İlerleme' "
+            "CREATOR, CORE ve ELITE'tir; eşikleri yönetim belirler ve Ödüller bölümündeki 'İlerleme' "
             "sayfasında seviye yolu olarak görünür. Seviyeler ve puan sponsor kilitlerini açar. Ana ekrandaki ilerleme "
             "satırı en yakın kazancın için kaç puan kaldığını söyler."
         ),
@@ -292,10 +294,11 @@ KAYITLAR: list[dict] = [
         "icerik": (
             "Sponsorlar üyelere ayrıcalık sunan işletmelerdir. Her sponsorun bir kilidi vardır; "
             "belirli bir puana, seviyeye veya etkinlik sayısına ulaşınca açılır. Kilidi açılan "
-            "sponsorun işletmesinde, Ben › Sponsorlar'da o işletmeyi açıp kasadaki YAZVEB QR'sini "
+            "sponsorun işletmesinde, Ödüller sekmesinde o işletmeyi açıp kasadaki YAZVEB QR'sini "
             "okutursun ve ödülün o an açılır. Sürpriz "
             "kampanyada olası ödüller ve gerçek kalan adetleri görünür; hangisinin çıkacağı "
-            "okuttuğunda belli olur. Kazandığın ödül Ben › Ödüllerim'e düşer. "
+            "okuttuğunda belli olur. Kazandığın ödül Ödüller sekmesinin başında, 'Göster' "
+            "düğmesiyle durur. "
             "Kullanırken 'Ödülü göster' ekranını kasadaki çalışana gösterirsin; çalışan ekrandaki "
             "QR'yi ya da kodu kendi telefonundaki YAZVEB işletme sayfasıyla okutup işletme "
             "PIN'iyle onaylar. Onay çalışanın ekranında görünür, senin ekranın da kendiliğinden "

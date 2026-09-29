@@ -250,7 +250,7 @@ function AkademiGiris() {
       )}
       {pencere?.tur === "sponsor" && (
         <SponsorDetay sponsor={pencere.s} onKapat={() => setPencere(null)}
-                      onTara={() => { setPencere(null); git("ben", { bolum: "sponsorlar" }); }} />
+                      onTara={() => { setPencere(null); git("odul"); }} />
       )}
     </div>
   );

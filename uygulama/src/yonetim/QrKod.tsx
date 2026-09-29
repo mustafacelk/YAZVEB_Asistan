@@ -37,7 +37,7 @@ export function QrPenceresi({ baslik, altBaslik, icerik, kisaKod, onKapat }: {
         <p className="qr-kod-etiketi">Kamera yoksa kısa kod</p>
         <p className="qr-kisa-kod rakam">{kisaKod}</p>
         <p className="qr-alt">{icerik.startsWith("YAZVEB:S:")
-          ? "YAZVEB → Ben → Sponsorlar → işletme → QR'yi okut"
+          ? "YAZVEB → Ödüller → işletme → QR'yi okut"
           : "YAZVEB → Etkinlikler → QR okut"}</p>
       </div>
     </div>,

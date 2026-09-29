@@ -4,7 +4,7 @@
 // sırayla mı gösteriyor, QR şeridi yalnızca gerektiğinde mi çıkıyor, Türkçe
 // "I" aynı dersi ikiye bölüyor mu?
 
-import { rotaAnahtari, rotaKur, UST_SEKME } from "../src/veri/gezinme.ts";
+import { rotaAnahtari, rotaKur, seciliSekme, UST_SEKME, ustRota, type Sekme } from "../src/veri/gezinme.ts";
 import { bugunListesi, canliEtkinlik, durumCumlesi } from "../src/veri/bugun.ts";
 import { dersKimligi, dersleriGrupla, dersNormal, dersUyar } from "../src/veri/pano_bicim.ts";
 import type { Etkinlik } from "../src/veri/supabase.ts";
@@ -20,14 +20,24 @@ function bekle(ad: string, kosul: boolean, ayrinti = "") {
 const js = (x: unknown) => JSON.stringify(x);
 
 // ── Rotalar ────────────────────────────────────────────────────────
-bekle("eski 'odul' üyede Ben'e gider", js(rotaKur("odul", { bolum: "sponsorlar" })) === js({ g: "ben", ben: "sponsorlar" }));
-bekle("eski 'odul' yönetimde Yönetim'e gider", js(rotaKur("odul", { yonetim: "gorevler" }, true)) === js({ g: "yonetim", yonetim: "gorevler" }));
+bekle("'odul' üyede Ödüller dünyasına gider", js(rotaKur("odul")) === js({ g: "odul" }));
+bekle("'odul' alt sayfayı taşır", js(rotaKur("odul", { odul: "cuzdan" })) === js({ g: "odul", odul: "cuzdan" }));
+bekle("'odul' yönetimde Yönetim'e gider", js(rotaKur("odul", { yonetim: "gorevler" }, true)) === js({ g: "yonetim", yonetim: "gorevler" }));
+bekle("Ödüller alt sayfası farklı ekran", rotaAnahtari({ g: "odul" }) !== rotaAnahtari({ g: "odul", odul: "siralama" }));
+bekle("Ödüller alt sayfasından geri: Ödüller", js(ustRota({ g: "odul", odul: "gecmis" })) === js({ g: "odul" }));
+bekle("Topluluk'tan geri (geçmiş yoksa): Ana", ustRota({ g: "topluluk" }).g === "ana");
+bekle("sohbetten geri: Topluluk", ustRota({ g: "sohbet" }).g === "topluluk");
+const UYE: Sekme[] = ["ana", "akademi", "etkinlik", "odul", "ben"];
+const YONETIM: Sekme[] = ["ana", "etkinlik", "yonetim", "topluluk"];
+bekle("üye çubuğunda Ödüller sekmesi seçilir", seciliSekme("odul", UYE) === "odul");
+bekle("üyede Topluluk çubukta yok: gösterge gizli", seciliSekme("topluluk", UYE) === null && seciliSekme("sohbet", UYE) === null);
+bekle("yönetimde Topluluk sekmesi seçilir", seciliSekme("sohbet", YONETIM) === "topluluk");
 bekle("eski 'notlar' Akademi'ye gider", rotaKur("notlar").g === "akademi");
 bekle("asistan sorusunu taşır", rotaKur("asistan", { soru: "Merhaba" }).soru === "Merhaba");
 bekle("ders rotası dersi taşır", rotaKur("akademi", { ders: { kod: "BM 203", ad: "Veri", kurum: "selcuk.edu.tr" } }).ders?.kod === "BM 203");
 bekle("soru ekranı değiştirmez (aynı anahtar)", rotaAnahtari({ g: "asistan", soru: "a" }) === rotaAnahtari({ g: "asistan", soru: "b" }));
 bekle("farklı ders farklı ekran", rotaAnahtari({ g: "akademi", ders: { kod: "A", ad: "x" } }) !== rotaAnahtari({ g: "akademi", ders: { kod: "B", ad: "x" } }));
-bekle("Ben alt sayfası farklı ekran", rotaAnahtari({ g: "ben" }) !== rotaAnahtari({ g: "ben", ben: "oduller" }));
+bekle("Ben alt sayfası farklı ekran", rotaAnahtari({ g: "ben" }) !== rotaAnahtari({ g: "ben", ben: "kimlik" }));
 bekle("sohbet Topluluk sekmesinde, asistan Ana'da", UST_SEKME.sohbet === "topluluk" && UST_SEKME.asistan === "ana");
 
 // ── Bugün ─────────────────────────────────────────────────────────

@@ -251,7 +251,7 @@ export const GOREV_MESAJI: Record<Exclude<GorevDurumu, "tamam">, string> = {
   konum_uzak: "Etkinlik alanının dışında görünüyorsun. Kapalı alanda konum sapabilir; açık bir yere yaklaşıp tekrar dene.",
   sinir: "Kısa sürede çok deneme yapıldı. Birkaç dakika sonra tekrar dene.",
   kimliksiz: "Oturumun sona ermiş. Devam etmek için tekrar giriş yap.",
-  sponsor_qr: "Bu bir sponsor QR'si. Ben › Sponsorlar'da ilgili işletmeyi açıp oradan okut.",
+  sponsor_qr: "Bu bir sponsor QR'si. Ödüller sekmesinde ilgili işletmeyi açıp oradan okut.",
   canli_kod_eksik: "Bu etkinliğin kodu canlı: ekrandaki kısa kodun sonundaki dört harfle birlikte, kodun tamamını gir.",
   canli_kod_eskidi: "Bu kodun süresi geçmiş; etkinlikteki kod dakikada bir değişiyor. Ekranda şu an görünen kodu okut.",
 };

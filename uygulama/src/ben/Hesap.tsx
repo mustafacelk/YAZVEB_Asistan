@@ -88,7 +88,7 @@ export function VeriOzeti({ acik = false }: { acik?: boolean }) {
         <li><b>Hesap:</b> kullanıcı adı, e-posta ve istersen görünen adın. Başka kişisel bilgi istemiyoruz.</li>
         <li><b>Kamera:</b> QR kodu telefonunda okunur. Görüntü kaydedilmez, hiçbir yere gönderilmez.</li>
         <li><b>Konum:</b> yalnızca konum şartlı bir görevde, o an etkinlik alanında olup olmadığını kontrol etmek için kullanılır. Kaydedilmez.</li>
-        <li><b>Puan ve ödüller:</b> kazandığın her puan ve ödül hesabında kayıtlı; Ben › İlerleme ve puan geçmişi'nde hepsini görebilirsin. Ödülü onaylayan işletme çalışanı yalnızca ödülün kodunu ve adını görür; adın ve hesabın ona gösterilmez.</li>
+        <li><b>Puan ve ödüller:</b> kazandığın her puan ve ödül hesabında kayıtlı; Ödüller › İlerleme ve puan geçmişi'nde hepsini görebilirsin. Ödülü onaylayan işletme çalışanı yalnızca ödülün kodunu ve adını görür; adın ve hesabın ona gösterilmez.</li>
         <li><b>Sıralama:</b> yalnızca kullanıcı adın görünür. Gizli profili açarak tamamen çıkabilirsin.</li>
         <li><b>Asistan:</b> sorun, yanıt üretmek için yapay zekâ servisine gönderilir; YAZVEB soruları saklamaz. Etkinlik sorarsan uygulamadaki yaklaşan etkinlikler, puanını sorarsan yalnızca puanın ve seviyen yanıta eklenir; adın ve e-postan gönderilmez. Sesli yanıt açıksa yanıt metni seslendirme servisine gider.</li>
         <li><b>Sohbet:</b> genel sohbetteki mesajlar topluluk üyelerine görünür ve saklanır. Kendi mesajını silebilirsin. Birkaç üye şikayet ederse mesaj yönetim inceleyene kadar gizlenir.</li>

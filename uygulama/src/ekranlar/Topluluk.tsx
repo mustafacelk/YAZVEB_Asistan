@@ -1,9 +1,9 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { supabase, ROL_ADI, type Mesaj, type Profil, type Rol } from "../veri/supabase";
-import { useOturum } from "../veri/oturum";
+import { useGorunum, useOturum } from "../veri/oturum";
 import { useGezinme } from "../veri/gezinme";
 import { bashar } from "../veri/bicim";
-import { Bolum, DunyaBasi, Satir, Satirlar } from "../tasarim/Dunya";
+import { AltBasi, Bolum, DunyaBasi, Satir, Satirlar } from "../tasarim/Dunya";
 
 const SIRA: Record<Rol, number> = { baskan: 0, yonetici: 1, uye: 2 };
 
@@ -13,6 +13,9 @@ const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
  * Topluluk — insanlar: genel sohbet ve üyeler. (İleride duyurular, ilanlar,
  * ev devri, 2. el bu dünyaya gelir.) Hesap ve yönetim Ben'de.
  *
+ * Üye çubuğunda sekme değil (yerini Ödüller aldı): Ana'dan açılır, bu yüzden
+ * başlığında Ana'ya dönüş var. Yönetim çubuğunda ise sekme olarak durur.
+ *
  * Rol değiştirme seçicisi yalnızca başkana görünür. Görünmese bile kural
  * veritabanında: rol_degisimi_denetle tetikleyicisi başkan olmayan her
  * güncellemeyi reddeder, üstelik başkanın kendi rolünü düşürmesini de
@@ -20,7 +23,8 @@ const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
  */
 export default function Topluluk() {
   const { profil, baskanMi } = useOturum();
-  const { git } = useGezinme();
+  const { gorunum } = useGorunum();
+  const { git, geri } = useGezinme();
   const [sonMesaj, setSonMesaj] = useState<Mesaj | null | undefined>(undefined);
   const [kisiler, setKisiler] = useState<Profil[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
@@ -70,7 +74,9 @@ export default function Topluluk() {
   return (
     <div className="sayfa topluluk">
       <div className="sutun">
-        <DunyaBasi etiket="YAZVEB" baslik="Topluluk" aciklama="Genel sohbet ve topluluğun üyeleri." />
+        {gorunum === "yonetim"
+          ? <DunyaBasi etiket="YAZVEB" baslik="Topluluk" aciklama="Genel sohbet ve topluluğun üyeleri." />
+          : <AltBasi ust="Ana" baslik="Topluluk" aciklama="Genel sohbet ve topluluğun üyeleri." onGeri={geri} />}
 
         {hata && <p className="bildirim" role="alert">{hata}</p>}
 
