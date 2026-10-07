@@ -1,0 +1,167 @@
+/* ═══════════════════════════════════════════════════════════════════
+   EKİP — gönüllü havuzu, ortak pano, kadro
+   ═══════════════════════════════════════════════════════════════════
+   Dünyaların satır diliyle aynı: kart yok, ince çizgili satırlar.
+   Renk yalnızca durum için: gecikme "hata" tonunda, canlı/onay "sinyal".
+   ═══════════════════════════════════════════════════════════════════ */
+
+.sutun.genis { max-width: 880px; }
+.uyari-metin { color: var(--hata); }
+.soluk.kucuk { font: var(--t-aciklama); }
+
+/* ── Gönüllü havuzu (Etkinlikler) ─────────────────────────────────── */
+.havuz-aciklama { margin: 0 0 var(--b-4); font: var(--t-aciklama); }
+.havuz-bos { margin: 0; font: var(--t-aciklama); }
+.havuz-ust { display: grid; gap: 2px; }
+.havuz-not { color: var(--m-2); }
+.havuz-deger { display: grid; justify-items: end; gap: 4px; }
+.havuz-deger small { font: var(--t-ustveri); color: var(--m-3); }
+.havuz-eylemler { display: inline-flex; gap: var(--b-2); }
+.havuz-benim { margin-bottom: var(--b-4); box-shadow: inset 0 0 0 1px var(--sinyal-cizgi); }
+.havuz-suzgec { display: flex; align-items: center; gap: var(--b-3); margin-bottom: var(--b-3); }
+.gonullu-havuzu .bildirim { margin-bottom: var(--b-3); }
+
+/* Dar ekranda eylem düğmeleri metnin altına iner: yan yana dururken iş
+   adı neredeyse harf harf kırılıyordu. Metnin başladığı yerden hizalı
+   (kenar 16 + ikon 40 + aralık 12). */
+@media (max-width: 599px) {
+  .gonullu-havuzu .satir-dunya.eylemli { flex-wrap: wrap; }
+  .gonullu-havuzu .satir-dunya.eylemli .satir-dugme { flex-basis: 100%; padding-right: var(--b-4); }
+  .gonullu-havuzu .satir-eylem {
+    width: 100%;
+    padding: 0 var(--b-4) var(--b-3) calc(var(--b-4) + var(--d-orta) + var(--b-3));
+  }
+}
+
+/* Etkinlik satırında: "2 gönüllü işi" */
+.etkinlik-gonullu {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--b-1);
+  margin-top: var(--b-2);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sinyal);
+  font: var(--t-dugme);
+  cursor: pointer;
+}
+.etkinlik-gonullu:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ── Pano ────────────────────────────────────────────────────────── */
+.ekip-panosu .secici { margin: var(--b-5) 0 var(--b-5); }
+.pano-ust {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--b-3);
+  margin-bottom: var(--b-4);
+}
+.pano-ust p { margin: 0; }
+.pano-ozet-cumlesi { font: var(--t-govde); color: var(--m-2); }
+.pano-suzgec { display: flex; flex-wrap: wrap; gap: var(--b-2); margin: var(--b-3) 0 var(--b-2); }
+.pano-sinav {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--b-2);
+  margin: var(--b-6) 0 0;
+  font: var(--t-aciklama);
+}
+.cip-uyari { margin-left: var(--b-1); color: var(--hata); }
+
+.is-ust { display: flex; flex-wrap: wrap; gap: 2px var(--b-2); }
+.teslim { color: var(--m-3); }
+.teslim[data-ton="yakin"] { color: var(--m-1); }
+.teslim[data-ton="gecikti"] { color: var(--hata); font-weight: var(--a-orta); }
+
+.durum-rozeti {
+  display: inline-block;
+  padding: 0 var(--b-2);
+  border-radius: var(--k-1);
+  font: var(--t-etiket);
+  line-height: 22px;
+  letter-spacing: 0.04em;
+  color: var(--m-2);
+  box-shadow: inset 0 0 0 1px var(--c-orta);
+  white-space: nowrap;
+}
+.durum-rozeti[data-durum="yapiliyor"] { color: var(--m-1); box-shadow: inset 0 0 0 1px var(--c-guclu); }
+.durum-rozeti[data-durum="onayda"] { color: var(--sinyal); box-shadow: inset 0 0 0 1px var(--sinyal-cizgi); }
+.durum-rozeti[data-durum="bitti"] { color: var(--m-3); box-shadow: none; }
+.durum-rozeti[data-durum="kacti"] { color: var(--hata); box-shadow: inset 0 0 0 1px var(--hata-soluk); }
+
+.rozet.benim-rozeti, .rozet.deneme-rozeti {
+  margin-left: var(--b-2);
+  color: var(--m-2);
+  box-shadow: inset 0 0 0 1px var(--c-orta);
+}
+.rozet.benim-rozeti { color: var(--sinyal); box-shadow: inset 0 0 0 1px var(--sinyal-cizgi); }
+
+.kacti-rozeti { color: var(--hata); font: var(--t-ustveri); }
+.kacti-rozeti.gorusme { font-weight: var(--a-orta); }
+.aday-isareti { color: var(--sinyal); }
+
+/* ── Pencereler ──────────────────────────────────────────────────── */
+.ekip-pencere { max-width: 560px; }
+.is-ayrinti { display: grid; gap: var(--b-3); margin: 0; }
+.is-ayrinti > div { display: grid; gap: 2px; }
+.is-ayrinti dd { margin: 0; color: var(--m-1); }
+.is-bolum {
+  display: grid;
+  gap: var(--b-3);
+  padding-top: var(--b-4);
+  border-top: 1px solid var(--c-ince);
+}
+.is-bolum p { margin: 0; }
+.durum-secici { display: flex; flex-wrap: wrap; gap: var(--b-2); }
+.durum-secici .cip:disabled { cursor: default; }
+.durum-secici .cip[data-durum="kacti"]:not([aria-pressed="true"]):hover { color: var(--hata); }
+.dugme.tehlike.onay { background: var(--hata-soluk); }
+
+.ustlenenler { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--b-2); }
+.ustlenenler li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--b-3);
+  padding: var(--b-2) 0;
+  border-bottom: 1px solid var(--c-ince);
+}
+.ustlenenler li:last-child { border-bottom: 0; }
+.ustlenen-ad { display: grid; gap: 2px; min-width: 0; }
+.ustlenen-ad small { font: var(--t-ustveri); }
+
+/* Kadroya ekle: kişi arama sonuçları */
+.kisi-sonuclari {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  border-radius: var(--k-2);
+  box-shadow: inset 0 0 0 1px var(--c-ince);
+}
+.kisi-sonuclari li.soluk { padding: var(--b-3); }
+.kisi-sonuclari button {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: var(--b-3);
+  border: 0;
+  border-bottom: 1px solid var(--c-ince);
+  background: none;
+  color: var(--m-1);
+  text-align: left;
+  font: var(--t-govde);
+  cursor: pointer;
+}
+.kisi-sonuclari button:hover:not(:disabled) { background: var(--z-3); }
+.kisi-sonuclari button:disabled { opacity: 0.45; cursor: default; }
+.kisi-sonuclari small { font: var(--t-ustveri); }
+.secilen-kisi { display: flex; align-items: center; gap: var(--b-2); margin: 0; color: var(--sinyal); }
+
+/* Havuz yönetimi: bu ay ekip başına açık iş */
+.havuz-ay { display: grid; gap: var(--b-2); margin-bottom: var(--b-5); }
+.havuz-ay-cip { display: inline-flex; align-items: center; gap: var(--b-2); cursor: default; }
+.havuz-ay-cip[data-eksik] b { color: var(--hata); }

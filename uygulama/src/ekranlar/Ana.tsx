@@ -7,6 +7,7 @@ import { odul, sayi, sonKullanimEtiketi, type EtkinlikOzeti, type KazanimOzeti, 
 import { pano, type PanoOzeti } from "../veri/pano";
 import { sinavMetni } from "../veri/pano_bicim";
 import { bugunListesi, durumCumlesi, type BugunOgesi } from "../veri/bugun";
+import { acikIsZamani, bugunGunu, ekip, teslimEtiketi, type EkipOzeti } from "../veri/ekip";
 import Simge from "../tasarim/Simge";
 import AlintiKarti from "../tasarim/AlintiKarti";
 import { Bolum, Satir, SatirIskeleti, Satirlar } from "../tasarim/Dunya";
@@ -37,7 +38,7 @@ export default function Ana() {
   const [soru, setSoru] = useState("");
 
   const yukle = useCallback(async () => {
-    const [p, liste, oz, cz, not] = await Promise.all([
+    const [p, liste, oz, cz, not, ek] = await Promise.all([
       odul.profil().catch(() => null),
       supabase
         .from("etkinlikler")
@@ -51,6 +52,8 @@ export default function Ana() {
       odul.cuzdan().catch((): KazanimOzeti[] => []),
       // Notlar kurulmamışsa sessizce yok sayılır.
       pano.ozet().catch((): PanoOzeti | null => null),
+      // Gönüllü ve pano işleri; ekip modülü kurulmamışsa yok sayılır.
+      ekip.ozet().catch((): EkipOzeti | null => null),
     ]);
     setProfil(p);
     setBugun(bugunListesi({
@@ -58,6 +61,7 @@ export default function Ana() {
       ozet: oz,
       cuzdan: cz,
       sinav: not,
+      ekip: ek,
     }));
   }, []);
 
@@ -192,6 +196,34 @@ function BugunSatiri({ oge: o, onTara }: { oge: BugunOgesi; onTara: () => void }
             <Simge ad="tara" boyut={16} /> QR okut
           </button>
         ) : undefined}
+      />
+    );
+  }
+
+  if (o.tur === "gonullu") {
+    return (
+      <Satir
+        simge="yildiz"
+        canli={o.fark === 0}
+        baslik={o.is.baslik}
+        aciklama={<span className="rakam">Üstlendiğin gönüllü işi · {acikIsZamani(o.is, bugunGunu())}</span>}
+        deger={<span className="xp-cipi rakam">+{o.is.xp} XP</span>}
+        onClick={() => git("etkinlik")}
+      />
+    );
+  }
+
+  if (o.tur === "ekip_isi") {
+    const t = teslimEtiketi(o.is.teslim, bugunGunu());
+    return (
+      <Satir
+        simge="liste"
+        baslik={o.is.baslik}
+        aciklama={<span>
+          <span className="teslim rakam" data-ton={t.ton}>{t.metin}</span>
+          {o.digerleri > 0 ? ` · ${o.digerleri} iş daha` : " · ekip panosu"}
+        </span>}
+        onClick={() => git("ekip")}
       />
     );
   }

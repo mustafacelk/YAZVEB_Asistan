@@ -8,6 +8,7 @@ import "./tasarim/ekranlar.css";
 import "./tasarim/odul.css";
 import "./tasarim/notlar.css";
 import "./tasarim/dunyalar.css";
+import "./tasarim/ekip.css";
 
 // Yeni sürüm yayınlandıysa açık kalmış sekmenin istediği eski parça artık
 // yoktur (HataSiniri.tsx). Vite bunu bu olayla bildirir: bir kez yenile.

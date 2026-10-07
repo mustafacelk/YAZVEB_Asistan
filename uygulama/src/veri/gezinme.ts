@@ -13,7 +13,8 @@ import { createContext, useContext } from "react";
  * tarayıcının geri tuşu uygulamanın içinde geri gider, uygulamadan çıkmaz.
  */
 export type Dunya = "ana" | "akademi" | "etkinlik" | "odul" | "topluluk" | "ben";
-export type Gorunum = Dunya | "yonetim" | "asistan" | "sohbet";
+/** "ekip": görevli kadronun ortak panosu (pano · gönüllü havuzu · kadro). */
+export type Gorunum = Dunya | "yonetim" | "asistan" | "sohbet" | "ekip";
 
 /** Çubuktaki bir sekme: üyede dünyalar, yönetimde Panel/Etkinlikler/Yönetim/Topluluk. */
 export type Sekme = Dunya | "yonetim";
@@ -48,14 +49,16 @@ export const UST_SEKME: Record<Gorunum, Sekme> = {
   sohbet: "topluluk",
   ben: "ben",
   yonetim: "yonetim",
+  ekip: "ben",
 };
 
 /**
  * Göstergenin durduğu sekme. Görünümün sekmesi çubukta yoksa (üyede
- * Topluluk) gösterge gizlenir: `null`.
+ * Topluluk) gösterge gizlenir: `null`. Ekip panosu üyede Ben'in, yönetim
+ * görünümünde Yönetim'in altındadır.
  */
 export function seciliSekme(g: Gorunum, cubuk: readonly Sekme[]): Sekme | null {
-  const s = UST_SEKME[g];
+  const s = g === "ekip" && cubuk.includes("yonetim") ? "yonetim" : UST_SEKME[g];
   return cubuk.includes(s) ? s : null;
 }
 
@@ -96,6 +99,7 @@ export function ustRota(r: Rota): Rota {
   if (r.g === "odul" && r.odul) return { g: "odul" };
   if (r.g === "akademi" && r.ders) return { g: "akademi" };
   if (r.g === "sohbet") return { g: "topluluk" };
+  if (r.g === "ekip") return { g: "ben" };
   return { g: "ana" };
 }
 

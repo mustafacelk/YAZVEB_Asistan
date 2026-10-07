@@ -269,7 +269,8 @@ veritabani/
   07_hub.sql         YAZVEB HUB: Coin defteri, envanter, oda, ziyaret, hediye, çark
   08_kimlik.sql      öğrenci doğrulama: kod (yalnız sunucuda), alan → üniversite, süre
   09_pano.sql        notlar, oy, puan, şikayet/moderasyon, sınav dönemi, sponsorlu, Storage
-  99_*.sql           yetki, güvenlik, ödül, işletme, HUB, doğrulama ve not testleri
+  10_ekip.sql        görevli kadro (17 rol), ortak pano, gönüllü havuzu
+  99_*.sql           yetki, güvenlik, ödül, işletme, HUB, doğrulama, not ve ekip testleri
 supabase/functions/
   asistan/           sesli/yazılı asistan
   dogrula/           doğrulama kodunu üniversite e-postasına gönderir (Brevo ya da Resend)
@@ -283,14 +284,16 @@ npm run test:transkript    # mikrofon parçalarını birleştirme (12)
 npm run test:notlar        # künye, sponsorlu yerleşimi, doğrulama e-postası (46)
 npm run test:gezinme       # rotalar, "Bugün" önceliği, QR şeridi, Türkçe I ile ders eşleşmesi (43)
 npm run test:asistan       # model cevabı okuma, yedek modelle yarış, sesli soru, seslendirme parçaları (37)
+npm run test:ekip          # teslim etiketi, sınav haftası, pano sıralaması, "Bugün"de gönüllü ve pano işi (30)
 npm run lint               # CI'da da çalışır; hata varsa APK derlenmez
 npm run yayina-hazir       # derleme + paket taraması (sır, kaynak haritası, CSP)
 ```
 
-Veritabanı testleri (499) — Docker gerekir. Yetki ve güvenlik (86) + ödül iş
+Veritabanı testleri (599) — Docker gerekir. Yetki ve güvenlik (86) + ödül iş
 mantığı, canlı kod, sıralama ve saldırı senaryoları (141) + işletme
 doğrulaması (27) + YAZVEB HUB ekonomisi (74) + öğrenci doğrulama (50) +
-notlar, dersler, depo kuralları, puan ve moderasyon (121) tek paket hâlinde çalışır:
+notlar, dersler, depo kuralları, puan ve moderasyon (121) + kadro, pano ve
+gönüllü havuzu (100) tek paket hâlinde çalışır:
 
 ```bash
 docker run -d --name yz-test -e POSTGRES_PASSWORD=test -e POSTGRES_DB=yazveb \
@@ -304,7 +307,8 @@ docker exec yz-test psql -U postgres -d yazveb -v ON_ERROR_STOP=1 -q \
   -f /tmp/06_isletme.sql -f /tmp/99_isletme_testleri.sql \
   -f /tmp/07_hub.sql -f /tmp/99_hub_testleri.sql \
   -f /tmp/08_kimlik.sql -f /tmp/99_kimlik_testleri.sql \
-  -f /tmp/09_pano.sql -f /tmp/99_pano_testleri.sql
+  -f /tmp/09_pano.sql -f /tmp/99_pano_testleri.sql \
+  -f /tmp/10_ekip.sql -f /tmp/99_ekip_testleri.sql
 ```
 
 Bir kural bozulursa betik hata ile durur.
@@ -352,8 +356,8 @@ update public.kota_ayarlari set dakika = 12, gun = 150, genel = 3000 where tur =
 
 1. Supabase SQL editöründe sırayla **`veritabani/04_guvenlik.sql`**,
    **`05_oduller.sql`**, **`06_isletme.sql`**, **`07_hub.sql`**,
-   **`08_kimlik.sql`**, **`09_pano.sql`**'i çalıştır (hepsi tekrar
-   çalıştırılabilir; mevcut veri korunur).
+   **`08_kimlik.sql`**, **`09_pano.sql`**, **`10_ekip.sql`**'i çalıştır (hepsi
+   tekrar çalıştırılabilir; mevcut veri korunur).
 2. `git push` — site yeni istemciyle ve `/isletme` sayfasıyla yayına çıkar.
    Önce 1. adım: yeni istemci ödül onayını `06_isletme.sql`'deki fonksiyonla
    yapar, o yoksa ödüller onaylanamaz.
@@ -550,7 +554,8 @@ etkinlik özeti, sponsor kilidinin kampanyaları kapsaması, işletme onayı
 yukarıdaki "Testleri çalıştırma" paketinin içinde çalışır.
 
 Gerçek eşzamanlılık (20 kişi aynı anda son ödüle; HUB'a aynı anda ilk giriş;
-aynı Coin'le aynı anda beş satın alma) ayrı ve **boş** bir veritabanına karşı,
+aynı Coin'le aynı anda beş satın alma; 10 gönüllü aynı anda son üç yere;
+aynı gönüllü işinin beş kez aynı anda onayı) ayrı ve **boş** bir veritabanına karşı,
 yukarıdaki kabı kullanarak:
 
 ```bash
@@ -716,6 +721,48 @@ ait bir alan adını servise doğrulatmak (DNS kaydı).
 
 E-posta servisi kurulmadan yayına çıkılırsa uygulama çalışır; doğrulama
 penceresi "E-posta gönderimi henüz kurulmadı" der, notlar görünür ama açılamaz.
+
+---
+
+## Ekip: kadro, ortak pano, gönüllü havuzu
+
+"YAZVEB Yeni Yönetim Yapısı 2026–2027" ve "Görev Tanımları" belgelerinin
+uygulamadaki karşılığı. Belgede Trello ya da E-Tablo diye geçen ortak pano ve
+gönüllü havuzu artık uygulamanın içinde. Kurallar veritabanında
+(`veritabani/10_ekip.sql`), arayüz yalnızca düğmeleri gizler.
+
+| Kim | Ne görür, ne yapar |
+| --- | --- |
+| Üye | **Etkinlikler → Gönüllü ol**: 1–3 saatlik açık işleri görür, üstlenir, "Yaptım" der, bırakır. Bugün/yarınki işi Ana'da çıkar. |
+| Kadrodaki herkes | **Ben → Ekip panosu**: bütün işleri, kadroyu, havuzu görür. Kendi işini "Yapılıyor"/"Onayda"ya alır, teslimden önce erteler. |
+| Ekip lideri (Dış İlişkiler'de BY) | Kendi ekibine iş ve açık iş yazar; "Bitti", "Kaçtı" der; gönüllüyü onaylar (XP). |
+| Başkan, Op. başkan yardımcısı | Her ekip; kadroyu kurar (rol, deneme/kesin), kişiyi çıkarır. Yönetim görünümünde **Panel → Ekip panosu**. |
+
+Belgeden aynen alınan kurallar:
+
+- Her işin **tek sahibi** var ve sahibi kadroda olmalı.
+- Sınav haftasına teslim konmaz; sınav haftasında havuza iş yazılmaz. Haftalar
+  Yönetim → Notlar → Sınav dönemlerinden okunur (topluluğun üniversitesi).
+- Teslimden önce haber verip erteleyen "kaçtı" sayılmaz. Haber vermeden kaçan
+  teslim kayda geçer. **Üçüncü kayıtta** panoda "görüşme" işareti çıkar;
+  otomatik rol devri yoktur. Yanlış işlenen kayıt düzeltilebilir.
+- Gönüllüde kaçan teslim kaydı tutulmaz ("Olmadı" kimseye gösterilmez).
+- Sponsor ya da konuşmacıyla temas açık iş olarak yazılamaz.
+- Onaylanan gönüllü işi adıyla anılır ve XP verir: 1 saat 30, 2 saat 55,
+  3 saat 80. Haftalık gönüllü puan tavanı 150'dir.
+- Havuz yönetiminde ekip başına bu ay açılan iş sayısı (hedef 2) ve **koltuk
+  için ilk adaylar** görünür: kadroda olmayıp en çok iş tamamlayan gönüllüler.
+
+### Kurulum
+
+1. Supabase SQL editöründe **`veritabani/10_ekip.sql`**'i çalıştır (09'dan
+   sonra; tekrar çalıştırılabilir).
+2. Uygulamada başkan hesabıyla: Panel → Ekip panosu → Kadro → **Kadroya
+   ekle**. Önce Operasyon başkan yardımcısını ekle; kadronun geri kalanını o
+   da kurabilir.
+3. Puan ve eşikler (`xp_1saat`, `haftalik_tavan`, `kacti_esigi`,
+   `donem_baslangic`…) yalnızca başkanın çağırabildiği `ekip_ayarlar_kaydet`
+   ile değişir.
 
 ---
 

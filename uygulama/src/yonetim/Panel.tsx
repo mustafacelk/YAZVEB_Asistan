@@ -4,6 +4,7 @@ import { useGorunum, useOturum } from "../veri/oturum";
 import { ODUL_DEGISTI, useGezinme } from "../veri/gezinme";
 import { bashar, selamAdi } from "../veri/bicim";
 import { sayi, tarihSaat } from "../veri/odul";
+import { ekip } from "../veri/ekip";
 import Simge from "../tasarim/Simge";
 import AlintiKarti from "../tasarim/AlintiKarti";
 import { CanliQrPenceresi, QrPenceresi } from "./QrKod";
@@ -43,6 +44,8 @@ export default function Panel() {
   const [simdi, setSimdi] = useState(Date.now());
   // Açık şikayet sayısı (Notlar kurulmamışsa null: satır görünmez).
   const [sikayet, setSikayet] = useState<number | null>(null);
+  // Ekip panosu: yalnızca görevli kadro (10_ekip.sql). Geciken iş varsa geçişte söylenir.
+  const [ekipDurumu, setEkipDurumu] = useState<{ geciken: number } | null>(null);
 
   const yukle = useCallback(async () => {
     try {
@@ -56,6 +59,11 @@ export default function Panel() {
       ]);
       setVeri({ etkinlikler: (etk.data as Etkinlik[] | null) ?? [], gorevler, sponsorlar, ozet });
       panoYonetim.moderasyon().then((l) => setSikayet(l.length)).catch(() => setSikayet(null));
+      ekip.ozet()
+        .then((o) => o.kadroda
+          ? ekip.pano().then((p) => setEkipDurumu({ geciken: p.isler.filter((i) => i.gecikti).length }))
+          : setEkipDurumu(null))
+        .catch(() => setEkipDurumu(null));
       setSimdi(Date.now());
       setHata(null);
     } catch {
@@ -203,6 +211,10 @@ export default function Panel() {
         {/* 4 · Hızlı geçişler */}
         <section className="ana-bolum gir" style={kademe(6)}>
           <div className="satir-yigini">
+            {ekipDurumu && (
+              <Gecis simge="liste" baslik={ekipDurumu.geciken > 0 ? `Ekip panosu · ${ekipDurumu.geciken} iş gecikmede` : "Ekip panosu"}
+                     alt="Kim hangi işte, ne gecikmede; gönüllü havuzu, kadro" onAc={() => git("ekip")} />
+            )}
             <Gecis simge="etkinlik" baslik="Etkinlikler" alt="Ekle, düzenle, takvim" onAc={() => git("etkinlik")} />
             <Gecis simge="qr" baslik="QR görevleri" alt="Oluştur, perdeye yansıt, yenile" onAc={() => git("odul", { yonetim: "gorevler" })} />
             <Gecis simge="hediye" baslik="Sponsorlar ve kampanyalar" alt="PIN, stok, kampanya QR'si" onAc={() => git("odul", { yonetim: "sponsorlar" })} />

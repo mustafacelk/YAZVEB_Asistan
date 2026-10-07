@@ -7,6 +7,7 @@ import { bashar } from "../veri/bicim";
 import { ODUL_DEGISTI, useGezinme, type BenBolumu } from "../veri/gezinme";
 import { odul, OdulHatasi, type Profil } from "../veri/odul";
 import { kimlik, type KimlikDurumu } from "../veri/kimlik";
+import { ekip, type EkipOzeti } from "../veri/ekip";
 import { sinifAdi } from "../veri/pano_bicim";
 import IlerlemeSatiri from "../ben/IlerlemeSatiri";
 import { GorunumSecici, ProfilFormu, VeriOzeti } from "../ben/Hesap";
@@ -33,6 +34,7 @@ export default function Ben({ bolum }: { bolum?: BenBolumu }) {
   const { git, geri } = useGezinme();
   const [profil, setProfil] = useState<Profil | null>(null);
   const [kim, setKim] = useState<KimlikDurumu | null>(null);
+  const [ekipOzeti, setEkipOzeti] = useState<EkipOzeti | null>(null);
   const [hata, setHata] = useState<string | null>(null);
 
   const tazele = useCallback(async () => {
@@ -48,6 +50,7 @@ export default function Ben({ bolum }: { bolum?: BenBolumu }) {
     if (bolum) return;   // alt sayfalar puanı göstermiyor
     tazele();
     kimlik.durum().then(setKim).catch(() => setKim(null));
+    ekip.ozet().then(setEkipOzeti).catch(() => setEkipOzeti(null));
     window.addEventListener(ODUL_DEGISTI, tazele);
     return () => window.removeEventListener(ODUL_DEGISTI, tazele);
   }, [bolum, tazele]);
@@ -105,6 +108,13 @@ export default function Ben({ bolum }: { bolum?: BenBolumu }) {
 
         <Bolum sira={3}>
           <Satirlar>
+            {ekipOzeti?.kadroda && (
+              // Görevli kadro: ortak pano. Açık işi varsa sayısı yanında.
+              <Satir simge="liste" baslik="Ekip panosu"
+                     aciklama={ekipOzeti.rol ? ekipOzeti.rol.ad : "Görevli kadro"}
+                     onClick={() => git("ekip")}
+                     deger={ekipOzeti.isler.length > 0 ? <span className="sayac rakam">{ekipOzeti.isler.length}</span> : undefined} />
+            )}
             <Satir simge="hediye" baslik="Ödüller ve sponsorlar" aciklama="Bekleyen ödüllerin, sponsor kilitleri, sıralama"
                    onClick={() => git("odul")}
                    deger={profil && profil.aktif_odul > 0 ? <span className="sayac rakam">{profil.aktif_odul}</span> : undefined} />

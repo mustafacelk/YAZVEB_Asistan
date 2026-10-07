@@ -320,6 +320,24 @@ KAYITLAR: list[dict] = [
         ),
     },
     {
+        "baslik": "Gönüllü havuzu: topluluğa küçük işlerle katılmak",
+        "kategori": "uygulama",
+        "anahtar": ["gönüllü", "gonullu", "gönüllü olmak", "yardım etmek", "ekibe katılmak",
+                    "topluluğa nasıl katkı", "açık iş", "görev almak", "kayıt masası", "ekip başvurusu"],
+        "icerik": (
+            "Topluluğa katkı vermek için ekipte koltuk ya da haftada saatler ayırmak gerekmez. "
+            "Etkinlikler bölümündeki 'Gönüllü ol' kısmında ekip liderlerinin yazdığı 1–3 saatlik, "
+            "tek seferlik açık işler durur: kayıt masasında bir saat, etkinlik fotoğraflarından "
+            "seçki, afiş metninde hata aramak, fırsat bülteni için yarışma bulmak gibi. Başvuru "
+            "yok: 'Üstlen'e dokunursun, işi yapınca 'Yaptım' dersin, ekip lideri onaylayınca iş "
+            "adınla anılır ve süresine göre puan kazanırsın (1 saat 30, 2 saat 55, 3 saat 80 XP; "
+            "haftada en çok 150). Yapamayacaksan 'Bırak' dersin, kayıt tutulmaz. Bir etkinliğe "
+            "bağlı işler o etkinliğin altında da görünür; üstlendiğin işin günü gelince Ana "
+            "ekranda çıkar. İki üç iş tamamlayan gönüllü, ekiplerde boşalan koltuklar için ilk "
+            "adaydır. Sınav haftalarında havuza yeni iş yazılmaz."
+        ),
+    },
+    {
         "baslik": "Akademi: ders notları, çıkmış sorular, özetler",
         "kategori": "uygulama",
         "anahtar": ["ders notu", "not paylaşma", "çıkmış soru", "çıkmışlar", "özet", "akademi",

@@ -52,11 +52,13 @@ masaüstünde şeridin "Keşfet" grubuna geçti.
 ANA ─────────── yön verir: durum cümlesi, Asistan'a sor, BUGÜN (≤3), ilerleme satırı,
                 Topluluk kapısı, HUB portalı
 AKADEMİ ─────── Derslerim / Tüm dersler / Notlarım → Ders → Notlar (tür) → Not → Aç / İşime yaradı
-ETKİNLİKLER ─── [QR okut] · Yaklaşan / Katıldıklarım · Nasıl puan kazanılır?
+ETKİNLİKLER ─── [QR okut] · Yaklaşan / Katıldıklarım · Gönüllü ol (açık işler) · Nasıl puan kazanılır?
 ÖDÜLLER ─────── ilerleme · bekleyen ödüller [Göster] · Sponsorlar (kilit ilerlemesi)
                 → Ödüllerim (tümü) · Sıralama · İlerleme ve puan geçmişi
-BEN ─────────── kimlik + ilerleme · Ödüller'e tek satır · Öğrenci kimliği · Profil
-                · Gizlilik ve veriler · (Yönetim) · Çıkış
+BEN ─────────── kimlik + ilerleme · (kadroysa) Ekip panosu · Ödüller'e tek satır
+                · Öğrenci kimliği · Profil · Gizlilik ve veriler · (Yönetim) · Çıkış
+  └ EKİP PANOSU  Pano · Gönüllü havuzu · Kadro — yalnızca görevli kadro
+                 (yönetim görünümünde Panel'den). Bkz. README › Ekip.
   └ TOPLULUK ── Genel sohbet · Üyeler (ileride: duyurular, ilanlar, ev, 2. el) ← Ana, masaüstünde Keşfet
 
 ASİSTAN (tam ekran)  ← Ana'daki "Asistana sor"

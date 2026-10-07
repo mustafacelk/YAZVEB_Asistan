@@ -16,6 +16,8 @@
 //   Y8  bekleyen not 5 oturumda aynı anda onaylanır → taban puan bir kez
 //   Y9  10 kişi aynı nota aynı anda "işime yaradı" → sayaç 10, puan tutarlı
 //   Y10 aynı e-postayı iki hesap aynı anda onaylar → yalnızca biri
+//   Y11 kontenjanı 3 olan açık işe 10 gönüllü aynı anda → tam 3 üstlenen
+//   Y12 aynı gönüllü işi 5 oturumda aynı anda onaylanır → XP bir kez
 //
 // Boş bir PostgreSQL veritabanına karşı çalışır (şemayı kendisi kurar):
 //   PG_URL=postgres://postgres:test@127.0.0.1:5432/yazveb node veritabani/odul_yaris_testi.mjs
@@ -36,7 +38,7 @@ await yonetici.connect();
 const q = async (sql, p) => (await yonetici.query(sql, p)).rows;
 
 for (const f of ["00_test_altyapisi.sql", "01_sema.sql", "02_yetkiler.sql", "04_guvenlik.sql", "05_oduller.sql",
-                 "06_isletme.sql", "07_hub.sql", "08_kimlik.sql", "09_pano.sql"]) {
+                 "06_isletme.sql", "07_hub.sql", "08_kimlik.sql", "09_pano.sql", "10_ekip.sql"]) {
   await yonetici.query(oku(f));
 }
 
@@ -237,6 +239,25 @@ kontrol("diğeri kullanımda", say(r, "kullanimda"), 1);
 kontrol("adres tek hesapta",
   (await q("select count(*)::int n from kimlik.ogrenciler where kullanici in ($1, $2) and dogrulandi is not null",
     [kimlik(15), kimlik(16)]))[0].n, 1);
+
+console.log("\n═══ Y11. Kontenjanı 3 olan açık işe 10 gönüllü aynı anda ═══");
+await q(`insert into ekip.kadro (kullanici, rol) values ($1, 'lider_tasarim')`, [kimlik(20)]);
+const acikIs = (await q(`insert into ekip.acik_isler (baslik, ekip, sure_saat, tarih, kontenjan, olusturan)
+                         values ('Yarış işi', 'tasarim', 2, current_date + 3, 3, $1) returning id`, [kimlik(20)]))[0].id;
+r = await esZamanli([...Array(10).keys()].map((i) => i + 1), `public.ekip_ustlen(${Number(acikIs)})`);
+kontrol("hatasız", hatalar(r).join(" | ") || "yok", "yok");
+kontrol("tam 3 üstlenen", say(r, "tamam"), 3);
+kontrol("7 kişi dolu gördü", say(r, "dolu"), 7);
+kontrol("kayıtta 3 etkin üstlenme",
+  (await q("select count(*)::int n from ekip.ustlenmeler where is_id = $1 and durum = 'ustlendi'", [acikIs]))[0].n, 3);
+
+console.log("\n═══ Y12. Aynı gönüllü işi 5 oturumda aynı anda onaylanır ═══");
+const kazanan = (await q("select kullanici from ekip.ustlenmeler where is_id = $1 and durum = 'ustlendi' limit 1", [acikIs]))[0].kullanici;
+r = await esZamanli([20, 20, 20, 20, 20], `public.ekip_karar(${Number(acikIs)}, '${kazanan}', 'onayla')`);
+kontrol("hatasız", hatalar(r).join(" | ") || "yok", "yok");
+kontrol("tam 1 onay", say(r, "tamam"), 1);
+kontrol("XP bir kez (55)",
+  (await q("select coalesce(sum(miktar), 0)::int s from odul.puan_islemleri where kullanici = $1 and tur = 'gonullu'", [kazanan]))[0].s, 55);
 
 await yonetici.end();
 console.log(hata ? "\n═══ YARIŞ TESTLERİ BAŞARISIZ ═══" : "\n═══ YARIŞ TESTLERİ GEÇTİ ═══");

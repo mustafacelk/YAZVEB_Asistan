@@ -19,7 +19,8 @@
     "test:rol": "tsx testler/rol.test.mts",
     "test:notlar": "tsx testler/notlar.test.mts",
     "test:gezinme": "tsx testler/gezinme.test.mts",
-    "test:asistan": "tsx testler/asistan.test.mts"
+    "test:asistan": "tsx testler/asistan.test.mts",
+    "test:ekip": "tsx testler/ekip.test.mts"
   },
   "dependencies": {
     "@capacitor/android": "^6.2.2",

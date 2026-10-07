@@ -39,6 +39,8 @@ const Perde = lazy(() => import("./yonetim/Perde"));
 const HubGorunumu = lazy(() => import("./hub/Hub"));
 // Akademi: dosya yükleme ve doğrulama pencereleriyle birlikte, açılınca iner.
 const Akademi = lazy(() => import("./akademi/Akademi"));
+// Ekip panosu: yalnızca görevli kadro açar.
+const EkipPanosu = lazy(() => import("./ekip/EkipPanosu"));
 
 /** <site>/isletme — giriş istemez; kasadaki çalışan kendi telefonunda açar. */
 const ISLETME_SAYFASI =
@@ -237,6 +239,7 @@ function Ekranlar() {
           {gorunen.g === "topluluk" && <Topluluk />}
           {gorunen.g === "sohbet" && <Sohbet onGeri={geri} />}
           {gorunen.g === "odul" && <Oduller bolum={gorunen.odul} />}
+          {gorunen.g === "ekip" && <Suspense fallback={<Acilis />}><EkipPanosu /></Suspense>}
           {gorunen.g === "ben" && <Ben bolum={gorunen.ben} />}
           {gorunen.g === "asistan" && <Asistan ilkSoru={gorunen.soru} onGeri={geri} />}
           {gorunen.g === "yonetim" && (

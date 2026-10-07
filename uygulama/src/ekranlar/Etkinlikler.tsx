@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { supabase, type Etkinlik } from "../veri/supabase";
 import { useOturum } from "../veri/oturum";
@@ -7,6 +7,8 @@ import { odul, sayi, type EtkinlikOzeti } from "../veri/odul";
 import { ODUL_DEGISTI, useGezinme } from "../veri/gezinme";
 import { suruyorMu } from "../veri/bicim";
 import { DunyaBasi } from "../tasarim/Dunya";
+import { ekip, type Havuz } from "../veri/ekip";
+import GonulluHavuzu from "../ekip/GonulluHavuzu";
 
 type Taslak = {
   id?: number;
@@ -58,6 +60,20 @@ export default function Etkinlikler() {
   const [taslak, setTaslak] = useState<Taslak | null>(null);
   const [hata, setHata] = useState<string | null>(null);
   const [kaydediliyor, setKaydediliyor] = useState(false);
+  const [havuz, setHavuz] = useState<Havuz | null>(null);
+  const [havuzEtkinligi, setHavuzEtkinligi] = useState<{ id: number; baslik: string } | null>(null);
+  const havuzRef = useRef<HTMLDivElement | null>(null);
+
+  // Gönüllü havuzu: modül kurulmamışsa (10_ekip.sql) bölüm sessizce görünmez.
+  const havuzuYukle = useCallback(() => {
+    ekip.havuz().then(setHavuz).catch(() => setHavuz(null));
+  }, []);
+  useEffect(() => { havuzuYukle(); }, [havuzuYukle]);
+
+  function gonulluyeGit(e: { id: number; baslik: string }) {
+    setHavuzEtkinligi(e);
+    requestAnimationFrame(() => havuzRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
 
   useEffect(() => {
     let gecerli = true;
@@ -248,12 +264,21 @@ export default function Etkinlikler() {
                 sira={i + 3}
                 siradaki={i === 0}
                 ozet={ozet.get(e.id)}
+                gonulluIsi={havuz?.isler.filter((a) => a.etkinlik?.id === e.id && !a.benim && a.dolu < a.kontenjan).length ?? 0}
+                onGonullu={() => gonulluyeGit({ id: e.id, baslik: e.baslik })}
                 duzenlenebilir={duzenlenebilir(e)}
                 onDuzenle={() => { setHata(null); setTaslak(taslagaCevir(e)); }}
                 onSil={() => sil(e)}
               />
             ))}
           </section>
+        )}
+
+        {bolum === "yaklasan" && !yukleniyor && (
+          <div ref={havuzRef}>
+            <GonulluHavuzu havuz={havuz} etkinlik={havuzEtkinligi} onEtkinlikTemizle={() => setHavuzEtkinligi(null)}
+                           onDegisti={havuzuYukle} />
+          </div>
         )}
 
         {bolum === "gecmis" && (
@@ -379,6 +404,8 @@ function Satir({
   siradaki,
   ozet,
   sira = 0,
+  gonulluIsi = 0,
+  onGonullu,
   onDuzenle,
   onSil,
 }: {
@@ -388,6 +415,9 @@ function Satir({
   siradaki?: boolean;
   ozet?: EtkinlikOzeti;
   sira?: number;
+  /** Bu etkinliğe bağlı açık gönüllü işi sayısı. */
+  gonulluIsi?: number;
+  onGonullu?: () => void;
   onDuzenle: () => void;
   onSil: () => void;
 }) {
@@ -438,6 +468,11 @@ function Satir({
           )}
         </div>
         {etkinlik.aciklama && <p className="etkinlik-aciklama">{etkinlik.aciklama}</p>}
+        {!gecmis && gonulluIsi > 0 && onGonullu && (
+          <button className="etkinlik-gonullu" onClick={onGonullu}>
+            <Simge ad="yildiz" boyut={14} /> {gonulluIsi} gönüllü işi <Simge ad="ileri" boyut={14} />
+          </button>
+        )}
       </div>
 
       {duzenlenebilir && (
