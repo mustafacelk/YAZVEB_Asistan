@@ -60,6 +60,10 @@ const MODEL = Deno.env.get("YAZVEB_MODEL") ?? "gemini-3.5-flash-lite";
 // Birincil kota/yoğunluk hatası verince geçilen model. Ayrı kotası var;
 // "-latest" takma adı Google'ın güncel Flash-Lite'ına gider. Boş bırakılırsa yedek yok.
 const YEDEK_MODEL = (Deno.env.get("YAZVEB_YEDEK_MODEL") ?? "gemini-flash-lite-latest").trim() || null;
+// İkisi de düşerse (Flash-Lite ailesi topluca 503 verebiliyor) sırayla denenen,
+// başka aileden modeller. Virgülle ayrılmış liste; boş bırakılırsa son çare yok.
+const SON_CARE = (Deno.env.get("YAZVEB_SON_CARE") ?? "gemini-flash-latest,gemini-2.5-flash")
+  .split(",").map((m) => m.trim()).filter(Boolean);
 const ANAHTAR = Deno.env.get("GOOGLE_API_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const KOKENLER = (Deno.env.get("IZINLI_KOKENLER") ?? "")
@@ -265,6 +269,7 @@ function modeliSor(talimat: string, istek: Parameters<typeof modelGovdesi>[1]): 
   return yarisliSor({
     birincil: MODEL,
     yedek: YEDEK_MODEL,
+    sonCare: SON_CARE,
     ikinciAtisMs: IKINCI_ATIS_MS,
     yedekAtisMs: YEDEK_ATIS_MS,
     toplamMs: TOPLAM_SURE_MS,
@@ -283,6 +288,7 @@ function yaziyaDok(ses: SesIstegi): Promise<string> {
   return yarisliSor({
     birincil: MODEL,
     yedek: YEDEK_MODEL,
+    sonCare: SON_CARE,
     ikinciAtisMs: 5000,
     yedekAtisMs: 7000,
     toplamMs: TOPLAM_SURE_MS,

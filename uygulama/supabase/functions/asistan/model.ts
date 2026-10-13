@@ -16,6 +16,11 @@
 //      bu tam tersine hepsini düşürüyordu. Artık hata gelince aynı modele
 //      yüklenilmez, yedek modele geçilir (ayrı kota).
 //   3. Güvenlik süzgeci. Engellenen cevap hata değil: nazik bir ret cümlesi.
+//   4. Aynı ailenin topluca yoğun olması (2026-10-13 günlüğü): birincil
+//      gemini-3.5-flash-lite ve yedek gemini-flash-lite-latest aynı anda
+//      HTTP 503 döndü. İkisi de Flash-Lite kapasitesinden çekiyor. Artık
+//      ikisi de düşerse kısa bir bekleyişle BAŞKA aileden "son çare"
+//      modeller sırayla denenir (Flash; ayrı kapasite).
 // ═══════════════════════════════════════════════════════════════════
 
 /** Modelden dönen hata; HTTP durumu varsa taşır. */
@@ -103,6 +108,13 @@ export type YarisAyari = {
   birincil: string;
   /** Birincil kota/yoğunluk hatası verirse ya da geç kalırsa denenecek model. */
   yedek?: string | null;
+  /**
+   * Birincil ve yedek düşerse sırayla denenecek modeller. Başka aileden
+   * seçilir: aynı ailenin topluca yoğun olduğu (503) anlarda ayrı kapasite.
+   */
+  sonCare?: readonly string[];
+  /** Son çareden önce kısa bekleyiş: anlık yoğunluk çoğu zaman geçer. */
+  sonCareBeklemeMs?: number;
   /** Birincil bu sürede dönmezse aynı modele ikinci istek (takılma kuyruğu). */
   ikinciAtisMs: number;
   /** Bu sürede hâlâ cevap yoksa yedek model de devreye girer. */
@@ -127,11 +139,13 @@ const yuklenme = (h: unknown) => {
  *   hata 429/5xx/…   hemen yedek model
  *   t=ikinciAtisMs   birincil takıldıysa (ve kota hatası almadıysa) ikinci istek
  *   t=yedekAtisMs    hâlâ cevap yoksa yedek model
+ *   hepsi düştü      kısa bekleyişle son çare modeller, sırayla
  *   t=toplamMs       vazgeç
  */
 export function yarisliSor(a: YarisAyari): Promise<string> {
   const ayarsizlar = a.ayarsizlar ?? new Set<string>();
   const yedek = a.yedek && a.yedek !== a.birincil ? a.yedek : null;
+  const sonCare = (a.sonCare ?? []).filter((m) => m && m !== a.birincil && m !== yedek);
 
   return new Promise<string>((coz, reddet) => {
     let bitti = false;
@@ -154,6 +168,14 @@ export function yarisliSor(a: YarisAyari): Promise<string> {
       if (yedek && !yedekAtildi) { yedekAtildi = true; at(yedek); return; }
       // Geçici hata (5xx, boş cevap): aynı modele bir kez daha.
       if (!ikinciAtildi && !birincilYuklu) { ikinciAtildi = true; at(a.birincil); return; }
+      // Son çare: başka aileden model, kısa bir bekleyişten sonra. Bekleyiş
+      // sırasında uçan istek yok; zamanlayıcı bitirilince temizlenir.
+      const siradaki = sonCare.shift();
+      if (siradaki) {
+        ucan++;
+        zamanlar.push(setTimeout(() => { ucan--; at(siradaki); }, a.sonCareBeklemeMs ?? 400));
+        return;
+      }
       bitir(() => reddet(sonHata ?? new ModelHatasi("model yanıt vermedi")));
     };
 

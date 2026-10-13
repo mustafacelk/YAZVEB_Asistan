@@ -113,6 +113,30 @@ const ayar = { birincil: "A", yedek: "B", ikinciAtisMs: 60, yedekAtisMs: 140, to
   bekle("hepsi düşerse süreyi beklemeden hata", h instanceof ModelHatasi && Date.now() - t0 < 300, js(s.cagrilar));
 }
 {
+  // 2026-10-13 canlı günlüğü: Flash-Lite ailesi topluca 503 verdi.
+  const s = sahte({ A: [{ ms: 5, sonuc: 503 }], B: [{ ms: 5, sonuc: 503 }], C: [{ ms: 5, sonuc: "c" }] });
+  const c = await yarisliSor({ ...ayar, sonCare: ["C", "D"], sonCareBeklemeMs: 20, cagir: s.cagir });
+  bekle("birincil ve yedek 503: başka aileden son çare cevaplar", c === "c" && !s.cagrilar.includes("D"), js(s.cagrilar));
+}
+{
+  const s = sahte({ A: [{ ms: 5, sonuc: 503 }], B: [{ ms: 5, sonuc: 503 }], C: [{ ms: 5, sonuc: 503 }], D: [{ ms: 5, sonuc: "d" }] });
+  const c = await yarisliSor({ ...ayar, sonCare: ["C", "D"], sonCareBeklemeMs: 20, cagir: s.cagir });
+  bekle("son çareler sırayla denenir", c === "d" && s.cagrilar.indexOf("C") < s.cagrilar.indexOf("D"), js(s.cagrilar));
+}
+{
+  const s = sahte({ A: [{ ms: 5, sonuc: "a" }], C: [{ ms: 5, sonuc: "c" }] });
+  const c = await yarisliSor({ ...ayar, sonCare: ["C"], sonCareBeklemeMs: 20, cagir: s.cagir });
+  await uyu(60);
+  bekle("birincil cevaplıyorsa son çareye gidilmez", c === "a" && !s.cagrilar.includes("C"), js(s.cagrilar));
+}
+{
+  const s = sahte({ A: [{ ms: 5, sonuc: 503 }], B: [{ ms: 5, sonuc: 503 }], C: [{ ms: 5, sonuc: 503 }] });
+  let h: unknown = null;
+  const t0 = Date.now();
+  await yarisliSor({ ...ayar, sonCare: ["C"], sonCareBeklemeMs: 20, cagir: s.cagir }).catch((e) => { h = e; });
+  bekle("son çare de düşerse süreyi beklemeden hata", h instanceof ModelHatasi && Date.now() - t0 < 300, js(s.cagrilar));
+}
+{
   const s = sahte({ A: [{ ms: 5, sonuc: 500 }, { ms: 5, sonuc: "a2" }] });
   const c = await yarisliSor({ ...ayar, yedek: null, cagir: s.cagir });
   bekle("yedek yokken geçici hata: aynı modele bir kez daha", c === "a2", js(s.cagrilar));
