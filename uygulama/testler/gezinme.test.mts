@@ -39,6 +39,7 @@ bekle("soru ekranı değiştirmez (aynı anahtar)", rotaAnahtari({ g: "asistan",
 bekle("farklı ders farklı ekran", rotaAnahtari({ g: "akademi", ders: { kod: "A", ad: "x" } }) !== rotaAnahtari({ g: "akademi", ders: { kod: "B", ad: "x" } }));
 bekle("Ben alt sayfası farklı ekran", rotaAnahtari({ g: "ben" }) !== rotaAnahtari({ g: "ben", ben: "kimlik" }));
 bekle("sohbet Topluluk sekmesinde, asistan Ana'da", UST_SEKME.sohbet === "topluluk" && UST_SEKME.asistan === "ana");
+bekle("asistan her sekmeden açılır: çubukta seçili sekme yok", seciliSekme("asistan", UYE) === null && seciliSekme("asistan", YONETIM) === null);
 
 // ── Bugün ─────────────────────────────────────────────────────────
 const SIMDI = new Date("2026-09-28T12:00:00+03:00").getTime();

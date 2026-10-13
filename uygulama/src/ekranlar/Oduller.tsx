@@ -21,7 +21,7 @@ import { SponsorDetay, SponsorKarti } from "../odul/SponsorKarti";
 
 const BASLIK: Record<OdulBolumu, { baslik: string; aciklama: string }> = {
   cuzdan: { baslik: "Ödüllerim", aciklama: "Kazandığın bütün ödüller. İşletmede \"Göster\"e dokun, çalışan onaylasın." },
-  siralama: { baslik: "Sıralama", aciklama: "Bu haftanın ve tüm zamanların en aktifleri." },
+  siralama: { baslik: "Sıralama", aciklama: "İlk on ve senin yerin. Kimse alt sıralarda listelenmez." },
   gecmis: { baslik: "İlerleme", aciklama: "Seviye yolun ve kazandığın her puanın kaynağı." },
 };
 
@@ -96,9 +96,8 @@ export default function Oduller({ bolum }: { bolum?: OdulBolumu }) {
     <div className="sayfa oduller">
       <div className="sutun">
         <DunyaBasi
-          etiket="Cüzdan"
           baslik="Ödüller"
-          aciklama="Etkinliklerde puan topla, yerel işletmelerin kilidini aç, ödülünü kasada göster."
+          aciklama="Etkinliklerde puan topla, sponsor işletmelerin kilidini aç, ödülünü kasada göster."
         />
 
         {hata && <p className="bildirim" role="alert">{hata}</p>}
@@ -128,7 +127,7 @@ export default function Oduller({ bolum }: { bolum?: OdulBolumu }) {
                   simge={<Simge ad={odulIkonu(z.ikon)} boyut={18} />}
                   baslik={z.baslik}
                   aciklama={<span className="rakam">{z.sponsor} · {sonKullanimEtiketi(z.son_kullanma) ?? `Son kullanım ${tarih(z.son_kullanma)}`}</span>}
-                  eylem={<button className="dugme birincil" onClick={() => setGosterilen(z.id)}>Göster</button>}
+                  eylem={<button className="dugme cizgili" onClick={() => setGosterilen(z.id)}>Göster</button>}
                 />
               ))}
               {aktif.length > EN_FAZLA_AKTIF && (
@@ -139,17 +138,19 @@ export default function Oduller({ bolum }: { bolum?: OdulBolumu }) {
           )}
         </Bolum>
 
+        {/* Sponsor ödülleri: kendi bölümünde, okunur bir "Sponsorlu" etiketiyle.
+            Kilit herkes için aynı puan şartıyla açılır; parayla öne geçilmez. */}
         <Bolum
-          etiket="Sponsorlar"
+          etiket={<>Sponsor ödülleri <span className="sponsorlu-etiket">Sponsorlu</span></>}
           sira={4}
-          sag={profil && <span className="etiket rakam">{profil.acik_sponsor}/{profil.toplam_sponsor} kilit açık</span>}
+          sag={profil && <span className="etiket rakam">{profil.acik_sponsor}/{profil.toplam_sponsor} açık</span>}
         >
           <SponsorIzgarasi onTazele={tazele} onOdulGoster={setGosterilen} />
         </Bolum>
 
         <Bolum etiket="Daha fazla" sira={5}>
           <Satirlar>
-            <Satir simge="grafik" baslik="Sıralama" aciklama="Bu haftanın en aktifleri"
+            <Satir simge="grafik" baslik="Sıralama" aciklama="İlk on ve senin yerin"
                    onClick={() => git("odul", { odul: "siralama" })} />
             <Satir simge="liste" baslik="İlerleme ve puan geçmişi" aciklama="Seviye yolun, her puanın kaynağı"
                    onClick={() => git("odul", { odul: "gecmis" })} />

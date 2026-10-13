@@ -49,6 +49,8 @@ function AkademiGiris() {
   const [sira, setSira] = useState<"yeni" | "cok">("yeni");
   const [ara, setAra] = useState("");
   const [araGecikmeli, setAraGecikmeli] = useState("");
+  // Filtreler (kapsam, bölüm, sınıf, sıralama) varsayılan kapalı: arama çoğu işi görür.
+  const [filtreAcik, setFiltreAcik] = useState(false);
   const [pencere, setPencere] = useState<{ tur: "paylas" } | { tur: "dogrula"; neden: string } | { tur: "sponsor"; s: Sponsor } | null>(null);
   const [bildirim, setBildirim] = useState<string | null>(null);
   const [secili, setSecili] = useState<NotOzeti | null>(null);
@@ -120,11 +122,30 @@ function AkademiGiris() {
     <div className="sayfa akademi">
       <div className="sutun">
         <DunyaBasi
-          etiket={veri?.ben.universite ?? "Akademi"}
-          baslik="Dersler"
-          aciklama="Ders notları, çıkmış soru çözümleri ve özetler. Öğrenciden öğrenciye."
-          eylem={<button className="dugme birincil" onClick={paylas}><Simge ad="arti" boyut={16} /> Paylaş</button>}
+          baslik="Akademi"
+          aciklama="Ders notları, çıkmış sorular ve özetler; öğrenciden öğrenciye."
+          eylem={<button className="dugme cizgili" onClick={paylas}><Simge ad="arti" boyut={16} /> Paylaş</button>}
         />
+
+        {/* Ekranın birincil işi: dersi bulmak. Arama her sekmenin üstünde;
+            yazmaya başlayınca bütün derslerde arar. */}
+        {sekme !== "notlarim" && (
+          <div className="akademi-arama gir" style={kademe(1)}>
+            <label className="notlar-arama">
+              <Simge ad="ara" boyut={18} />
+              <input value={ara}
+                     onChange={(e) => { setAra(e.target.value); if (e.target.value.trim() && sekme === "derslerim") setSekme("tum"); }}
+                     placeholder="Ders adı, kodu ya da hoca"
+                     aria-label="Derslerde ara" maxLength={60} enterKeyHint="search" type="search" />
+            </label>
+            {sekme === "tum" && (
+              <button type="button" className="ikon-dugme" aria-pressed={filtreAcik} aria-expanded={filtreAcik}
+                      aria-label="Filtreler" data-ipucu="Filtreler" data-ipucu-yon="alt" onClick={() => setFiltreAcik((x) => !x)}>
+                <Simge ad="filtre" />
+              </button>
+            )}
+          </div>
+        )}
 
         {veri?.sinav && (
           <div className="sinav-seridi gir" style={kademe(2)} data-asama={veri.sinav.asama} role="status">
@@ -166,13 +187,8 @@ function AkademiGiris() {
           <Notlarim key={notlarimSurum} onAc={setSecili} onPaylas={paylas} />
         ) : (
           <>
-            {sekme === "tum" && (
-              <div className="notlar-filtre gir" style={kademe(4)}>
-                <label className="notlar-arama">
-                  <Simge ad="liste" boyut={16} />
-                  <input value={ara} onChange={(e) => setAra(e.target.value)} placeholder="Ders adı, kodu ya da hoca"
-                         aria-label="Derslerde ara" maxLength={60} enterKeyHint="search" />
-                </label>
+            {sekme === "tum" && filtreAcik && (
+              <div className="notlar-filtre gir">
                 <div className="cipler" role="group" aria-label="Kapsam ve bölüm">
                   {dogrulandi && <Cip secili={kurum === "benim"} onClick={() => setKurum("benim")}>Üniversitem</Cip>}
                   <Cip secili={kurum === "tum"} onClick={() => setKurum("tum")}>Tüm üniversiteler</Cip>

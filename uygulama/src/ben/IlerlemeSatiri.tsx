@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import Simge from "../tasarim/Simge";
-import { sayi, seviyeIlerlemesi, sonrakiAdim, type Profil } from "../veri/odul";
+import { sayi, seviyeAdi, seviyeIlerlemesi, sonrakiAdim, type Profil } from "../veri/odul";
 import { useSayac } from "../veri/sayac";
 
 const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
@@ -10,10 +10,10 @@ export default function IlerlemeSatiri({ profil, onAc }: { profil: Profil; onAc:
   const xp = useSayac(profil.xp);
   const adim = sonrakiAdim(profil);
   return (
-    <button className="ilerleme-satiri-dunya gir" style={kademe(2)} onClick={onAc} aria-label={`${profil.xp} XP, ${profil.seviye.ad} seviyesi. Ayrıntılar`}>
+    <button className="ilerleme-satiri-dunya gir" style={kademe(2)} onClick={onAc} aria-label={`${profil.xp} XP, ${seviyeAdi(profil.seviye.ad)} seviyesi. Ayrıntılar`}>
       <span className="ilerleme-ust-satir">
         <span className="ilerleme-xp rakam">{sayi(xp)}<small>XP</small></span>
-        <span className="rozet">{profil.seviye.ad}</span>
+        <span className="rozet">{seviyeAdi(profil.seviye.ad)}</span>
         {profil.ayarlar.seri_acik && profil.seri > 1 && (
           <span className="seri-cipi" title="Üst üste katıldığın etkinlik sayısı"><Simge ad="alev" boyut={14} /> <span className="rakam">×{profil.seri}</span></span>
         )}

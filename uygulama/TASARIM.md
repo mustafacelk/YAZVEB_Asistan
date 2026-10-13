@@ -49,20 +49,22 @@ masaüstünde şeridin "Keşfet" grubuna geçti.
 ## 2. Bilgi mimarisi: beş sekme, iki sürükleyici deneyim
 
 ```
-ANA ─────────── yön verir: durum cümlesi, Asistan'a sor, BUGÜN (≤3), ilerleme satırı,
-                Topluluk kapısı, HUB portalı
+ANA ─────────── dört blok: selam + durum cümlesi (sağda Topluluk ve profil) ·
+                SIRADAKİ etkinlik (canlıysa "QR okut", ekranın tek birincil eylemi) ·
+                BUGÜN (≤3 satır + haftanın yeni notları) · ilerleme satırı
 AKADEMİ ─────── Derslerim / Tüm dersler / Notlarım → Ders → Notlar (tür) → Not → Aç / İşime yaradı
 ETKİNLİKLER ─── [QR okut] · Yaklaşan / Katıldıklarım · Gönüllü ol (açık işler) · Nasıl puan kazanılır?
 ÖDÜLLER ─────── ilerleme · bekleyen ödüller [Göster] · Sponsorlar (kilit ilerlemesi)
                 → Ödüllerim (tümü) · Sıralama · İlerleme ve puan geçmişi
-BEN ─────────── kimlik + ilerleme · (kadroysa) Ekip panosu · Ödüller'e tek satır
-                · Öğrenci kimliği · Profil · Gizlilik ve veriler · (Yönetim) · Çıkış
+BEN ─────────── kimlik + ilerleme · Senin: (kadroysa) Ekip panosu · Ödüller'e tek satır
+                · Karakterin ve odan (3D HUB) · Topluluk
+                · Hesap: Öğrenci kimliği · Profil · Gizlilik ve veriler · (Yönetim) · Çıkış
   └ EKİP PANOSU  Pano · Gönüllü havuzu · Kadro — yalnızca görevli kadro
                  (yönetim görünümünde Panel'den). Bkz. README › Ekip.
   └ TOPLULUK ── Genel sohbet · Üyeler (ileride: duyurular, ilanlar, ev, 2. el) ← Ana, masaüstünde Keşfet
 
-ASİSTAN (tam ekran)  ← Ana'daki "Asistana sor"
-3D HUB (ayrı dünya)  ← Ana'daki portal; içinde karakter, oda, çarşı, çark, ziyaret
+ASİSTAN (tam ekran)  ← her dünyanın sağ altındaki "Asistan" düğmesi (masaüstünde Keşfet)
+3D HUB (ayrı dünya)  ← Ben › Karakterin ve odan (masaüstünde Keşfet); karakter, oda, çarşı, çark
 ```
 
 Kurallar:
@@ -82,39 +84,99 @@ Kurallar:
 
 | | Telefon | Masaüstü |
 | --- | --- | --- |
-| Üye | Altta 5 sekme: Ana · Akademi · Etkinlikler · Ödüller · Ben (Topluluk Ana'dan) | Solda şerit: aynı 5 dünya + "Keşfet": Topluluk, Asistan, 3D HUB |
+| Üye | Altta sabit 5 sekme: Ana · Akademi · Etkinlikler · Ödüller · Ben; sağ altta Asistan düğmesi (Topluluk Ana'nın üstünden ve Ben'den) | Solda şerit: aynı 5 dünya + "Keşfet": Topluluk, Asistan, 3D HUB |
 | Yönetim görünümü | Panel · Etkinlikler · [Perde QR] · Yönetim · Topluluk | Aynısı, solda |
 
 ---
 
-## 3. Arayüz sistemi
+## 3. Arayüz sistemi: sakin arayüz (2026-10-13)
 
 Tek kaynak: `src/tasarim/jetonlar.css`. Bileşenler çıplak değer kullanmaz.
 
-**Tip ölçeği** (Inter, üç ağırlık)
+Kullanıcılar eski arayüzü "boğucu ve karmaşık" buldu. Araştırma raporu
+("YAZVEB Asistan — Arayüz Yeniden Tasarım Araştırma Raporu", depo dışında)
+teşhisi ve kararları verdi. Sekme yapısı korundu (Ödüller'i Ben'e katmak
+Eylül'de denendi ve bulunamadı), arayüz sistemi baştan kuruldu.
+
+**Teşhis.** Her şey aynı ağırlıktaydı: tek zemin tonu, her yüzeyde ince
+çerçeve, küçük gri BÜYÜK HARF etiketler, her satırda vurgu renkli simge, birden
+çok "birincil" düğme. Ana'da yedi blok vardı (alıntı, asistan kutusu, Topluluk,
+HUB geçidi…). Arka planda kayan ışık, film greni, cam bulanıklığı.
+
+**Karmaşıklık bütçesi** (her ekran):
+
+| Ölçüt | Sınır |
+| --- | --- |
+| Katlama üstünde içerik bloğu | en fazla 4–5 |
+| Dokunulabilir öğe (katlama üstü) | en fazla 9 |
+| Birincil (vurgu dolgulu) düğme | tam 1; listede tekrar eden eylem ikincildir |
+| Bir ekranda yazı boyutu | 3 (başlık, gövde, etiket) |
+| Ana görevin derinliği | en fazla 3 dokunuş |
+
+**Renk.** Derinlik çizgiyle değil tonla: `--z-1` sayfa #141518, `--z-2` yüzey
+#1C1E22, `--z-3` yükseltilmiş/pencere #24272C, `--z-4` seçili #2B2F35. Saf
+siyah yok. Metin `--m-1` #E8EAED, `--m-2` #B4B9C0, `--m-3` #959BA4 (en açık
+zeminde bile ≥4.8:1); `--m-4` yalnızca süs ve devre dışı. Tek vurgu Sinyal
+#8CCFE2 yalnızca ekranın birincil eylemi, seçili sekme/çip ve bağlantıda; satır
+simgeleri nötr. Anlamsal üçlü yalnızca durum için: `--basari` #7FD1A0 (QR
+okundu, kilit açık, katıldın), `--uyari` #F2C661, `--hata` #F28B82. Renk tek
+başına anlam taşımaz; yanında simge ve metin var.
+
+**Tip ölçeği** (Inter; başlıklar 600). Gövde 16'nın altına inmez: Türkçe
+eklemeli yapısıyla uzun kelimeler küçükte daha çok göz durağı ister.
 
 | Rol | Jeton | Boyut / satır / ağırlık | Kullanım |
 | --- | --- | --- | --- |
-| Display | `--t-display` | 44→30 akışkan / 1.1 / 500 | Dünya girişi (masaüstü), karşılama |
-| H1 | `--t-h1` | 28 / 1.2 / 500 | Dünya başlığı |
-| H2 | `--t-h2` | 20 / 1.3 / 500 | Alt sayfa, pencere başlığı |
-| H3 | `--t-h3` | 16 / 1.35 / 500 | Satır başlığı, kart başlığı |
-| Body | `--t-govde` | 15 / 1.55 / 400 | Metin |
-| Caption | `--t-aciklama` | 13 / 1.45 / 400 | Açıklama, ikincil satır |
-| Label | `--t-etiket` | 11 / 1 / 500, büyük harf, +0.12em | Bölüm etiketi |
-| Button | `--t-dugme` | 13-15 / 1 / 500 | Düğmeler |
-| Metadata | `--t-ustveri` | 12 / 1.3 / 400, tabular | Tarih, sayı, boyut |
+| Display | `--t-display` | 28→36 akışkan / 1.15 / 600 | Masaüstünde dünya başlığı |
+| H1 | `--t-h1` | 26 / 1.2 / 600 | Dünya başlığı, selam |
+| H2 | `--t-h2` | 20 / 1.3 / 600 | Alt sayfa, pencere başlığı |
+| H3 | `--t-h3` | 17 / 1.35 / 600 | Bölüm başlığı (`Bolum`), kart başlığı |
+| Body | `--t-govde` | 16 / 1.5 / 400 | Metin, satır başlığı (500) |
+| Caption | `--t-aciklama` | 14 / 1.45 / 400 | Açıklama, ikincil satır |
+| Label | `--t-etiket` | 12 / 1.25 / 500, büyük harf YOK | Çip, rozet, sekme etiketi |
+| Button | `--t-dugme` | 15 / 1 / 600 | Düğmeler |
+| Metadata | `--t-ustveri` | 13 / 1.35 / 400, tabular | Tarih, sayı, boyut |
 
-**Boşluk** 4 tabanlı (`--b-1`…`--b-9`), **köşe** üç kademe (`--k-1` 6,
-`--k-2` 10, `--k-3` 14), **hareket** dört katman (`--t-mikro`, `--t-ui`,
-`--t-sinema`, `--t-ortam`), **katmanlar** `--kat-*`.
+Veritabanından büyük harfle gelen seviye adı ekranda `seviyeAdi()` ile
+düzeltilir ("STARTER" → "Starter").
 
-**Bileşenler** (`src/tasarim/Dunya.tsx`): `DunyaBasi` (etiket + başlık +
-tek cümle + tek eylem), `Satir` (liste satırı: simge, başlık, açıklama, sağda
-değer/ok), `Bolum` (etiketli bölüm), `AltBasi` (geri + başlık).
+**Boşluk** 4 tabanlı (`--b-1`…`--b-9`), sayfa kenarı `--kenar-bosluk` 16
+(320 px'te 12). **Köşe** tek aile: `--k-1` 8 çip, `--k-2` 12 giriş ve satır
+simgesi, `--k-3` 16 kart/liste yüzeyi, `--k-4` 20 pencere; düğmeler hap.
+**Dokunma** en az 44 (ikon düğmesi), birincil 48.
+
+**Düğmeler.** `.birincil` vurgu dolgusu (ekran başına bir), `.cizgili` tonlu
+ikincil (her yüzeyde seçilir), yalın üçüncül. Listede tekrar eden "Göster",
+"Üstlen" gibi eylemler ikincildir.
+
+**Hareket** (Material 3 eğrileri): giren öğe 400 ms vurgulu yavaşlama, çıkan
+150–200 ms vurgulu hızlanma, yerinde değişen 250 ms standart. Sekme geçişi
+yalnızca solma; ekrana giren öğeler 6 px yükselir. Sonsuz döngü yalnızca "şu an
+oluyor" noktasında. Kıtlık etiketi nabız atmaz (sahte aciliyet). Titreşim
+yalnızca üç olayda: sekme değişimi (kısa tık), QR başarı, QR hata.
+
+**Gezinme.** Telefonda alta oturan çubuk (yüzen hap ve cam değil): beş eşit
+sütun, simge + her zaman görünen etiket, seçili sekmenin simgesinin arkasında
+vurgu tonunda hap. Asistan sağ altta (canlı etkinlik şeridi varken yalnızca
+simge); Asistan ekranında hiçbir sekme seçili görünmez.
+
+**Bileşenler** (`src/tasarim/Dunya.tsx`): `DunyaBasi` (başlık + tek cümle +
+tek eylem; üstteki küçük etiket artık çizilmez), `Bolum` (gerçek ara başlık,
+`h2.bolum-baslik`), `Satir` (liste satırı: nötr simge, başlık, açıklama, sağda
+değer/ok), `AltBasi` (geri + başlık).
 
 **Kart enflasyonu yok.** Varsayılan liste satırıdır. Kart yalnızca kendi başına
-bir nesne olan içerikte: sponsor, ödül kuponu, not önizlemesi değil.
+bir nesne olan içerikte: sıradaki etkinlik, sponsor, ödül kuponu.
+
+**Oyunlaştırma sessiz.** XP büyük sayı olarak yalnızca ilerleme satırında ve
+Ödüller'de; başka yerde 12 px etiket. Sıralama yalnızca ilk onu ve senin yerini
+gösterir; alt sıralar listelenmez, düşüş bildirimi yok. Sponsor ödülleri kendi
+bölümünde, okunur "Sponsorlu" etiketiyle; kilit herkes için aynı puan şartı.
+
+**Bilerek sonraya bırakılanlar** (rapor yol haritası): açık tema (açıkta vurgu
+#0E6F8C olmalı, #8CCFE2 açık zeminde 1.6:1), not okuma modu, Asistan'ın
+alttan açılan yarım sayfa olması, düşük bellekli cihazda 3D'yi kapatma,
+karmaşıklık ölçümlerinin CI'da ekran görüntüsünden hesaplanması.
 
 ---
 
@@ -124,3 +186,6 @@ bir nesne olan içerikte: sponsor, ödül kuponu, not önizlemesi değil.
 2. Dünyanın giriş sayfasına kart ekleme; dünyanın **içine** bir satır/sekme ekle.
 3. Ana'ya yalnızca "bugün önemli" ise ve geçiciyse girer (ör. sınav dönemi).
 4. Çubuk beş öğeyi geçmez.
+5. Ekranın karmaşıklık bütçesine bak (§3): yeni blok eklemek için bir blok
+   çıkar ya da ikinci seviyeye indir. Yeni bir vurgu dolgulu düğme eklemeden
+   önce ekranda zaten bir birincil eylem olup olmadığına bak.

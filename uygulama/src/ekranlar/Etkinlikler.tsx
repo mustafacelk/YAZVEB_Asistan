@@ -25,11 +25,8 @@ const ONAY_MS = 3000;
 
 const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
 
-/** "Nasıl puan kazanılır?" ilk ziyarette açık gelir; kapatılınca kapalı kalır. */
-const REHBER_ANAHTARI = "yazveb:rehber-kapandi";
-function rehberKapandiMi() {
-  try { return localStorage.getItem(REHBER_ANAHTARI) === "1"; } catch { return false; }
-}
+/** Açıklama bundan uzunsa üç satırda kesilir, "Devamı" ile açılır. */
+const KISA_ACIKLAMA = 180;
 
 /**
  * Etkinlik takvimi.
@@ -53,7 +50,6 @@ export default function Etkinlikler() {
   const { yetkiliMi, baskanMi } = useOturum();
   const { tara } = useGezinme();
   const [bolum, setBolum] = useState<"yaklasan" | "gecmis">("yaklasan");
-  const [rehberAcik, setRehberAcik] = useState(() => !rehberKapandiMi());
   const [ozet, setOzet] = useState<Map<number, EtkinlikOzeti>>(new Map());
   const [liste, setListe] = useState<Etkinlik[]>([]);
   const [yukleniyor, setYukleniyor] = useState(true);
@@ -198,7 +194,8 @@ export default function Etkinlikler() {
                   <Simge ad="arti" />
                 </button>
               )}
-              <button className="dugme birincil" onClick={tara}>
+              {/* Ekranın birincil eylemi; etkinlik sürüyorsa birincil o kart olur. */}
+              <button className={"dugme " + (canli ? "cizgili" : "birincil")} onClick={tara}>
                 <Simge ad="tara" boyut={16} /> QR okut
               </button>
             </>
@@ -225,12 +222,11 @@ export default function Etkinlikler() {
 
         {canli && (
           <button className="canli-etkinlik gir" style={kademe(2)} onClick={tara}>
-            <i className="canli-nokta" aria-hidden="true" />
             <span className="canli-etkinlik-metin">
+              <span className="canli-etkinlik-ust"><i className="canli-nokta" aria-hidden="true" /> Şu an sürüyor</span>
               <b>{canli.etkinlik.baslik}</b>
-              <span>Şu an sürüyor · QR'yi okut, <b className="rakam">+{sayi(canli.puan)} XP</b></span>
             </span>
-            <span className="canli-etkinlik-eylem"><Simge ad="tara" boyut={18} /></span>
+            <span className="canli-etkinlik-eylem"><Simge ad="tara" boyut={18} /> QR okut · <span className="rakam">+{sayi(canli.puan)} XP</span></span>
           </button>
         )}
 
@@ -256,7 +252,7 @@ export default function Etkinlikler() {
         )}
 
         {bolum === "yaklasan" && yaklasan.length > 0 && (
-          <section>
+          <section className="etkinlik-listesi">
             {yaklasan.map((e, i) => (
               <Satir
                 key={e.id}
@@ -264,6 +260,7 @@ export default function Etkinlikler() {
                 sira={i + 3}
                 siradaki={i === 0}
                 ozet={ozet.get(e.id)}
+                kilitGoster={yetkiliMi}
                 gonulluIsi={havuz?.isler.filter((a) => a.etkinlik?.id === e.id && !a.benim && a.dolu < a.kontenjan).length ?? 0}
                 onGonullu={() => gonulluyeGit({ id: e.id, baslik: e.baslik })}
                 duzenlenebilir={duzenlenebilir(e)}
@@ -288,29 +285,30 @@ export default function Etkinlikler() {
                 <b className="rakam">{katildigi}</b> etkinliğe katıldın. Puanlarının dökümü: Ödüller › İlerleme ve puan geçmişi.
               </p>
             )}
-            {gecmis.length === 0 && (
+            {gecmis.length === 0 ? (
               <div className="bos gir"><Simge ad="etkinlik" boyut={28} /><b>Geçmiş etkinlik yok.</b></div>
+            ) : (
+              <div className="etkinlik-listesi">
+                {gecmis.map((e) => (
+                  <Satir
+                    key={e.id}
+                    etkinlik={e}
+                    gecmis
+                    ozet={ozet.get(e.id)}
+                    kilitGoster={yetkiliMi}
+                    duzenlenebilir={duzenlenebilir(e)}
+                    onDuzenle={() => { setHata(null); setTaslak(taslagaCevir(e)); }}
+                    onSil={() => sil(e)}
+                  />
+                ))}
+              </div>
             )}
-            {gecmis.map((e) => (
-              <Satir
-                key={e.id}
-                etkinlik={e}
-                gecmis
-                ozet={ozet.get(e.id)}
-                duzenlenebilir={duzenlenebilir(e)}
-                onDuzenle={() => { setHata(null); setTaslak(taslagaCevir(e)); }}
-                onSil={() => sil(e)}
-              />
-            ))}
           </section>
         )}
         {bolum === "yaklasan" && !yukleniyor && (
-          <details className="rehber-acilir gir" open={rehberAcik}
-                   onToggle={(e) => {
-                     const acik = (e.currentTarget as HTMLDetailsElement).open;
-                     setRehberAcik(acik);
-                     if (!acik) { try { localStorage.setItem(REHBER_ANAHTARI, "1"); } catch { /* gizli sekme */ } }
-                   }}>
+          // Rehber kapalı başlar: öğretici ekranların etkisi ölçülemedi (NN/g);
+          // merak eden açar, bilen bir satır görür.
+          <details className="rehber-acilir gir">
             <summary><Simge ad="yildiz" boyut={16} /><span>Nasıl puan kazanılır?</span></summary>
             <ol className="rehber-adimlari">
               <li><b>Etkinliğe katıl</b><span>Yanında "+XP" yazan etkinlikler puan verir.</span></li>
@@ -403,6 +401,7 @@ function Satir({
   gecmis,
   siradaki,
   ozet,
+  kilitGoster,
   sira = 0,
   gonulluIsi = 0,
   onGonullu,
@@ -414,6 +413,8 @@ function Satir({
   gecmis?: boolean;
   siradaki?: boolean;
   ozet?: EtkinlikOzeti;
+  /** Başkan kilidi rozeti: yalnızca yetkili görür. */
+  kilitGoster?: boolean;
   sira?: number;
   /** Bu etkinliğe bağlı açık gönüllü işi sayısı. */
   gonulluIsi?: number;
@@ -423,6 +424,7 @@ function Satir({
 }) {
   // Silme iki adımlı: ilk dokunuş onay ister, 3 sn içinde ikinci dokunuş siler.
   const [onay, setOnay] = useState(false);
+  const [acik, setAcik] = useState(false);
   const zaman = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (zaman.current) clearTimeout(zaman.current); }, []);
 
@@ -449,7 +451,7 @@ function Satir({
         )}
         <h3>
           {etkinlik.baslik}
-          {etkinlik.baskan_kilidi && (
+          {kilitGoster && etkinlik.baskan_kilidi && (
             <span className="rozet rol-baskan" title="Başkan tarafından düzenlendi; yöneticiler değiştiremez">
               Başkan
             </span>
@@ -467,7 +469,14 @@ function Satir({
             </span>
           )}
         </div>
-        {etkinlik.aciklama && <p className="etkinlik-aciklama">{etkinlik.aciklama}</p>}
+        {etkinlik.aciklama && (
+          <p className="etkinlik-aciklama" data-kisa={!acik && uzunMu(etkinlik.aciklama) ? "" : undefined}>{etkinlik.aciklama}</p>
+        )}
+        {etkinlik.aciklama && uzunMu(etkinlik.aciklama) && (
+          <button className="etkinlik-devami" onClick={() => setAcik((x) => !x)} aria-expanded={acik}>
+            {acik ? "Daha az" : "Devamı"}
+          </button>
+        )}
         {!gecmis && gonulluIsi > 0 && onGonullu && (
           <button className="etkinlik-gonullu" onClick={onGonullu}>
             <Simge ad="yildiz" boyut={14} /> {gonulluIsi} gönüllü işi <Simge ad="ileri" boyut={14} />
@@ -501,6 +510,10 @@ function Satir({
       )}
     </article>
   );
+}
+
+function uzunMu(metin: string) {
+  return metin.length > KISA_ACIKLAMA || metin.split("\n").length > 3;
 }
 
 function taslagaCevir(e: Etkinlik): Taslak {

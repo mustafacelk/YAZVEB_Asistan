@@ -11,9 +11,13 @@ import Simge, { type SimgeAdi } from "./Simge";
 
 const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
 
-/** Dünyanın giriş başlığı: etiket, başlık, tek cümle, en fazla bir eylem. */
-export function DunyaBasi({ etiket, baslik, aciklama, eylem }: {
-  etiket: ReactNode;
+/**
+ * Dünyanın giriş başlığı: başlık, tek cümle, en fazla bir eylem.
+ * `etiket` artık çizilmiyor: başlığın üstündeki küçük etiket her ekranda
+ * bir öğe daha demekti ve bilgi katmıyordu (TASARIM.md §3).
+ */
+export function DunyaBasi({ baslik, aciklama, eylem }: {
+  etiket?: ReactNode;
   baslik: string;
   aciklama?: ReactNode;
   eylem?: ReactNode;
@@ -21,11 +25,10 @@ export function DunyaBasi({ etiket, baslik, aciklama, eylem }: {
   return (
     <header className="dunya-basi">
       <div className="dunya-basi-metin">
-        <span className="etiket gir">{etiket}</span>
-        <h1 className="gir" style={kademe(1)}>{baslik}</h1>
-        {aciklama && <p className="dunya-aciklama gir" style={kademe(2)}>{aciklama}</p>}
+        <h1 className="gir">{baslik}</h1>
+        {aciklama && <p className="dunya-aciklama gir" style={kademe(1)}>{aciklama}</p>}
       </div>
-      {eylem && <div className="dunya-basi-eylem gir" style={kademe(2)}>{eylem}</div>}
+      {eylem && <div className="dunya-basi-eylem gir" style={kademe(1)}>{eylem}</div>}
     </header>
   );
 }
@@ -60,7 +63,11 @@ export function AltBasi({ ust, baslik, aciklama, onGeri, eylem }: {
   );
 }
 
-/** Etiketli bölüm; `sag` bölüm başlığının sağında küçük bir eylem ya da sayı. */
+/**
+ * Başlıklı bölüm. Başlık küçük gri bir etiket değil, gerçek bir ara başlık
+ * (17 px, kalın): ekranın hiyerarşisi bir bakışta okunsun. `sag` başlığın
+ * sağında küçük bir bağlantı ya da sayı.
+ */
 export function Bolum({ etiket, sag, children, className, sira = 3 }: {
   etiket?: ReactNode;
   sag?: ReactNode;
@@ -72,7 +79,7 @@ export function Bolum({ etiket, sag, children, className, sira = 3 }: {
     <section className={"dunya-bolum gir" + (className ? " " + className : "")} style={kademe(sira)}>
       {(etiket || sag) && (
         <div className="dunya-bolum-basi">
-          {etiket && <span className="etiket">{etiket}</span>}
+          {etiket && <h2 className="bolum-baslik">{etiket}</h2>}
           {sag}
         </div>
       )}

@@ -6,7 +6,6 @@ import { bashar, selamAdi } from "../veri/bicim";
 import { sayi, tarihSaat } from "../veri/odul";
 import { ekip } from "../veri/ekip";
 import Simge from "../tasarim/Simge";
-import AlintiKarti from "../tasarim/AlintiKarti";
 import { CanliQrPenceresi, QrPenceresi } from "./QrKod";
 import { panoYonetim, yonetim, type YGorev, type YOzet, type YSponsor } from "./veri";
 import { dikkatListesi, etkinlikGorevleri, odakEtkinlik, suruyor, type Dikkat } from "./oncelik";
@@ -95,16 +94,17 @@ export default function Panel() {
             <h1 className="gir" style={kademe(1)}>{ad ? `Merhaba, ${ad}.` : "Yönetim paneli"}</h1>
             <p className="sayfa-aciklama gir" style={kademe(2)}>Topluluğun bugünkü durumu ve yapılacaklar.</p>
           </div>
-          <div className="sayfa-basi-eylem gir" style={kademe(2)}>
-            <button className="dugme cizgili" onClick={() => gorunumSec("uye")}>Üye görünümü</button>
+          <div className="ana-ust-eylemler gir" style={kademe(2)}>
+            <button className="ikon-dugme" onClick={() => gorunumSec("uye")}
+                    aria-label="Üye görünümüne geç" data-ipucu="Üye görünümü" data-ipucu-yon="alt">
+              <Simge ad="kisi" />
+            </button>
             {/* Hesap (profil, öğrenci kimliği, çıkış) Ben'de; yönetim çubuğunda yok. */}
             <button className="ana-profil" onClick={() => git("ben")} aria-label="Hesabım" data-ipucu="Hesabım" data-ipucu-yon="alt">
-              {bashar(profil?.ad_soyad || profil?.kullanici_adi)}
+              <span className="monogram" aria-hidden="true">{bashar(profil?.ad_soyad || profil?.kullanici_adi)}</span>
             </button>
           </div>
         </header>
-
-        <AlintiKarti set="yonetim" className="gir" style={kademe(2)} />
 
         {hata && <p className="bildirim" role="alert">{hata}</p>}
 

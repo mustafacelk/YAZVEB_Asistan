@@ -294,5 +294,5 @@ export const ISLETME_MESAJI: Record<IsletmeSonucu["durum"], string> = {
 // ── Biçimlendirme ──────────────────────────────────────────────────
 // Saf fonksiyonlar ayrı dosyada: ağa dokunmadan test edilebilsinler.
 export {
-  hedefCumlesi, konumAl, sayi, seviyeIlerlemesi, sonKullanimEtiketi, sonrakiAdim, tarih, tarihSaat, titret,
+  hedefCumlesi, konumAl, sayi, seviyeAdi, seviyeIlerlemesi, sonKullanimEtiketi, sonrakiAdim, tarih, tarihSaat, titret,
 } from "./odul_bicim";

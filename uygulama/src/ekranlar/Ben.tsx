@@ -22,16 +22,18 @@ const BASLIK: Record<BenBolumu, { baslik: string; aciklama: string }> = {
 };
 
 /**
- * Ben — kişinin kendi alanı: kimliği ve hesabı.
+ * Ben — kişinin kendi alanı: kimliği, karakteri, görevleri ve hesabı.
  *
- * Ödüller, sponsorlar ve sıralama artık kendi dünyasında (Ödüller sekmesi);
- * burada yalnızca oraya giden tek satır var — alışkanlıkla buraya bakan
- * yolunu bulsun. XP burada görünür ama bağırmaz (TASARIM.md §2, kural 3).
+ * Bir gezinme ekranı: birincil eylemi yok, yalnızca sakin satır grupları.
+ * Ödüller kendi sekmesinde; burada oraya giden tek satır var, alışkanlıkla
+ * buraya bakan yolunu bulsun. 3D HUB'ın kapısı burada ("Karakterin ve
+ * odan"): Ana'da artık geçit yok. Ekip panosu yalnızca görevli kadroya
+ * görünür; rolü olmayan hiç görmez (TASARIM.md §2).
  */
 export default function Ben({ bolum }: { bolum?: BenBolumu }) {
   const { profil: hesap, yetkiliMi, cikis } = useOturum();
   const { gorunum, gorunumSec } = useGorunum();
-  const { git, geri } = useGezinme();
+  const { git, geri, hubAc } = useGezinme();
   const [profil, setProfil] = useState<Profil | null>(null);
   const [kim, setKim] = useState<KimlikDurumu | null>(null);
   const [ekipOzeti, setEkipOzeti] = useState<EkipOzeti | null>(null);
@@ -106,7 +108,7 @@ export default function Ben({ bolum }: { bolum?: BenBolumu }) {
           <div className="iskelet" style={{ width: "60%", height: 40, marginBottom: 32 }} />
         )}
 
-        <Bolum sira={3}>
+        <Bolum etiket="Senin" sira={3}>
           <Satirlar>
             {ekipOzeti?.kadroda && (
               // Görevli kadro: ortak pano. Açık işi varsa sayısı yanında.
@@ -115,9 +117,13 @@ export default function Ben({ bolum }: { bolum?: BenBolumu }) {
                      onClick={() => git("ekip")}
                      deger={ekipOzeti.isler.length > 0 ? <span className="sayac rakam">{ekipOzeti.isler.length}</span> : undefined} />
             )}
-            <Satir simge="hediye" baslik="Ödüller ve sponsorlar" aciklama="Bekleyen ödüllerin, sponsor kilitleri, sıralama"
+            <Satir simge="hediye" baslik="Ödüller ve sponsorlar" aciklama="Bekleyen ödüllerin, sponsor kilitleri"
                    onClick={() => git("odul")}
                    deger={profil && profil.aktif_odul > 0 ? <span className="sayac rakam">{profil.aktif_odul}</span> : undefined} />
+            <Satir simge="kup" baslik="Karakterin ve odan" aciklama="3D HUB: oda, çarşı, arkadaşlarının odaları"
+                   onClick={hubAc} />
+            <Satir simge="topluluk" baslik="Topluluk" aciklama="Genel sohbet ve üyeler"
+                   onClick={() => git("topluluk")} />
           </Satirlar>
         </Bolum>
 

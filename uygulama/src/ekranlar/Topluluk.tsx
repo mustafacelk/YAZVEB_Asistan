@@ -13,7 +13,7 @@ const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
  * Topluluk — insanlar: genel sohbet ve üyeler. (İleride duyurular, ilanlar,
  * ev devri, 2. el bu dünyaya gelir.) Hesap ve yönetim Ben'de.
  *
- * Üye çubuğunda sekme değil (yerini Ödüller aldı): Ana'dan açılır, bu yüzden
+ * Üye çubuğunda sekme değil (yerini Ödüller aldı): Ana'dan ve Ben'den açılır, bu yüzden
  * başlığında Ana'ya dönüş var. Yönetim çubuğunda ise sekme olarak durur.
  *
  * Rol değiştirme seçicisi yalnızca başkana görünür. Görünmese bile kural

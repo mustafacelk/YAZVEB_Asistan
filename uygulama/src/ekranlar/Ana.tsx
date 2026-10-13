@@ -2,40 +2,42 @@ import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { supabase, type Etkinlik } from "../veri/supabase";
 import { useGorunum, useOturum } from "../veri/oturum";
 import { ODUL_DEGISTI, useGezinme } from "../veri/gezinme";
-import { selamAdi } from "../veri/bicim";
+import { bashar, selamAdi } from "../veri/bicim";
 import { odul, sayi, sonKullanimEtiketi, type EtkinlikOzeti, type KazanimOzeti, type Profil } from "../veri/odul";
 import { pano, type PanoOzeti } from "../veri/pano";
 import { sinavMetni } from "../veri/pano_bicim";
 import { bugunListesi, durumCumlesi, type BugunOgesi } from "../veri/bugun";
 import { acikIsZamani, bugunGunu, ekip, teslimEtiketi, type EkipOzeti } from "../veri/ekip";
 import Simge from "../tasarim/Simge";
-import AlintiKarti from "../tasarim/AlintiKarti";
 import { Bolum, Satir, SatirIskeleti, Satirlar } from "../tasarim/Dunya";
 import IlerlemeSatiri from "../ben/IlerlemeSatiri";
 
 const kademe = (i: number) => ({ "--i": i }) as CSSProperties;
 
+type EtkinlikOgesi = Extract<BugunOgesi, { tur: "etkinlik" }>;
+
 /**
- * Ana — YAZVEB dünyasında yön verir; her özelliği göstermez (TASARIM.md §2).
+ * Ana — "bugün kampüste benim için ne var?" sorusunu beş saniyede yanıtlar
+ * (TASARIM.md §2). Dört blok, tek birincil eylem:
  *
- *   1. Amaç     Merhaba + bugünün tek cümlelik özeti
- *   2. Eylem    Asistan'a sor (ya da canlı etkinlikte QR)
- *   3. Bugün    şu an önemli olan EN FAZLA üç şey
- *   4. İkincil  tek satır ilerleme, 3D HUB'a geçit
+ *   1. Selam    ad + bugünün tek cümlelik özeti; sağda Topluluk ve profil
+ *   2. Sıradaki  en yakın etkinlik — sürüyorsa "QR okut" (ekranın birincil eylemi)
+ *   3. Bugün    şu an önemli olan diğer şeyler (en fazla üç satır)
+ *   4. İlerleme seviye ve puan, tek satır
  *
- * Takvimin tamamı, sponsorlar, sıralama, notlar burada YOK: her biri kendi
- * dünyasında. Burada yalnızca "bugün" olanlar.
+ * Asistan her ekranın sağ altındaki düğmede; 3D HUB Ben'de; takvimin
+ * tamamı, sponsorlar, sıralama, notlar kendi dünyalarında.
  */
 export default function Ana() {
   const { profil: hesap, yetkiliMi } = useOturum();
   const { uyari, gorunumSec } = useGorunum();
-  const { git, tara, hubAc } = useGezinme();
+  const { git, tara } = useGezinme();
   // "Yönetici" seçip üye hesabıyla girildiyse: bir kez söylenir, seçim üyeye çekilir.
   const [kipUyarisi, setKipUyarisi] = useState(uyari);
   useEffect(() => { if (uyari) gorunumSec("uye"); }, [uyari, gorunumSec]);
   const [profil, setProfil] = useState<Profil | null>(null);
   const [bugun, setBugun] = useState<BugunOgesi[] | null>(null);
-  const [soru, setSoru] = useState("");
+  const [notlar, setNotlar] = useState<PanoOzeti | null>(null);
 
   const yukle = useCallback(async () => {
     const [p, liste, oz, cz, not, ek] = await Promise.all([
@@ -56,6 +58,7 @@ export default function Ana() {
       ekip.ozet().catch((): EkipOzeti | null => null),
     ]);
     setProfil(p);
+    setNotlar(not);
     setBugun(bugunListesi({
       etkinlikler: (liste.data as Etkinlik[] | null) ?? [],
       ozet: oz,
@@ -72,133 +75,138 @@ export default function Ana() {
   }, [yukle]);
 
   const ad = selamAdi(hesap?.ad_soyad, hesap?.kullanici_adi);
+  const siradaki = bugun?.find((o): o is EtkinlikOgesi => o.tur === "etkinlik");
+  const digerleri = bugun?.filter((o) => o.tur !== "etkinlik") ?? [];
+  // Akademi'de bu hafta paylaşılan notlar: sınav satırı yoksa Bugün'e tek satır.
+  const yeniNot = notlar && notlar.bu_hafta > 0 && !digerleri.some((o) => o.tur === "sinav") ? notlar.bu_hafta : 0;
 
   return (
     <div className="sayfa ana">
       <div className="sutun">
-        <header className="ana-basi gir">
-          <img src="/logo-128.webp" alt="" width={28} height={28} />
-          <span className="etiket">YAZVEB</span>
-          {yetkiliMi && (
-            <button className="metin-dugme baglanti ana-yonetim" onClick={() => gorunumSec("yonetim")}>
-              <Simge ad="ayar" boyut={14} /> Yönetim
+        <header className="ana-ust gir">
+          <div className="ana-selam-grup">
+            <h1 className="ana-selam">{ad ? `Merhaba, ${ad}.` : "Merhaba."}</h1>
+            <p className="ana-durum" aria-live="polite">
+              {bugun === null ? " " : durumCumlesi(bugun)}
+            </p>
+          </div>
+          <div className="ana-ust-eylemler">
+            {yetkiliMi && (
+              <button className="ikon-dugme" onClick={() => gorunumSec("yonetim")}
+                      aria-label="Yönetim görünümüne geç" data-ipucu="Yönetim" data-ipucu-yon="alt">
+                <Simge ad="ayar" />
+              </button>
+            )}
+            <button className="ikon-dugme" onClick={() => git("topluluk")}
+                    aria-label="Topluluk: genel sohbet ve üyeler" data-ipucu="Topluluk" data-ipucu-yon="alt">
+              <Simge ad="sohbet" />
             </button>
-          )}
+            <button className="ana-profil" onClick={() => git("ben")} aria-label="Profilin">
+              <span className="monogram" aria-hidden="true">{bashar(hesap?.ad_soyad || hesap?.kullanici_adi)}</span>
+            </button>
+          </div>
         </header>
 
         {kipUyarisi && (
-          <p className="bildirim bilgi gir" role="status">
+          <p className="bildirim bilgi ana-uyari gir" role="status">
             {kipUyarisi}{" "}
             <button className="metin-dugme baglanti satir-ici" onClick={() => setKipUyarisi(null)}>Tamam</button>
           </p>
         )}
 
-        <h1 className="ana-selam gir" style={kademe(1)}>{ad ? `Merhaba, ${ad}.` : "Merhaba."}</h1>
-        <p className="ana-durum gir" style={kademe(1)} aria-live="polite">
-          {bugun === null ? " " : durumCumlesi(bugun)}
-        </p>
+        {bugun === null ? (
+          <div className="siradaki-kart" aria-hidden="true">
+            <div className="iskelet" style={{ width: "40%" }} />
+            <div className="iskelet" style={{ width: "70%", height: 20 }} />
+          </div>
+        ) : siradaki && <SiradakiKart oge={siradaki} onTara={tara} />}
 
-        {/* Neden buradasın: her açılışta başka bir söz — kart değil, sessiz bir satır. */}
-        <AlintiKarti set="uye" yalin className="gir" style={kademe(2)} />
-
-        {/* Asistan: bir arama çubuğu kadar yakında. Yazıp gönderince açılır ve
-            soru doğrudan sorulur; boşken mikrofon Asistan'ı açar. */}
-        <form
-          className="asistana-sor gir"
-          style={kademe(2)}
-          onSubmit={(e) => {
-            e.preventDefault();
-            git("asistan", { soru: soru.trim() || undefined });
-          }}
-        >
-          <Simge ad="asistan" boyut={18} />
-          <input
-            value={soru}
-            onChange={(e) => setSoru(e.target.value)}
-            placeholder="Asistana sor: etkinlik, ders notu, topluluk"
-            aria-label="Asistana soru"
-            enterKeyHint="send"
-            maxLength={500}
-          />
-          <button type="submit" className="gonder-dugme" aria-label={soru.trim() ? "Gönder" : "Asistanı aç"}>
-            <Simge ad={soru.trim() ? "gonder" : "mikrofon"} boyut={16} />
-          </button>
-        </form>
-
-        <Bolum etiket="Bugün" sira={3}>
-          {bugun === null ? <SatirIskeleti adet={2} /> : bugun.length === 0 ? (
-            <p className="ana-sakin">Bugün önünde bekleyen bir şey yok. Derslerine göz at ya da Asistan'a bir şey sor.</p>
+        <Bolum etiket="Bugün" sira={2}>
+          {bugun === null ? <SatirIskeleti adet={2} /> : digerleri.length === 0 && !yeniNot ? (
+            siradaki ? (
+              <p className="ana-sakin">Başka bekleyen bir şey yok.</p>
+            ) : (
+              <div className="ana-sakin-kutu">
+                <p className="ana-sakin">Bugün önünde bekleyen bir şey yok.</p>
+                <button className="dugme cizgili" onClick={() => git("akademi")}>
+                  <Simge ad="kitap" boyut={16} /> Derslerine göz at
+                </button>
+              </div>
+            )
           ) : (
             <Satirlar>
-              {bugun.map((o) => <BugunSatiri key={o.tur} oge={o} onTara={tara} />)}
+              {digerleri.map((o) => <BugunSatiri key={o.tur} oge={o} />)}
+              {yeniNot > 0 && (
+                <Satir simge="kitap" baslik={`Bu hafta ${sayi(yeniNot)} yeni not`}
+                       aciklama={notlar?.bolum ? `${notlar.bolum} ve diğer bölümler` : "Akademi'de"}
+                       onClick={() => git("akademi")} />
+              )}
             </Satirlar>
           )}
         </Bolum>
 
         {profil && (
-          <Bolum etiket="İlerlemen" sira={4}>
-            <IlerlemeSatiri profil={profil} onAc={() => git("odul", { odul: "gecmis" })} />
+          <Bolum etiket="İlerlemen" sira={3} className="ana-yan">
+            <IlerlemeSatiri profil={profil} onAc={() => git("odul")} />
           </Bolum>
         )}
-
-        {/* Topluluk çubukta değil (Ödüller'e yer açtı); telefonda kapısı burası. */}
-        <Bolum etiket="Topluluk" sira={4} className="ana-topluluk">
-          <Satirlar>
-            <Satir simge="sohbet" baslik="Genel sohbet" aciklama="Topluluğun ortak odası" onClick={() => git("sohbet")} />
-            <Satir simge="topluluk" baslik="Üyeler" aciklama="Topluluğu oluşturanlar" onClick={() => git("topluluk")} />
-          </Satirlar>
-        </Bolum>
-
-        {/* 3D HUB: bir kart değil, başka bir dünyaya geçit. */}
-        <button className="hub-portal gir" style={kademe(5)} onClick={hubAc}>
-          <span className="hub-portal-sahne" aria-hidden="true">
-            <svg viewBox="0 0 120 90">
-              <g className="hub-portal-kup">
-                <path d="M60 10 98 32v44L60 98 22 76V32z" />
-                <path d="M22 32 60 54l38-22M60 54v44" />
-                <path className="hub-portal-kat" d="M22 54 60 76l38-22" />
-              </g>
-            </svg>
-          </span>
-          <span className="hub-portal-metin">
-            <span className="etiket">Başka bir dünya</span>
-            <b>YAZVEB HUB</b>
-            <span>Karakterin, odan, arkadaşlarının odaları ve sponsor çarşısı. 3B.</span>
-          </span>
-          <span className="hub-portal-gir">Gir <Simge ad="ileri" boyut={16} /></span>
-        </button>
       </div>
     </div>
   );
 }
 
-function BugunSatiri({ oge: o, onTara }: { oge: BugunOgesi; onTara: () => void }) {
+/**
+ * Sıradaki etkinlik: Ana'nın tek kartı. Sürüyorsa ve puanlıysa ekranın
+ * birincil eylemi burada (QR okut); değilse ikincil "Takvim".
+ */
+function SiradakiKart({ oge: o, onTara }: { oge: EtkinlikOgesi; onTara: () => void }) {
   const { git } = useGezinme();
+  const t = new Date(o.etkinlik.baslangic);
+  const bugun = t.toDateString() === new Date().toDateString();
+  const saat = t.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+  const gun = bugun ? "Bugün" : t.toLocaleDateString("tr-TR", { weekday: "long" });
+  const qrGerek = o.canli && o.puan > 0 && !o.katildi;
 
-  if (o.tur === "etkinlik") {
-    const t = new Date(o.etkinlik.baslangic);
-    const bugun = t.toDateString() === new Date().toDateString();
-    const zaman = o.canli ? "Şu an" :
-      `${bugun ? "Bugün" : t.toLocaleDateString("tr-TR", { weekday: "long" })} ${t.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}`;
-    const qrGerek = o.canli && o.puan > 0 && !o.katildi;
-    return (
-      <Satir
-        simge="etkinlik"
-        canli={o.canli}
-        baslik={o.etkinlik.baslik}
-        aciklama={<span className="rakam">{zaman}{o.etkinlik.yer ? ` · ${o.etkinlik.yer}` : ""}</span>}
-        deger={!qrGerek && (o.katildi
-          ? <span className="xp-cipi katildi"><Simge ad="tik" boyut={14} /> Katıldın</span>
-          : o.puan > 0 ? <span className="xp-cipi rakam">+{sayi(o.puan)} XP</span> : undefined)}
-        onClick={() => git("etkinlik")}
-        eylem={qrGerek ? (
-          <button className="dugme birincil" onClick={onTara}>
-            <Simge ad="tara" boyut={16} /> QR okut
+  return (
+    <article className="siradaki-kart gir" data-canli={o.canli || undefined} style={kademe(1)}
+             aria-label={`${o.canli ? "Şu an sürüyor" : "Sıradaki etkinlik"}: ${o.etkinlik.baslik}`}>
+      <div className="siradaki-ust">
+        <div className="siradaki-tarih" aria-hidden="true">
+          <b className="rakam">{t.getDate()}</b>
+          <small>{t.toLocaleDateString("tr-TR", { month: "short" })}</small>
+        </div>
+        <div className="siradaki-metin">
+          <span className="siradaki-ust-satir">
+            {o.canli ? <><i className="canli-nokta" aria-hidden="true" /><b>Şu an sürüyor</b></> : "Sıradaki etkinlik"}
+          </span>
+          <h2>{o.etkinlik.baslik}</h2>
+          <p className="rakam">{gun} {saat}{o.etkinlik.yer ? ` · ${o.etkinlik.yer}` : ""}</p>
+        </div>
+      </div>
+      <div className="siradaki-eylemler">
+        {qrGerek ? (
+          <button className="dugme birincil genis" onClick={onTara}>
+            <Simge ad="tara" boyut={18} /> QR okut · <span className="rakam">+{sayi(o.puan)} XP</span>
           </button>
-        ) : undefined}
-      />
-    );
-  }
+        ) : (
+          <>
+            {o.katildi ? (
+              <span className="siradaki-durum"><Simge ad="tik" boyut={16} /> Katıldın, puanın işlendi</span>
+            ) : o.puan > 0 ? (
+              <span className="xp-cipi rakam" title="Etkinlikte QR'yi okutunca kazanacağın puan">Kapıda QR ile +{sayi(o.puan)} XP</span>
+            ) : null}
+            <button className="dugme cizgili" onClick={() => git("etkinlik")} style={{ marginLeft: "auto" }}>
+              Takvim <Simge ad="ileri" boyut={16} />
+            </button>
+          </>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function BugunSatiri({ oge: o }: { oge: BugunOgesi }) {
+  const { git } = useGezinme();
 
   if (o.tur === "gonullu") {
     return (
@@ -206,7 +214,7 @@ function BugunSatiri({ oge: o, onTara }: { oge: BugunOgesi; onTara: () => void }
         simge="yildiz"
         canli={o.fark === 0}
         baslik={o.is.baslik}
-        aciklama={<span className="rakam">Üstlendiğin gönüllü işi · {acikIsZamani(o.is, bugunGunu())}</span>}
+        aciklama={<span className="rakam">Gönüllü işin · {acikIsZamani(o.is, bugunGunu())}</span>}
         deger={<span className="xp-cipi rakam">+{o.is.xp} XP</span>}
         onClick={() => git("etkinlik")}
       />
@@ -240,12 +248,16 @@ function BugunSatiri({ oge: o, onTara }: { oge: BugunOgesi; onTara: () => void }
     );
   }
 
-  return (
-    <Satir
-      simge="kitap"
-      baslik={sinavMetni(o.sinav)}
-      aciklama={o.notSayisi ? `${o.bolum}: ${o.notSayisi} not seni bekliyor.` : "Bölümünün notlarına bak, sen de paylaş."}
-      onClick={() => git("akademi")}
-    />
-  );
+  if (o.tur === "sinav") {
+    return (
+      <Satir
+        simge="kitap"
+        baslik={sinavMetni(o.sinav)}
+        aciklama={o.notSayisi ? `${o.bolum}: ${o.notSayisi} not seni bekliyor.` : "Bölümünün notlarına bak, sen de paylaş."}
+        onClick={() => git("akademi")}
+      />
+    );
+  }
+
+  return null;
 }

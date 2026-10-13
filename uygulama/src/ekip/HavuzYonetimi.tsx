@@ -289,7 +289,7 @@ function AcikIsPenceresi({ pano, is, etkinlikler, yonettikleri, onKapat, onDegis
                     </span>
                     {yonetir && (u.durum === "ustlendi" || u.durum === "teslim") && (
                       <span className="havuz-eylemler">
-                        <button className="dugme birincil" disabled={mesgul}
+                        <button className="dugme cizgili" disabled={mesgul}
                                 onClick={() => calistir(() => ekip.karar(is.id, u.id, "onayla"),
                                   (r) => `${u.ad} adına kayda geçti${r.xp > 0 ? `, +${r.xp} XP` : " (haftalık puan tavanı dolu)"}.`)}>
                           Onayla

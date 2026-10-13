@@ -23,6 +23,15 @@ export function hedefCumlesi(k: (Kilit & { sponsor: string }) | null): string | 
 }
 
 /** 0..1 arası seviye ilerlemesi. */
+/**
+ * Seviye adını ekranda gösterilecek biçime çevirir: veritabanında "STARTER",
+ * ekranda "Starter". Büyük harf etiket bağırır ve küçük boyutta zor okunur.
+ */
+export function seviyeAdi(ad: string): string {
+  if (!ad) return ad;
+  return ad.charAt(0).toLocaleUpperCase("tr") + ad.slice(1).toLocaleLowerCase("tr");
+}
+
 export function seviyeIlerlemesi(xp: number, s: Seviye): number {
   if (!s.sonraki) return 1;
   const aralik = s.sonraki.esik - s.esik;

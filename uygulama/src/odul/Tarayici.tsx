@@ -9,6 +9,7 @@ import {
   odul,
   OdulHatasi,
   sayi,
+  seviyeAdi,
   seviyeIlerlemesi,
   sonrakiAdim,
   SPONSOR_MESAJI,
@@ -493,7 +494,7 @@ function GorevBasarisi({
 
       <div className="basari-ilerleme">
         <div className="ilerleme-satiri">
-          <span className="etiket">{sonuc.seviye_atladi ? "Yeni seviye · " : ""}{sonuc.seviye.ad}</span>
+          <span className="etiket">{sonuc.seviye_atladi ? "Yeni seviye · " : ""}{seviyeAdi(sonuc.seviye.ad)}</span>
           <span className="etiket rakam">{sayi(xp)} XP</span>
         </div>
         <div className="ilerleme-cubugu" style={{ ["--oran" as string]: ilerleme }}><i /></div>

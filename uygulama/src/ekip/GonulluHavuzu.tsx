@@ -119,7 +119,7 @@ function AcikIsSatiri({ a, bugun, islemde, onUstlen }: { a: AcikIs; bugun: strin
       deger={<span className="havuz-deger"><span className="xp-cipi rakam">+{a.xp} XP</span>
         <small className="rakam">{a.kontenjan - a.dolu > 0 ? `${a.kontenjan - a.dolu} yer` : "dolu"}</small></span>}
       eylem={
-        <button className="dugme birincil" onClick={onUstlen} disabled={islemde || dolu}>
+        <button className="dugme cizgili" onClick={onUstlen} disabled={islemde || dolu}>
           {dolu ? "Dolu" : "Üstlen"}
         </button>
       }

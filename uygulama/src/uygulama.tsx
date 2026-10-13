@@ -14,7 +14,7 @@ import {
   type Rota,
   type Sekme,
 } from "./veri/gezinme";
-import { odul, sayi, type EtkinlikOzeti } from "./veri/odul";
+import { odul, sayi, titret, type EtkinlikOzeti } from "./veri/odul";
 import { canliEtkinlik } from "./veri/bugun";
 import Giris from "./ekranlar/Giris";
 import Ana from "./ekranlar/Ana";
@@ -51,8 +51,10 @@ type SekmeTanimi = { anahtar: Sekme; ad: string; simge: SimgeAdi };
 /**
  * Üye çubuğu: beş dünya (TASARIM.md §2). Ödüller kendi sekmesinde: eskiden
  * Ben'in içinde iki satırdı ve bulunmuyordu. Topluluk (genel sohbet,
- * üyeler) telefonda Ana'dan, masaüstünde şeridin "Keşfet" grubundan açılır.
- * Asistan ve 3D HUB çubukta değil; Ana'dan girilen tam ekran deneyimler.
+ * üyeler) telefonda Ana'nın üstünden ve Ben'den, masaüstünde şeridin "Keşfet"
+ * grubundan açılır.
+ * Asistan çubukta değil: her dünyanın sağ altında kendi düğmesi var (tek
+ * dokunuş, hangi ekrandaysan). 3D HUB Ben'den girilen tam ekran deneyim.
  *
  * QR artık her ekranda duran bir düğme değil, BAĞLAMSAL: Etkinlikler'in
  * birincil eylemi; bir etkinlik şu an sürüyor ve okutulmadıysa her ekranın
@@ -93,7 +95,6 @@ export default function Uygulama() {
 
   return (
     <KipBaglami.Provider value={kipDegeri}>
-      <div className="atmosfer" aria-hidden="true" />
       {yapilandirildi && (ISLETME_SAYFASI || kip === "isletme") ? (
         <Suspense fallback={<Acilis />}>
           <Isletme />
@@ -226,6 +227,10 @@ function Ekranlar() {
   const sutun = sira < 0 ? -1 : yonetimde && sira >= 2 ? sira + 1 : sira;
   const seritGoster = !!canli && !hubAcik && !tarama
     && !["ana", "etkinlik", "asistan", "sohbet"].includes(gorunen.g);
+  // Asistan düğmesi: üye görünümünde her dünyada; Asistan'ın ve sohbetin
+  // kendisinde (yazı alanı orada) ve tam ekran deneyimlerde yok.
+  const asistanDugmesi = !yonetimde && !hubAcik && !tarama
+    && !["asistan", "sohbet"].includes(gorunen.g);
 
   return (
     <GezinmeBaglami.Provider value={gezinme}>
@@ -248,7 +253,7 @@ function Ekranlar() {
         </main>
 
         {seritGoster && canli && (
-          <button className="canli-serit cam" onClick={tara}
+          <button className="canli-serit" onClick={tara}
                   aria-label={`${canli.etkinlik.baslik} şu an sürüyor. QR'yi okut, ${canli.puan} XP kazan`}>
             <i className="canli-nokta" aria-hidden="true" />
             <span className="canli-serit-metin">
@@ -259,8 +264,15 @@ function Ekranlar() {
           </button>
         )}
 
+        {asistanDugmesi && (
+          <button className="asistan-dugmesi" onClick={() => git("asistan")} aria-label="Asistana sor">
+            <Simge ad="asistan" boyut={20} />
+            <span>Asistan</span>
+          </button>
+        )}
+
         <nav
-          className="gezinme cam"
+          className="gezinme"
           aria-label="Ana gezinme"
           data-gosterge={sutun < 0 ? "yok" : undefined}
           style={{ "--i": Math.max(0, sutun), "--adet": 5 } as CSSProperties}
@@ -385,7 +397,11 @@ function SekmeDugmesi({ s, secili, git }: {
   return (
     <button
       className="gezinme-oge"
-      onClick={() => git(s.anahtar)}
+      onClick={() => {
+        // Yalnızca sekme gerçekten değişince tek, kısa bir tık.
+        if (secili !== s.anahtar) titret(8);
+        git(s.anahtar);
+      }}
       aria-current={secili === s.anahtar ? "page" : undefined}
       aria-label={s.ad}
       data-ipucu={s.ad}

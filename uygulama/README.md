@@ -214,7 +214,7 @@ src/
   veri/bugun.ts        Ana'nın "Bugün"ü: en fazla üç öncelikli satır, canlı etkinlik
   ekranlar/
     Ana.tsx            yön verir: durum, Asistan'a sor, Bugün, ilerleme, HUB geçidi
-    Asistan.tsx        küre, sesli/yazılı asistan (Ana'dan açılır)
+    Asistan.tsx        küre, sesli/yazılı asistan (her dünyanın sağ altındaki düğmeden açılır)
     Giris.tsx          giriş ve kayıt
     Sohbet.tsx         genel sohbet, anlık (Topluluk'tan açılır)
     Etkinlikler.tsx    takvim, QR okut, Yaklaşan/Geçmiş, nasıl puan kazanılır
@@ -423,8 +423,10 @@ sıradaki etkinlik.
 Bilgi mimarisinin tamamı ve kararların gerekçesi: **[TASARIM.md](TASARIM.md)**.
 
 Üye çubuğu: **Ana · Akademi · Etkinlikler · Ödüller · Ben**. Topluluk (genel
-sohbet, üyeler) telefonda Ana'dan, masaüstünde şeridin "Keşfet" grubundan
-açılır. Asistan ve 3D HUB çubukta değil; Ana'dan girilen tam ekran deneyimler.
+sohbet, üyeler) telefonda Ana'nın üstündeki simgeden ve Ben'den, masaüstünde
+şeridin "Keşfet" grubundan açılır. Asistan her dünyanın sağ altındaki düğmeden,
+3D HUB Ben › "Karakterin ve odan"dan açılan tam ekran deneyimler. Arayüz sistemi
+(tonal yüzeyler, tek birincil eylem, karmaşıklık bütçesi): TASARIM.md §3.
 QR okutma Etkinlikler'in birincil eylemi; bir etkinlik şu an sürüyor ve
 okutulmadıysa her ekranın altında tek satırlık şerit çıkar, yani etkinlikteki
 kişi yine tek dokunuş uzakta. **Ödüller**'de bekleyen ödüller ("Göster"),

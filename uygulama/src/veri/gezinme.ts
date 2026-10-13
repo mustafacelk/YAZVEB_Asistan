@@ -4,8 +4,9 @@ import { createContext, useContext } from "react";
  * Uygulama içi gezinme — dünyalar ve iki sürükleyici deneyim (TASARIM.md §2).
  *
  * Üye çubuğu: Ana · Akademi · Etkinlikler · Ödüller · Ben. Topluluk
- * (genel sohbet, üyeler) Ana'dan ve masaüstü şeridinden açılır. Asistan ve
- * 3D HUB çubukta değil; Ana'dan girilen tam ekran deneyimler. Yönetim
+ * (genel sohbet, üyeler) Ana'dan, Ben'den ve masaüstü şeridinden açılır.
+ * Asistan (sağ alttaki düğme) ve 3D HUB (Ben) çubukta değil; tam ekran
+ * deneyimler. Yönetim
  * görünümünün kendi çubuğu var (Panel · Etkinlikler · [Perde] · Yönetim ·
  * Topluluk).
  *
@@ -55,9 +56,12 @@ export const UST_SEKME: Record<Gorunum, Sekme> = {
 /**
  * Göstergenin durduğu sekme. Görünümün sekmesi çubukta yoksa (üyede
  * Topluluk) gösterge gizlenir: `null`. Ekip panosu üyede Ben'in, yönetim
- * görünümünde Yönetim'in altındadır.
+ * görünümünde Yönetim'in altındadır. Asistan her dünyadan açılır (sağ
+ * alttaki düğme), hiçbir sekmeye ait değil: gösterge yok. Geri tuşu yine
+ * Ana'ya döner (UST_SEKME).
  */
 export function seciliSekme(g: Gorunum, cubuk: readonly Sekme[]): Sekme | null {
+  if (g === "asistan") return null;
   const s = g === "ekip" && cubuk.includes("yonetim") ? "yonetim" : UST_SEKME[g];
   return cubuk.includes(s) ? s : null;
 }

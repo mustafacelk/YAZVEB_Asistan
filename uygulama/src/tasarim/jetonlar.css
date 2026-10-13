@@ -4,13 +4,23 @@
    Uygulamadaki her renk, boşluk, yazı boyutu ve süre buradan gelir.
    Bir bileşende çıplak "17px" ya da "#1a1a1a" görürsen hatadır.
 
-   RENK FİKRİ
-   ──────────
-   Zemin neredeyse siyah ama ölü değil: grafit tonları derinlik verir.
-   Tek vurgu rengi var — "Sinyal". Logodaki beynin mavisinden türetildi,
-   doygunluğu bilerek düşürüldü: neon değil, soğuk bir cam ışığı. Yalnızca
-   bir şey CANLI olduğunda görünür (dinleme, yanıt, odak, seçim).
-   Gradyan yok, mor yok, ikinci vurgu yok.
+   SAKİN ARAYÜZ (2026-10 yeniden tasarım, TASARIM.md §3)
+   ─────────────────────────────────────────────────────
+   Kullanıcılar eski arayüzü "boğucu" buldu. Teşhis: her şey aynı
+   ağırlıkta görünüyordu (tek zemin tonu, küçük gri büyük harf etiketler,
+   her yerde ince çerçeve). Yeni kurallar:
+
+   · Derinlik ÇİZGİYLE değil TONLA: dört kademeli grafit merdiveni.
+     Saf siyah yok; kart zeminden ton farkıyla ayrılır, çerçeve gerekmez.
+   · Tek vurgu "Sinyal" yalnızca iki yerde: ekranın TEK birincil eylemi
+     ve seçili durum (sekme, seçili çip). Süs olarak kullanılmaz.
+   · Üç anlamsal renk (başarı, uyarı, hata) yalnızca durum bildirir;
+     renk hiçbir zaman tek taşıyıcı değil, yanında simge ve metin var.
+   · Gradyan, cam bulanıklığı, film greni, nabız gibi atan süs yok.
+
+   Kontrastlar WCAG 2.x formülüyle hesaplandı (en koyu → en açık zemin):
+   --m-1 15.2–11.2 · --m-2 9.3–6.8 · --m-3 6.5–4.8 · --sinyal 10.6–7.8
+   --m-4 yalnızca devre dışı ve süs içindir (≈3:1), okunacak metne verilmez.
    ═══════════════════════════════════════════════════════════════════ */
 
 @font-face {
@@ -33,34 +43,41 @@
 :root {
   color-scheme: dark;
 
-  /* ── Zemin katmanları (koyudan açığa) ── */
-  --z-0: #050506;          /* boşluk */
-  --z-1: #08090b;          /* sayfa */
-  --z-2: #0f1115;          /* yükseltilmiş yüzey — kart zeminden seçilsin */
-  --z-3: #14171b;          /* etkileşimli yüzey */
-  --z-4: #1b1f24;          /* basılı / seçili yüzey */
+  /* ── Zemin: tonal merdiven (koyudan açığa) ──
+     Yükselti gölgeyle değil, bir kademe açık tonla gösterilir. */
+  --z-0: #0e0f11;          /* en alt: kenar çubuğu, tam ekran deneyimin arkası */
+  --z-1: #141518;          /* sayfa */
+  --z-2: #1c1e22;          /* yüzey — liste, kart, alt çubuk */
+  --z-3: #24272c;          /* yükseltilmiş — pencere, basılı satır, giriş alanı */
+  --z-4: #2b2f35;          /* seçili / basılı yükseltilmiş */
 
-  /* ── Metin (mat beyazdan grafite) ── */
-  --m-1: #ecedee;          /* birincil — başlık, yanıt metni */
-  --m-2: #a9adb3;          /* ikincil — gövde, kullanıcı mesajı */
-  --m-3: #7c8188;          /* üçüncül — üst veri, etiket */
-  --m-4: #464a50;          /* pasif — yer tutucu, devre dışı */
+  /* ── Metin ── */
+  --m-1: #e8eaed;          /* birincil — başlık, satır başlığı, yanıt */
+  --m-2: #b4b9c0;          /* ikincil — gövde, açıklama */
+  --m-3: #959ba4;          /* üçüncül — üst veri, tarih, yer tutucu */
+  --m-4: #6b7179;          /* pasif — devre dışı, süs (okunacak metne verilmez) */
 
-  /* ── Çizgiler: renk değil, beyazın çok düşük opaklığı ── */
-  --c-ince: rgba(255, 255, 255, 0.06);
-  --c-orta: rgba(255, 255, 255, 0.10);
+  /* ── Çizgiler: yalnızca gerektiğinde (giriş alanı, pencere kenarı) ── */
+  --c-ince: rgba(255, 255, 255, 0.05);
+  --c-orta: rgba(255, 255, 255, 0.09);
   --c-guclu: rgba(255, 255, 255, 0.16);
-  --isik-ic: inset 0 1px 0 rgba(255, 255, 255, 0.05);   /* üst kenar parıltısı */
+  --isik-ic: inset 0 1px 0 rgba(255, 255, 255, 0.03);   /* üst kenarın çok hafif ışığı */
 
   /* ── Sinyal: tek vurgu ── */
   --sinyal: #8ccfe2;
   --sinyal-rgb: 140, 207, 226;
   --sinyal-soluk: rgba(var(--sinyal-rgb), 0.14);
   --sinyal-cizgi: rgba(var(--sinyal-rgb), 0.38);
+  --sinyal-basili: #a6dbea;
+  --sinyal-ustu: #0f1113;  /* vurgu dolgusunun üstündeki metin (10.9:1) */
 
-  /* ── İşlevsel renkler (vurgu değil, durum) ── */
-  --hata: #e08c78;
-  --hata-soluk: rgba(224, 140, 120, 0.10);
+  /* ── Anlamsal: yalnızca durum ── */
+  --basari: #7fd1a0;
+  --basari-soluk: rgba(127, 209, 160, 0.12);
+  --uyari: #f2c661;
+  --uyari-soluk: rgba(242, 198, 97, 0.12);
+  --hata: #f28b82;
+  --hata-soluk: rgba(242, 139, 130, 0.12);
 
   /* ── Boşluk: 4 tabanlı, 8'in katlarına yaslanır ── */
   --b-1: 4px;
@@ -72,66 +89,75 @@
   --b-7: 48px;
   --b-8: 64px;
   --b-9: 96px;
+  --kenar-bosluk: 16px;    /* telefonda sayfa kenarı */
 
-  /* ── Köşe: küçük tutulur; büyük yuvarlak kart yok ── */
-  --k-1: 6px;
-  --k-2: 10px;
-  --k-3: 14px;
+  /* ── Köşe: tek aile ──
+     8 çip ve küçük öğe, 12 giriş alanı ve satır ikonu, 16 kart ve
+     liste yüzeyi, 20 pencere; düğmeler hap. */
+  --k-1: 8px;
+  --k-2: 12px;
+  --k-3: 16px;
+  --k-4: 20px;
   --k-tam: 999px;
 
-  /* ── Tipografi: tek aile, üç ağırlık ── */
+  /* ── Tipografi: tek aile ──
+     Gövde 16'nın altına inmez: Türkçe eklemeli yapısıyla uzun kelimeler
+     küçük boyutta daha fazla göz durağı ister. Bir ekranda en fazla üç
+     boyut: başlık, gövde, etiket. Büyük harf etiket yok. */
   --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --a-normal: 400;
   --a-orta: 500;
   --a-kalin: 600;
 
-  --y-etiket: 11px;        /* büyük harf üst veri */
-  --y-kucuk: 13px;
-  --y-govde: 15px;
-  --y-okuma: 16px;         /* asistan yanıtı */
-  --y-baslik: 20px;
-  --y-buyuk: 28px;
-  --y-dev: clamp(30px, 4.2vw, 44px);
+  --y-etiket: 12px;        /* çip, rozet, sekme etiketi */
+  --y-kucuk: 14px;         /* açıklama, ikincil satır, düğme */
+  --y-govde: 16px;         /* gövde, satır başlığı */
+  --y-okuma: 17px;         /* asistan yanıtı, uzun okuma */
+  --y-baslik: 20px;        /* pencere ve alt sayfa başlığı */
+  --y-buyuk: 26px;         /* dünya başlığı */
+  --y-dev: clamp(28px, 3.4vw, 36px);
 
   --s-sik: 1.25;
-  --s-govde: 1.55;
-  --s-okuma: 1.68;
+  --s-govde: 1.5;
+  --s-okuma: 1.62;
 
-  --h-sik: -0.022em;       /* büyük başlıkların optik sıkılığı */
-  --h-etiket: 0.12em;
+  --h-sik: -0.018em;       /* büyük başlıkların optik sıkılığı */
+  --h-etiket: 0.01em;
 
-  --y-ustveri: 12px;       /* tarih, sayı, boyut */
+  --y-ustveri: 13px;       /* tarih, sayı, boyut */
 
   /* ── Tip ölçeği: rol → font kısaltması (TASARIM.md §3) ──
      Bileşen boyut seçmez, rol seçer: `font: var(--t-h2)`. */
-  --t-display: var(--a-orta) var(--y-dev) / 1.1 var(--font);
-  --t-h1: var(--a-orta) var(--y-buyuk) / 1.2 var(--font);
-  --t-h2: var(--a-orta) var(--y-baslik) / 1.3 var(--font);
-  --t-h3: var(--a-orta) var(--y-okuma) / 1.35 var(--font);
+  --t-display: var(--a-kalin) var(--y-dev) / 1.15 var(--font);
+  --t-h1: var(--a-kalin) var(--y-buyuk) / 1.2 var(--font);
+  --t-h2: var(--a-kalin) var(--y-baslik) / 1.3 var(--font);
+  --t-h3: var(--a-kalin) 17px / 1.35 var(--font);
   --t-govde: var(--a-normal) var(--y-govde) / var(--s-govde) var(--font);
   --t-aciklama: var(--a-normal) var(--y-kucuk) / 1.45 var(--font);
-  --t-etiket: var(--a-orta) var(--y-etiket) / 1 var(--font);
-  --t-dugme: var(--a-orta) var(--y-kucuk) / 1 var(--font);
-  --t-ustveri: var(--a-normal) var(--y-ustveri) / 1.3 var(--font);
+  --t-etiket: var(--a-orta) var(--y-etiket) / 1.25 var(--font);
+  --t-dugme: var(--a-kalin) 15px / 1 var(--font);
+  --t-ustveri: var(--a-normal) var(--y-ustveri) / 1.35 var(--font);
 
-  /* ── Hareket: dört katman, her birinin kendi eğrisi ── */
-  --t-mikro: 140ms;        /* dokunma, hover */
-  --t-ui: 320ms;           /* bileşen girişi, gösterge */
-  --t-sinema: 760ms;       /* sahne değişimi */
-  --t-ortam: 9s;           /* arka plan nefesi */
+  /* ── Hareket: anlam taşır, süslemez (Material 3 süre ve eğrileri) ──
+     Giren öğe vurgulu yavaşlar, çıkan vurgulu hızlanır; yerinde değişen
+     standart eğride. Sonsuz döngü yalnızca "şu an oluyor" bilgisinde. */
+  --t-mikro: 150ms;        /* dokunma, renk değişimi */
+  --t-ui: 250ms;           /* bileşen girişi, gösterge */
+  --t-sinema: 400ms;       /* pencere açılışı, ekrana giriş */
+  --t-ortam: 9s;           /* yalnızca 3D HUB ve küre */
 
-  --e-dokunus: cubic-bezier(0.2, 0, 0, 1);        /* hızlı başlar, yumuşak durur */
-  --e-giris: cubic-bezier(0.16, 1, 0.3, 1);       /* uzun, doğal yavaşlama */
-  --e-cikis: cubic-bezier(0.4, 0, 1, 1);          /* çekilir, gecikmez */
-  --e-sinema: cubic-bezier(0.65, 0, 0.18, 1);     /* ağır başlar, ağır biter */
-  --kademe: 60ms;          /* sıralı giriş aralığı */
+  --e-dokunus: cubic-bezier(0.2, 0, 0, 1);         /* standart */
+  --e-giris: cubic-bezier(0.05, 0.7, 0.1, 1);      /* vurgulu yavaşlama */
+  --e-cikis: cubic-bezier(0.3, 0, 0.8, 0.15);      /* vurgulu hızlanma */
+  --e-sinema: cubic-bezier(0.65, 0, 0.18, 1);      /* küre ve HUB */
+  --kademe: 30ms;          /* sıralı giriş aralığı */
 
-  /* ── Cam: yalnızca yüzen kontroller ── */
-  --cam: rgba(16, 18, 22, 0.62);
-  --cam-bulanik: blur(20px) saturate(140%);
+  /* ── Yüzen yüzey: bulanıklık yok, düz ton ── */
+  --cam: var(--z-2);
+  --cam-bulanik: none;
 
-  /* ── Gölge: doğal, kısa, sıcak değil ── */
-  --g-yuzen: 0 1px 1px rgba(0, 0, 0, 0.4), 0 12px 32px -8px rgba(0, 0, 0, 0.6);
+  /* ── Gölge: yalnızca yüzen öğeler (alt pencere, asistan düğmesi) ── */
+  --g-yuzen: 0 1px 2px rgba(0, 0, 0, 0.35), 0 8px 24px -6px rgba(0, 0, 0, 0.55);
 
   /* ── Katmanlar ── */
   --kat-arka: 0;
@@ -145,19 +171,24 @@
   --ust: env(safe-area-inset-top, 0px);
   --alt: env(safe-area-inset-bottom, 0px);
 
-  /* ── Kontrol boyutları: dokunma hedefi en az 40 ── */
-  --d-kucuk: 32px;
-  --d-orta: 40px;
+  /* ── Kontrol boyutları: dokunma hedefi en az 44, birincil 48 ── */
+  --d-kucuk: 36px;
+  --d-orta: 44px;
   --d-buyuk: 48px;
   --d-yazici: 56px;
 
   /* ── Yerleşim ── */
-  --sutun: 680px;          /* okuma sütunu */
-  --gezinme-pay: calc(76px + var(--alt));
+  --sutun: 640px;          /* okuma sütunu */
+  --cubuk: 64px;           /* alt gezinme çubuğunun yüksekliği */
+  --gezinme-pay: calc(var(--cubuk) + var(--alt));
+}
+
+@media (max-width: 359px) {
+  :root { --kenar-bosluk: 12px; }
 }
 
 @media (min-width: 900px) {
-  :root { --gezinme-pay: 0px; --kenar: 248px; }
+  :root { --gezinme-pay: 0px; --kenar: 240px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

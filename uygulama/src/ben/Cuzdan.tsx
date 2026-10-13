@@ -3,6 +3,7 @@ import { useSayac } from "../veri/sayac";
 import Simge, { odulIkonu } from "../tasarim/Simge";
 import {
   sayi,
+  seviyeAdi,
   seviyeIlerlemesi,
   sonKullanimEtiketi,
   sonrakiAdim,
@@ -35,7 +36,7 @@ export function IlerlemeAyrinti({ profil }: { profil: Profil }) {
           <p className="xp-buyuk rakam" aria-label={`${xp} XP`}>{sayi(gosterilenXp)}<span>XP</span></p>
           <p className="seviye-adi">
             <span className="etiket rakam">Seviye {String(seviye.sira).padStart(2, "0")}</span>
-            <b>{seviye.ad}</b>
+            <b>{seviyeAdi(seviye.ad)}</b>
           </p>
         </div>
         {profil.ayarlar.seri_acik && profil.seri > 1 && (
@@ -49,7 +50,7 @@ export function IlerlemeAyrinti({ profil }: { profil: Profil }) {
            aria-valuemin={seviye.esik} aria-valuemax={seviye.sonraki?.esik ?? xp} aria-valuenow={xp}
            aria-label="Seviye ilerlemesi"><i /></div>
       <div className="ilerleme-satiri">
-        <span className="etiket rakam">{seviye.ad} · {sayi(seviye.esik)}</span>
+        <span className="etiket rakam">{seviyeAdi(seviye.ad)} · {sayi(seviye.esik)}</span>
         <span className="etiket rakam">
           {seviye.sonraki ? `${seviye.sonraki.ad} · ${sayi(seviye.sonraki.esik)}` : "En üst seviye"}
         </span>
@@ -134,7 +135,7 @@ export function Cuzdan({ liste, onGoster, onKesfet }: {
                     </span>
                   </div>
                   {z.durum === "aktif" ? (
-                    <button className="dugme birincil" onClick={() => onGoster(z.id)}>Göster</button>
+                    <button className="dugme cizgili" onClick={() => onGoster(z.id)}>Göster</button>
                   ) : (
                     <span className="etiket soluk">{z.durum === "kullanildi" ? "Kullanıldı" : "Süresi doldu"}</span>
                   )}
@@ -147,6 +148,9 @@ export function Cuzdan({ liste, onGoster, onKesfet }: {
     </>
   );
 }
+
+/** Sıralamada adıyla görünen kişi sayısı. */
+const ILK_ON = 10;
 
 export function Siralama({ veri, donem, onDonem, gizli, onGizlilik }: {
   veri: Liderlik | null;
@@ -190,17 +194,19 @@ export function Siralama({ veri, donem, onDonem, gizli, onGizlilik }: {
         </div>
       ) : (
         <ol className="siralama-listesi">
-          {veri.liste.map((s) => (
+          {/* Yalnızca ilk on: alt sıraları listelemek düşüşü teşhir eder ve
+              ilgiyi hiç sıralama olmamasından da çok düşürür (Pickal ve ark.). */}
+          {veri.liste.slice(0, ILK_ON).map((s) => (
             <li key={s.ad + s.sira} data-ben={s.ben} data-ilk={s.sira <= 3}>
               <span className="siralama-no rakam">{String(s.sira).padStart(2, "0")}</span>
               <span className="siralama-ad">@{s.ad}</span>
-              <span className="etiket">{s.seviye}</span>
+              <span className="etiket">{seviyeAdi(s.seviye)}</span>
               <span className="rakam siralama-xp">{sayi(s.xp)} XP</span>
             </li>
           ))}
         </ol>
       )}
-      {veri.ben.sira && !veri.liste.some((s) => s.ben) && (
+      {veri.ben.sira && !veri.liste.slice(0, ILK_ON).some((s) => s.ben) && (
         <p className="soluk siralama-ben">
           {veri.ben.gizli ? "Profilin gizli; bu bilgiyi yalnızca sen görüyorsun. " : ""}
           {haftalik ? "Bu haftaki sıran" : "Sıran"}: <b className="rakam">{veri.ben.sira}</b> · {sayi(veri.ben.xp)} XP

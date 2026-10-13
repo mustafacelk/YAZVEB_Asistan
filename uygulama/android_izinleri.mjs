@@ -10,6 +10,8 @@
  * Eklenenler:
  *   CAMERA                 QR tarama (yalnızca kullanıcı tarayıcıyı açtığında istenir)
  *   ACCESS_FINE_LOCATION   yalnızca konum şartlı görevlerde, sunucu isterse
+ *   VIBRATE                dokunsal geri bildirim (sekme değişimi, QR sonucu); WebView
+ *                          navigator.vibrate bu izin olmadan sessizce çalışmaz
  *   camera donanımı        "zorunlu değil": kamerasız cihazlara da kurulabilsin
  *
  * Betik idempotent: izin zaten varsa bir daha eklemez.
@@ -27,6 +29,7 @@ const eklenecek = [
   '<uses-permission android:name="android.permission.CAMERA" />',
   '<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />',
   '<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />',
+  '<uses-permission android:name="android.permission.VIBRATE" />',
   '<uses-feature android:name="android.hardware.camera" android:required="false" />',
 ];
 
