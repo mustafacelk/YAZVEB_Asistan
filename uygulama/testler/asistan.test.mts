@@ -18,6 +18,8 @@ import {
   type Cagri,
 } from "../supabase/functions/asistan/model.ts";
 import { modelGovdesi } from "../supabase/functions/asistan/guvenlik.ts";
+import { bankadanCevap, ilkCumleler, kayitlariAyristir } from "../supabase/functions/asistan/banka.ts";
+import { KURUMSAL_HAFIZA } from "../supabase/functions/asistan/bilgi.ts";
 import { sesParcalari } from "../src/canli/parcala.ts";
 
 let hata = 0;
@@ -147,6 +149,20 @@ const ayar = { birincil: "A", yedek: "B", ikinciAtisMs: 60, yedekAtisMs: 140, to
   const t0 = Date.now();
   await yarisliSor({ ...ayar, cagir: s.cagir }).catch((e) => { h = e; });
   bekle("toplam süre aşılınca vazgeçer", !!h && Date.now() - t0 < 600);
+}
+
+// ── Model yokken bilgi bankası (2026-10-13: ücretsiz katmanda bütün modeller 503) ──
+{
+  const banka = kayitlariAyristir(KURUMSAL_HAFIZA);
+  bekle("kurumsal hafıza kayıtlara ayrılır", banka.length >= 40 && banka.every((k) => k.baslik && k.metin), String(banka.length));
+  const sor = (s: string) => bankadanCevap(s, banka) ?? "";
+  bekle("kuruluş sorusu kuruluş kaydını bulur", /2022/.test(sor("YAZVEB ne zaman kuruldu?")));
+  bekle("puan sorusu QR anlatır", /QR/.test(sor("Puan nasıl kazanılır?")));
+  bekle("gönüllülük sorusu havuzu anlatır", /Gönüllü ol/.test(sor("Gönüllü olmak istiyorum")));
+  bekle("sponsor sorusu kilidi anlatır", /kilid/i.test(sor("Sponsor ödülleri nasıl kullanılır?")));
+  bekle("konu dışı soruya tahmin okunmaz", bankadanCevap("Bugün hava nasıl?", banka) === null);
+  bekle("cevap en fazla üç cümle", (sor("Puan nasıl kazanılır?").match(/[.!?](\s|$)/g) ?? []).length <= 3);
+  bekle("saat ve sayıdaki nokta cümleyi bölmez", ilkCumleler("Saat 14.30'da başlar. İkinci cümle. Üçüncü. Dördüncü.") === "Saat 14.30'da başlar. İkinci cümle. Üçüncü.");
 }
 
 // ── Sesli soru ─────────────────────────────────────────────────────

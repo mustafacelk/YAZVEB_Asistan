@@ -241,17 +241,19 @@ KAYITLAR: list[dict] = [
         "kategori": "uygulama",
         "anahtar": ["menü", "sekme", "bölüm", "nerede", "nereden bakarım", "ana sayfa",
                     "etkinlikler bölümü", "ödüller nerede", "topluluk bölümü", "qr tara nerede",
-                    "qr okut nerede", "akademi", "ben bölümü", "hesabım nerede"],
+                    "qr okut nerede", "akademi", "ben bölümü", "hesabım nerede", "asistan nerede",
+                    "hub nerede", "karakterim nerede", "ders notları nerede"],
         "icerik": (
             "Telefonda alt çubukta, bilgisayarda soldaki menüde beş bölüm vardır. Ana: bugün "
-            "önemli olanlar (süren ya da yaklaşan etkinlik, bekleyen ödül, sınav dönemi), kısa "
-            "ilerleme, asistana soru ve Topluluk (genel sohbet, üyeler); 3B YAZVEB HUB'a da "
-            "buradan girilir. Akademi: dersler, ders notları, çıkmış soru çözümleri ve özetler. "
-            "Etkinlikler: takvim, katılım ve QR okutma ('QR okut' düğmesi bu bölümün başında; bir "
-            "etkinlik sürerken her ekranın altında da görünür). Ödüller: bekleyen ödüllerin "
-            "('Göster' düğmesiyle), sponsorlar ve kilitleri, sıralama, ilerleme ve puan geçmişi. "
-            "Ben: hesabın, öğrenci kimliğin ve profilin. Bilgisayarda Topluluk soldaki menüde "
-            "'Keşfet' altında da vardır."
+            "önemli olanlar (sıradaki ya da süren etkinlik, bekleyen ödül, sınav dönemi, haftanın "
+            "yeni notları) ve kısa ilerleme; sağ üstteki simgeden Topluluk (genel sohbet, üyeler). "
+            "Akademi: dersler, ders notları, çıkmış soru çözümleri ve özetler; arama kutusu en "
+            "üstte. Etkinlikler: takvim, katılım, QR okutma ve gönüllü işleri ('QR okut' bu bölümün "
+            "başında; bir etkinlik sürerken her ekranın altında da görünür). Ödüller: bekleyen "
+            "ödüllerin ('Göster' düğmesiyle), sponsor ödülleri ve kilitleri, sıralama, puan "
+            "geçmişi. Ben: hesabın, öğrenci kimliğin, 3B YAZVEB HUB'daki karakterin ve odan, "
+            "Topluluk. Asistana her ekranın sağ altındaki 'Asistan' düğmesiyle ulaşılır. "
+            "Bilgisayarda Topluluk, Asistan ve HUB soldaki menüde 'Keşfet' altındadır."
         ),
     },
     {

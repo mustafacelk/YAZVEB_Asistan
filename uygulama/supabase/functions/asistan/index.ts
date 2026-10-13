@@ -28,6 +28,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import { HATA_CEVABI, KURUMSAL_HAFIZA, SISTEM_TALIMATI } from "./bilgi.ts";
+import { bankadanCevap, kayitlariAyristir, YOGUN_CEVABI } from "./banka.ts";
 import {
   baglamIhtiyaci,
   ciktiyiSuz,
@@ -62,7 +63,7 @@ const MODEL = Deno.env.get("YAZVEB_MODEL") ?? "gemini-3.5-flash-lite";
 const YEDEK_MODEL = (Deno.env.get("YAZVEB_YEDEK_MODEL") ?? "gemini-flash-lite-latest").trim() || null;
 // İkisi de düşerse (Flash-Lite ailesi topluca 503 verebiliyor) sırayla denenen,
 // başka aileden modeller. Virgülle ayrılmış liste; boş bırakılırsa son çare yok.
-const SON_CARE = (Deno.env.get("YAZVEB_SON_CARE") ?? "gemini-flash-latest,gemini-2.5-flash")
+const SON_CARE = (Deno.env.get("YAZVEB_SON_CARE") ?? "gemini-flash-latest")
   .split(",").map((m) => m.trim()).filter(Boolean);
 const ANAHTAR = Deno.env.get("GOOGLE_API_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -90,7 +91,10 @@ const BAGLAM_ZAMAN_ASIMI_MS = 2500;
 // SISTEM_TALIMATI'nı kullanıyor ve orada "[[git:...]]" etiketi yüksek sesle okunurdu.
 const SABIT_TALIMAT = `${SISTEM_TALIMATI}\n\n${YONLENDIRME_TALIMATI}\n\n${GUVENLIK_TALIMATI}`;
 
-type Olay = "yetkisiz" | "kota" | "kota_denetimi_yok" | "gecersiz_girdi" | "govde_buyuk" | "koken_red" | "cikti_suzuldu" | "model_hatasi" | "model_denemesi" | "transkript_hatasi";
+type Olay = "yetkisiz" | "kota" | "kota_denetimi_yok" | "gecersiz_girdi" | "govde_buyuk" | "koken_red" | "cikti_suzuldu" | "model_hatasi" | "model_denemesi" | "transkript_hatasi" | "banka_cevabi";
+
+/** Model hiç cevap veremediğinde okunacak kayıtlar (bkz. banka.ts). Bir kez ayrıştırılır. */
+const BANKA = kayitlariAyristir(KURUMSAL_HAFIZA);
 
 /**
  * Güvenlik olayı günlüğü. Supabase fonksiyon günlüklerine yapılandırılmış
@@ -405,9 +409,16 @@ Deno.serve(async (istek) => {
   } catch (hata) {
     // Ayrıntı yalnızca sunucu günlüğüne; istemciye genel cümle.
     olay("model_hatasi", { neden: String(hata).slice(0, 120) });
+    // Bütün modeller düştüyse (ücretsiz katmanda yoğunluk: 503) bilgi
+    // bankasındaki en uygun kayıt okunur; asistan susmaz.
+    const banka = bankadanCevap(dogrulama.deger.soru, BANKA);
+    if (banka) {
+      olay("banka_cevabi");
+      return yanit(etkinlikSorusuMu(dogrulama.deger.soru) ? { cevap: banka, yonlendirme: "etkinlik" } : { cevap: banka }, 200, koken);
+    }
     // `hata` işareti: istemci bu cevabı hatalı tur olarak gösterir ve
     // "Tekrar sor" sunar; geçmişe de koymaz.
-    return yanit({ cevap: HATA_CEVABI, hata: "model" }, 200, koken);
+    return yanit({ cevap: YOGUN_CEVABI, hata: "model" }, 200, koken);
   }
 });
 
