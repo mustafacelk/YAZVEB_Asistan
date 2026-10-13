@@ -16,6 +16,8 @@
 //      dokunuşsuz açıldı) <audio> ile, yine eşzamanlı çalar.
 //   4. Ses belirli bir sürede gelmezse metin beklemeden tamamen gösterilir;
 //      ses gelirse yine çalar.
+//   5. Bir parçanın sesi gelmezse o parça bir kez daha istenir; yoksa
+//      cevabın ortasındaki bir cümle sessizce atlanıyordu ("eksik konuşuyor").
 // ═══════════════════════════════════════════════════════════════════
 
 import { kaynagiBirak, yanitCikisi } from "./olcer";
@@ -33,7 +35,7 @@ export type KonusmaOlaylari = {
 };
 
 /** İlk ses bu sürede gelmezse metin beklemeden gösterilir. */
-export const ILK_SES_BEKLEME_MS = 6000;
+export const ILK_SES_BEKLEME_MS = 4000;
 
 type Plan = { parca: SesParcasi; bas: number; sure: number };
 
@@ -63,8 +65,10 @@ export class Konusma {
   async baslat() {
     const parcalar = sesParcalari(this.metin);
     if (!parcalar.length) { this.bitir(); return; }
-    // Hepsi birden istenir; sıra çalarken korunur.
-    const istekler = parcalar.map((p) => this.sentezle(p.metin).catch(() => null));
+    // Hepsi birden istenir; sıra çalarken korunur. Gelmeyen parça bir kez
+    // daha istenir (geçici ağ ya da servis hatası).
+    const iste = (m: string) => this.sentezle(m).catch(() => null);
+    const istekler = parcalar.map((p) => iste(p.metin).then((b) => (b || this.durdu ? b : iste(p.metin))));
 
     // İlk ses gelmezse metin beklemesin.
     const zaman = setTimeout(() => {

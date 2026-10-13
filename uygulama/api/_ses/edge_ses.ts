@@ -27,12 +27,15 @@
 // ═══════════════════════════════════════════════════════════════════
 
 import WebSocket from "ws";
-import { createHash, randomUUID } from "node:crypto";
+import type { IncomingMessage } from "node:http";
+import { randomBytes, randomUUID } from "node:crypto";
+import { gecImzasi, GUVENILIR_JETON } from "./gec_imza.js";
 
-const GUVENILIR_JETON = "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
 const TEMEL = "speech.platform.bing.com/consumer/speech/synthesize/readaloud";
 const KROM_SURUMU = "143.0.3650.75";
-const WIN_EPOCH = 11644473600;
+// 2026-10: sürüm etiketi "1-" ile başlayan eski imza 403 alıyor; v2 imza
+// ve "2-" etiketi gerekiyor (bkz. gec_imza.ts).
+const IMZA_SURUMU = `2-${KROM_SURUMU}`;
 
 // 1.200 karakterlik metin ~90 saniyelik sestir, ~600 KB. Karşı taraf ne
 // gönderirse göndersin bellekte bundan fazlası biriktirilmez.
@@ -47,7 +50,14 @@ const BASLIKLAR = {
   Pragma: "no-cache",
   "Cache-Control": "no-cache",
   "Accept-Language": "en-US,en;q=0.9",
+  "Accept-Encoding": "gzip, deflate, br, zstd",
 };
+
+/** Sunucuyla saat farkı (saniye). 403'te sunucunun Date başlığından düzeltilir. */
+let saatFarki = 0;
+
+/** Edge her bağlantıda rastgele bir MUID çerezi gönderiyor; servis bunu da bekliyor. */
+const muid = () => randomBytes(16).toString("hex").toUpperCase();
 
 export type SesAyari = {
   ses: string;      // ör. "tr-TR-AhmetNeural"
@@ -55,23 +65,6 @@ export type SesAyari = {
   perde: string;    // ör. "-2Hz"
   seviye: string;   // ör. "+0%"
 };
-
-/**
- * Sec-MS-GEC imzası.
- *
- * Zaman damgası Windows dosya zamanına çevrilir, 5 dakikaya yuvarlanır ve
- * istemci jetonuyla birlikte SHA-256'lanır. Yuvarlama sayesinde imza beş
- * dakika geçerli kalır; sunucuyla saat farkı olsa bile çalışır.
- */
-function imzaUret(): string {
-  let tik = Date.now() / 1000 + WIN_EPOCH;
-  tik -= tik % 300;
-  tik *= 1e9 / 100;                     // 100 nanosaniyelik aralıklara
-  return createHash("sha256")
-    .update(`${tik.toFixed(0)}${GUVENILIR_JETON}`)
-    .digest("hex")
-    .toUpperCase();
-}
 
 const kimlik = () => randomUUID().replace(/-/g, "");
 
@@ -94,19 +87,34 @@ function xmlKacir(metin: string): string {
  * Zaman aşımı bilerek var: bağlantı açık kalıp hiç veri gelmezse istek
  * sonsuza kadar bekler ve kullanıcı boş ekrana bakar.
  */
-export function seslendir(
+export async function seslendir(
   metin: string,
   ayar: SesAyari,
   zamanAsimiMs = 20000,
 ): Promise<Buffer> {
+  const bitis = Date.now() + zamanAsimiMs;
+  try {
+    return await birKez(metin, ayar, zamanAsimiMs);
+  } catch (h) {
+    // Saat farkı yüzünden imza reddedildiyse (403) düzeltilmiş saatle bir kez daha.
+    if (!(h instanceof SaatHatasi)) throw h;
+    const kalan = bitis - Date.now();
+    if (kalan < 1500) throw h;
+    return birKez(metin, ayar, kalan);
+  }
+}
+
+class SaatHatasi extends Error {}
+
+function birKez(metin: string, ayar: SesAyari, zamanAsimiMs: number): Promise<Buffer> {
   return new Promise((coz, red) => {
     const adres =
       `wss://${TEMEL}/edge/v1?TrustedClientToken=${GUVENILIR_JETON}` +
       `&ConnectionId=${kimlik()}` +
-      `&Sec-MS-GEC=${imzaUret()}` +
-      `&Sec-MS-GEC-Version=1-${KROM_SURUMU}`;
+      `&Sec-MS-GEC=${gecImzasi(Date.now() / 1000 + saatFarki)}` +
+      `&Sec-MS-GEC-Version=${IMZA_SURUMU}`;
 
-    const ws = new WebSocket(adres, { headers: BASLIKLAR });
+    const ws = new WebSocket(adres, { headers: { ...BASLIKLAR, Cookie: `muid=${muid()};` } });
     const parcalar: Uint8Array[] = [];
     let toplamBayt = 0;
     let bitti = false;
@@ -172,6 +180,20 @@ export function seslendir(
         }
         if (govde.length) parcalar.push(govde);
       }
+    });
+
+    // 403: imza reddedildi. Sunucunun saatini öğren; fark büyükse bir kez daha dene.
+    ws.on("unexpected-response", (_istek: unknown, yanit: IncomingMessage) => {
+      const kod = yanit.statusCode ?? 0;
+      const sunucu = Date.parse(String(yanit.headers.date ?? ""));
+      if (kod === 403 && Number.isFinite(sunucu)) {
+        const fark = sunucu / 1000 - Date.now() / 1000;
+        if (Math.abs(fark - saatFarki) > 60) {
+          saatFarki = fark;
+          return kapat(new SaatHatasi("seslendirme imzası reddedildi (saat farkı düzeltildi)"));
+        }
+      }
+      kapat(new Error(`seslendirme bağlantısı kurulamadı: sunucu ${kod}`));
     });
 
     ws.on("error", (h: Error) =>

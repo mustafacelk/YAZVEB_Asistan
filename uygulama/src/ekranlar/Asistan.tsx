@@ -49,6 +49,12 @@ const YONLENDIRMELER: Record<string, { etiket: string; ac: (g: Gezinme) => void 
 const yonlendirmeMi = (h: unknown): h is string =>
   typeof h === "string" && Object.prototype.hasOwnProperty.call(YONLENDIRMELER, h);
 
+/** Sesli yanıt tercihi: yalnızca bilerek kapatıldıysa kapalı. */
+const SESLI_YANIT_ANAHTARI = "yazveb:sesli-yanit";
+function sesliYanitTercihi() {
+  try { return localStorage.getItem(SESLI_YANIT_ANAHTARI) !== "0"; } catch { return true; }
+}
+
 /** Hata durumunda kürenin içe çekilip toparlanma süresi. */
 const HATA_ANI_MS = 1100;
 
@@ -99,7 +105,12 @@ export default function Asistan({ onGeri, ilkSoru }: { onGeri?: () => void; ilkS
   const [sesBekliyor, setSesBekliyor] = useState(false);
   const [konusulan, setKonusulan] = useState<number | null>(null);
   const [hataAni, setHataAni] = useState(false);
-  const [sesliCevap, setSesliCevap] = useState(false);
+  // Sesli yanıt varsayılan açık; kullanıcı kapatırsa tercih hatırlanır.
+  const [sesliCevap, setSesliCevapDurumu] = useState(sesliYanitTercihi);
+  const setSesliCevap = useCallback((acik: boolean) => {
+    setSesliCevapDurumu(acik);
+    try { localStorage.setItem(SESLI_YANIT_ANAHTARI, acik ? "1" : "0"); } catch { /* gizli sekme */ }
+  }, []);
   const [bildirim, setBildirim] = useState<string | null>(null);
   const [tekrar, setTekrar] = useState<string | null>(null);
 

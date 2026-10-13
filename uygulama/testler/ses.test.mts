@@ -5,6 +5,7 @@
 
 import { sayiyiYaz, seseHazirla, sirayiYaz } from "../api/_ses/metin.ts";
 import { geminiAyari, geminiSeslendir, pcmdenWav } from "../api/_ses/gemini_ses.ts";
+import { gecImzasi } from "../api/_ses/gec_imza.ts";
 
 let hata = 0;
 let adet = 0;
@@ -133,6 +134,22 @@ dogru("anahtar yoksa kapalı", geminiAyari({ SES_SAGLAYICI: "gemini" }) === null
   try { await geminiSeslendir("Merhaba.", ayar, 1000); } catch { dustu = true; }
   dogru("boş cevapta hata fırlatır (sessiz kalınmaz)", dustu);
   globalThis.fetch = gercekFetch;
+}
+
+// ── Edge okuma servisi imzası (v2) ─────────────────────────────────
+// Başvuru değerleri edge-tts 7.3.1 (Python) generate_sec_ms_gec_v2 çıktısı.
+// 2026-10'da eski imza 403 almaya başlamıştı; algoritma bozulursa ses yine susar.
+{
+  const BASVURU: [number, string][] = [
+    [0, "52BC7A17B50DFEC9-28C4394775C8751CD2F6859C030C06DB1489ACAB3B3A7651831FC26895177ED6"],
+    [1700000000, "2CD23A2CA0B2595A-F3C846C370E05F9CC83ACC5F995C5F5D87A4D0F14CE8936A0F902E64099E38A2"],
+    [1791900000.7, "5F546AEBA6D1BF75-CB47F061F310028902E5F18F2301717FD3A7439129E80730643BC73362B7134F"],
+    [1760000123, "BAF4076F572BFE4E-2D6FBE5C0E24F56622EB94F37395F2D153C6C0C451DAAE2249A459BB3AFAD62C"],
+    [2000000000, "2D62557F1142BC5D-FD9C30C68FF194A5EE6B45FEFC5E2BA1D1239F88A90569AB55CFFFAA7799F40E"],
+  ];
+  for (const [t, beklenen] of BASVURU) dogru(`v2 imza edge-tts ile aynı (${t})`, gecImzasi(t) === beklenen);
+  dogru("aynı 5 dakikalık dilimde imza değişmez", gecImzasi(1791900000) === gecImzasi(1791900000 + 200));
+  dogru("imza biçimi <16 hex>-<64 hex>", /^[0-9A-F]{16}-[0-9A-F]{64}$/.test(gecImzasi()));
 }
 
 console.log(`\n${adet - hata}/${adet} geçti`);
