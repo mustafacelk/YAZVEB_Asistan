@@ -42,3 +42,9 @@ onizleme.html
 # Supabase CLI yerel durumu: proje/organizasyon kimliği ve veritabanı
 # bağlantı adresi içerir; depoya girmez.
 uygulama/supabase/.temp/
+
+# graphify bilgi grafı: yerel. İç yönetim belgelerinden çıkarılmış düğümler içerir; depoya girmez.
+graphify-out/
+
+# Yönetim belgeleri (görev tanımları, yönetim yapısı): iç belge, herkese açık depoya girmez.
+*.pdf

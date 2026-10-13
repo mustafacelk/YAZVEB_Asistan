@@ -1,0 +1,7 @@
+# graphify: bilgi grafına girmeyecekler.
+# Logolar, siluetler ve tanıtım videosu kod sorularına bilgi katmaz; yalnızca jeton harcar.
+*.png
+*.webp
+*.jpg
+*.mp4
+static/

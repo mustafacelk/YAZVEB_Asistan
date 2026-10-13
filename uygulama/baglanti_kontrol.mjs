@@ -281,6 +281,22 @@ for (const tablo of ["profiller", "mesajlar", "etkinlikler"]) {
   else yaz("!", "Doğrulama fonksiyonu beklenmeyen yanıt", `HTTP ${durum}`);
 }
 
+// ── 8. Ekip: kadro, pano, gönüllü havuzu (10_ekip.sql) ─────────────
+for (const [fonksiyon, govde, ad] of [
+  ["ekip_havuz", { p: {} }, "Gönüllü havuzu"],
+  ["ekip_pano", {}, "Ekip panosu"],
+  ["ekip_kadro_kaydet", { p: { kullanici: "00000000-0000-0000-0000-000000000000", rol: "baskan" } }, "Kadro düzenleme"],
+]) {
+  const { durum } = await iste(`/rest/v1/rpc/${fonksiyon}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(govde),
+  });
+  if (durum === 404) yaz("✗", `${ad} kurulmamış`, "10_ekip.sql'i çalıştır");
+  else if (durum === 200) yaz("✗", `GÜVENLİK: ${ad} anonim çağrılabiliyor`, "10_ekip.sql'i yeniden çalıştır");
+  else yaz("✓", `${ad} kurulu, anonime kapalı`, `HTTP ${durum}`);
+}
+
 const hatali = sonuc.filter((s) => s.durum === "✗").length;
 console.log(
   `\n═══ ${sonuc.length - hatali}/${sonuc.length} kontrol geçti ═══\n`,
